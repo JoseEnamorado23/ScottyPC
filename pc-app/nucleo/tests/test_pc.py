@@ -588,3 +588,50 @@ def test_adaptativo_descuenta_el_calentamiento_de_la_primera_corrida():
     assert ejecucion.segundos_primera_corrida >= 0.2
     assert ejecucion.segundos_segunda_corrida < 0.1
     assert ejecutadas == list(range(10)) and en_paralelo == []
+
+
+# --- Progreso detallado y grupo de procesos externo -------------------------------------------------
+
+
+def test_progreso_detallado_incluye_fallidas_y_el_progreso_simple_no_cambia():
+    dataframe = cadena()
+    dataframe["rara"] = 0.0
+    dataframe.loc[[5, 900], "rara"] = 1.0
+    datos = preparados(dataframe, "C")
+    simples, detallados = [], []
+
+    resultado = ejecutar_bootstrap(
+        datos, configuracion(datos, corridas_bootstrap=12),
+        progreso=lambda *args: simples.append(args), progreso_detallado=detallados.append,
+    )
+
+    assert [s[:2] for s in simples] == [(k, 12) for k in range(1, 13)]
+    assert [d.completadas for d in detallados] == list(range(1, 13))
+    assert detallados[-1].fallidas == len(resultado.corridas_fallidas) > 0
+    assert all(d.completadas_al_inicio == 0 for d in detallados)
+
+
+def test_grupo_externo_reutilizable_con_el_mismo_resultado():
+    from nucleo.pc_bootstrap import crear_grupo_procesos
+
+    datos = preparados(colisionador(), "D")
+    conf = configuracion(datos, corridas_bootstrap=10, procesos=2, modo_ejecucion="paralelo")
+    secuencial = ejecutar_bootstrap(datos, configuracion(datos, corridas_bootstrap=10))
+    grupo = crear_grupo_procesos(2)
+    try:
+        primero = ejecutar_bootstrap(datos, conf, ejecutor=grupo)
+        segundo = ejecutar_bootstrap(datos, conf, ejecutor=grupo)
+        cancelar = threading.Event()
+        parcial = ejecutar_bootstrap(
+            datos, replace(conf, corridas_bootstrap=40), cancelacion=cancelar, ejecutor=grupo,
+            progreso=lambda k, *_: cancelar.set() if k >= 3 else None,
+        )
+        despues = ejecutar_bootstrap(datos, conf, ejecutor=grupo)  # el grupo sigue sirviendo
+    finally:
+        grupo.shutdown(wait=True, cancel_futures=True)
+
+    for resultado in (primero, segundo, despues):
+        assert resultado.dirigidas == secuencial.dirigidas
+        assert resultado.sin_orientar == secuencial.sin_orientar
+        assert resultado.ejecucion.modo_usado == "paralelo"
+    assert parcial.completo is False and parcial.corridas_completadas < 40

@@ -28,7 +28,7 @@ import signal
 import time
 import warnings
 from collections.abc import Callable
-from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
+from concurrent.futures import FIRST_COMPLETED, Executor, ProcessPoolExecutor, wait
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
@@ -65,6 +65,24 @@ class Cancelacion(Protocol):
 class CorridaFallida:
     corrida: int
     motivo: str
+
+
+@dataclass(frozen=True)
+class ProgresoBootstrap:
+    """Avance del bootstrap tras cada corrida (para ``progreso_detallado``).
+
+    ``completadas`` incluye las fallidas y las de sesiones anteriores al
+    reanudar (``completadas_al_inicio``); ``segundos`` también acumula el
+    tiempo previo, mientras que ``segundos_esta_sesion`` sirve para estimar el
+    tiempo restante con el ritmo actual.
+    """
+
+    completadas: int
+    total: int
+    fallidas: int
+    segundos: float
+    completadas_al_inicio: int = 0
+    segundos_esta_sesion: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -249,6 +267,21 @@ def _corrida_en_trabajador(corrida: int) -> _ResultadoCorrida:
     )
 
 
+def _ignorar_interrupcion() -> None:
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
+def crear_grupo_procesos(procesos: int) -> ProcessPoolExecutor:
+    """Grupo de procesos para reutilizar entre análisis (``ejecutor`` de
+    ``ejecutar_bootstrap``): contexto ``spawn`` y Ctrl+C ignorado en los
+    procesos de trabajo. Quien lo crea es responsable de cerrarlo."""
+    return ProcessPoolExecutor(
+        max_workers=procesos,
+        mp_context=multiprocessing.get_context("spawn"),
+        initializer=_ignorar_interrupcion,
+    )
+
+
 def _terminar_procesos(ejecutor: ProcessPoolExecutor) -> None:
     """Termina los procesos de trabajo aunque tengan corridas en curso."""
     if hasattr(ejecutor, "terminate_workers"):  # Python >= 3.14
@@ -350,11 +383,19 @@ def ejecutar_bootstrap(
     cancelacion: Cancelacion | None = None,
     punto_control: str | Path | None = None,
     reanudar: bool = False,
+    progreso_detallado: Callable[[ProgresoBootstrap], None] | None = None,
+    ejecutor: Executor | None = None,
 ) -> ResultadoBootstrap:
     """Ejecuta PC en ``corridas_bootstrap`` submuestras del conjunto de entrenamiento.
 
     Args:
         progreso: se llama al terminar cada corrida con (completadas, total, segundos).
+        progreso_detallado: como ``progreso``, pero recibe un ``ProgresoBootstrap``
+            que incluye también las corridas fallidas.
+        ejecutor: grupo de procesos externo (p. ej. de ``crear_grupo_procesos``) para
+            reutilizarlo entre análisis y evitar el costo de arrancar procesos. Solo
+            se usa si el análisis va en paralelo; no se cierra ni se terminan sus
+            procesos. El resultado es idéntico con o sin él.
         cancelacion: objeto con ``is_set()``; al activarse se devuelve el resultado parcial.
         punto_control: archivo donde guardar el estado cada ``punto_control_cada``
             corridas y al cancelar; se borra al terminar con éxito.
@@ -376,6 +417,7 @@ def ejecutar_bootstrap(
     else:
         estado = _Estado(len(variables))
     pendientes = [k for k in range(total) if k not in estado.completadas]
+    completadas_al_inicio = len(estado.completadas)
     inicio = time.perf_counter()
 
     def transcurrido() -> float:
@@ -389,6 +431,17 @@ def ejecutar_bootstrap(
         estado.sumar(resultado)
         if progreso is not None:
             progreso(len(estado.completadas), total, transcurrido())
+        if progreso_detallado is not None:
+            progreso_detallado(
+                ProgresoBootstrap(
+                    completadas=len(estado.completadas),
+                    total=total,
+                    fallidas=len(estado.fallidas),
+                    segundos=transcurrido(),
+                    completadas_al_inicio=completadas_al_inicio,
+                    segundos_esta_sesion=time.perf_counter() - inicio,
+                )
+            )
         if len(estado.completadas) % configuracion.punto_control_cada == 0 and len(estado.completadas) < total:
             guardar()
 
@@ -404,7 +457,7 @@ def ejecutar_bootstrap(
     ejecucion = _decidir_y_ejecutar(
         configuracion, pendientes, secuencial,
         lambda corridas: _en_paralelo(
-            matriz, variables, prohibidos, configuracion, corridas, registrar, cancelado
+            matriz, variables, prohibidos, configuracion, corridas, registrar, cancelado, ejecutor
         ),
         cancelado,
     )
@@ -514,15 +567,31 @@ def _en_paralelo(
     pendientes: list[int],
     registrar: Callable[[_ResultadoCorrida], None],
     cancelado: Callable[[], bool],
+    externo: Executor | None = None,
 ) -> None:
-    """Como mucho ``procesos`` corridas en vuelo; revisa la cancelación cada 0,5 s."""
+    """Como mucho ``procesos`` corridas en vuelo; revisa la cancelación cada 0,5 s.
+
+    Con un ejecutor ``externo`` cada tarea lleva sus datos (los procesos no se
+    inicializan con este análisis) y, al cancelar, solo se descartan las
+    tareas pendientes: los procesos no se terminan porque no son de esta función.
+    """
     procesos = min(configuracion.procesos, len(pendientes))
-    ejecutor = ProcessPoolExecutor(
-        max_workers=procesos,
-        mp_context=multiprocessing.get_context("spawn"),
-        initializer=_inicializar_trabajador,
-        initargs=(matriz, variables, prohibidos, configuracion),
-    )
+    if externo is not None:
+        ejecutor = externo
+
+        def tarea(corrida: int):
+            return ejecutor.submit(ejecutar_corrida, matriz, variables, prohibidos, configuracion, corrida)
+    else:
+        ejecutor = ProcessPoolExecutor(
+            max_workers=procesos,
+            mp_context=multiprocessing.get_context("spawn"),
+            initializer=_inicializar_trabajador,
+            initargs=(matriz, variables, prohibidos, configuracion),
+        )
+
+        def tarea(corrida: int):
+            return ejecutor.submit(_corrida_en_trabajador, corrida)
+
     siguientes = iter(pendientes)
     en_vuelo: dict[Any, int] = {}
 
@@ -531,15 +600,19 @@ def _en_paralelo(
             corrida = next(siguientes, None)
             if corrida is None:
                 return
-            en_vuelo[ejecutor.submit(_corrida_en_trabajador, corrida)] = corrida
+            en_vuelo[tarea(corrida)] = corrida
 
     terminado = False
     try:
         enviar()
         while en_vuelo:
             if cancelado():
-                _terminar_procesos(ejecutor)
-                terminado = True
+                if externo is None:
+                    _terminar_procesos(ejecutor)
+                    terminado = True
+                else:
+                    for futuro in en_vuelo:
+                        futuro.cancel()
                 return
             listos, _ = wait(en_vuelo, timeout=0.5, return_when=FIRST_COMPLETED)
             for futuro in listos:
@@ -548,7 +621,7 @@ def _en_paralelo(
             if not cancelado():
                 enviar()
     finally:
-        if not terminado:
+        if externo is None and not terminado:
             ejecutor.shutdown(wait=True, cancel_futures=True)
 
 

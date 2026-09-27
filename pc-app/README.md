@@ -15,7 +15,8 @@ consecuencia...) para identificar candidatas prescriptivas.
 Las transformaciones ocurren únicamente en la preparación, según las decisiones que el
 usuario revisa y confirma.
 
-La API (sidecar FastAPI), el frontend y el almacenamiento **todavía están pendientes**.
+El sidecar (servidor FastAPI local con almacenamiento SQLite) expone todo el flujo por HTTP;
+ver [`sidecar/README.md`](sidecar/README.md). El frontend **todavía está pendiente**.
 
 ## Arquitectura actual
 
@@ -25,7 +26,7 @@ pc-app/
 │   ├── pyproject.toml
 │   ├── src/nucleo/
 │   └── tests/
-├── sidecar/           Vacío: futuro servidor local FastAPI (sin implementar)
+├── sidecar/           Servidor local FastAPI que expone el núcleo (funcional)
 ├── app/               Vacío: futuro frontend Tauri v2 + React (sin implementar)
 └── datasets_prueba/   Datasets reales y sintéticos para pruebas
 ```
@@ -33,9 +34,9 @@ pc-app/
 | Componente     | Tecnología prevista                     | Estado                    |
 |----------------|-----------------------------------------|---------------------------|
 | Núcleo         | Paquete Python independiente (`nucleo`) | Revisión, preparación, PC con bootstrap y caracterización |
-| Sidecar        | FastAPI local en Python                 | Pendiente                 |
+| Sidecar        | FastAPI local en Python                 | Funcional                 |
 | Frontend       | Tauri v2 + React + Vite + TypeScript    | Pendiente                 |
-| Almacenamiento | SQLite + archivos locales               | Pendiente                 |
+| Almacenamiento | SQLite + archivos locales               | Funcional (en el sidecar) |
 
 El núcleo no depende de ningún componente de presentación.
 
