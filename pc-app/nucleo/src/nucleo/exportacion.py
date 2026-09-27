@@ -105,6 +105,7 @@ def resultado_a_diccionario(
             "completo": resultado.completo,
         },
         "tiempo_s": resultado.tiempo_s,
+        "ejecucion": a_diccionario_serializable(resultado.ejecucion),
         "limites_discretizacion": resultado.limites_discretizacion,
         "variables": resultado.variables,
         "aristas": a_diccionario_serializable(grafo.aristas),

@@ -68,6 +68,19 @@ class CorridaFallida:
 
 
 @dataclass(frozen=True)
+class EjecucionBootstrap:
+    """Cómo se ejecutaron las corridas y por qué (no afecta al resultado)."""
+
+    modo_solicitado: str
+    modo_usado: str  # "secuencial" | "paralelo"
+    procesos: int
+    motivo: str
+    segundos_primera_corrida: float | None = None
+    segundos_segunda_corrida: float | None = None
+    segundos_estimados_restantes: float | None = None
+
+
+@dataclass(frozen=True)
 class ResultadoBootstrap:
     """Cuentas acumuladas del bootstrap.
 
@@ -88,6 +101,7 @@ class ResultadoBootstrap:
     bidireccionales: int
     tiempo_s: float
     limites_discretizacion: dict[str, list[float]] = field(default_factory=dict)
+    ejecucion: EjecucionBootstrap | None = None
 
 
 @dataclass(frozen=True)
@@ -272,7 +286,10 @@ def firma_analisis(
 ) -> str:
     """Huella de todo lo que determina el resultado (no incluye ``procesos``)."""
     relevante = a_diccionario_serializable(configuracion)
-    for campo in ("procesos", "punto_control_cada", "modificables", "orientaciones_manuales"):
+    for campo in (
+        "procesos", "punto_control_cada", "modificables", "orientaciones_manuales",
+        "modo_ejecucion", "umbral_paralelo_s",
+    ):
         relevante.pop(campo, None)
     contenido = json.dumps(
         {"configuracion": relevante, "origen": datos.receta.origen.sha256, "variables": variables},
@@ -378,13 +395,19 @@ def ejecutar_bootstrap(
     def cancelado() -> bool:
         return cancelacion is not None and cancelacion.is_set()
 
-    if configuracion.procesos == 1 or len(pendientes) <= 1:
-        for corrida in pendientes:
+    def secuencial(corridas: list[int]) -> None:
+        for corrida in corridas:
             if cancelado():
                 break
             registrar(ejecutar_corrida(matriz, variables, prohibidos, configuracion, corrida))
-    else:
-        _en_paralelo(matriz, variables, prohibidos, configuracion, pendientes, registrar, cancelado)
+
+    ejecucion = _decidir_y_ejecutar(
+        configuracion, pendientes, secuencial,
+        lambda corridas: _en_paralelo(
+            matriz, variables, prohibidos, configuracion, corridas, registrar, cancelado
+        ),
+        cancelado,
+    )
 
     completo = len(estado.completadas) == total
     if ruta is not None:
@@ -405,6 +428,81 @@ def ejecutar_bootstrap(
         bidireccionales=estado.bidireccionales,
         tiempo_s=round(transcurrido(), 3),
         limites_discretizacion=limites,
+        ejecucion=ejecucion,
+    )
+
+
+def _decidir_y_ejecutar(
+    configuracion: ConfiguracionPC,
+    pendientes: list[int],
+    secuencial: Callable[[list[int]], None],
+    paralelo: Callable[[list[int]], None],
+    cancelado: Callable[[], bool],
+) -> EjecucionBootstrap:
+    """Ejecuta las corridas pendientes en el modo configurado y explica la elección.
+
+    En modo adaptativo, la primera corrida se ejecuta en este proceso y se
+    mide; el resto va en paralelo solo si su tiempo estimado supera
+    ``umbral_paralelo_s``.
+    """
+    solicitado = configuracion.modo_ejecucion
+    procesos = configuracion.procesos
+
+    def registro(usado: str, motivo: str, **tiempos: float | None) -> EjecucionBootstrap:
+        return EjecucionBootstrap(
+            solicitado, usado, procesos if usado == "paralelo" else 1, motivo, **tiempos
+        )
+
+    if len(pendientes) <= 1:
+        secuencial(pendientes)
+        return registro("secuencial", "Como mucho quedaba una corrida pendiente.")
+    if procesos == 1:
+        secuencial(pendientes)
+        return registro("secuencial", "Se configuró un solo proceso.")
+    if solicitado == "secuencial":
+        secuencial(pendientes)
+        return registro("secuencial", "Modo secuencial forzado en la configuración.")
+    if solicitado == "paralelo":
+        paralelo(pendientes)
+        return registro("paralelo", f"Modo paralelo forzado en la configuración ({procesos} procesos).")
+
+    def medir(corrida: int) -> float:
+        inicio = time.perf_counter()
+        secuencial([corrida])
+        return time.perf_counter() - inicio
+
+    umbral = configuracion.umbral_paralelo_s
+    primera = medir(pendientes[0])
+    tiempos: dict[str, float | None] = {"segundos_primera_corrida": round(primera, 3)}
+    restantes = pendientes[1:]
+    referencia = primera
+    # La primera corrida incluye costos de arranque (importaciones, cachés) que
+    # pueden multiplicar su duración; si con ella se superaría el umbral, se mide
+    # una segunda corrida y se usa la más rápida.
+    if not cancelado() and primera * len(restantes) > umbral and len(restantes) > 1:
+        segunda = medir(restantes[0])
+        tiempos["segundos_segunda_corrida"] = round(segunda, 3)
+        restantes = restantes[1:]
+        referencia = min(primera, segunda)
+    if cancelado():
+        return registro("secuencial", "Cancelado durante las corridas de medición.", **tiempos)
+    estimado = referencia * len(restantes)
+    tiempos["segundos_estimados_restantes"] = round(estimado, 1)
+    medicion = f"Cada corrida tarda unos {referencia:.2f} s; las {len(restantes)} restantes tardarían unos {estimado:.0f} s en secuencial"
+    if estimado > umbral:
+        paralelo(restantes)
+        return registro(
+            "paralelo",
+            f"{medicion}, más que el umbral de {umbral:g} s, así que se repartieron entre "
+            f"{procesos} procesos.",
+            **tiempos,
+        )
+    secuencial(restantes)
+    return registro(
+        "secuencial",
+        f"{medicion}, sin superar el umbral de {umbral:g} s, así que no compensaba el costo de "
+        "abrir procesos.",
+        **tiempos,
     )
 
 

@@ -81,12 +81,17 @@ def test_pc_genera_los_resultados(capsys, receta):
     assert "Causas indirectas: A (a través de B), C (a través de B)" in salida
     assert "Candidatas prescriptivas: A, C." in salida
 
-    codigo, _, _ = ejecutar(capsys, "pc", receta, "--config", configuracion, "--procesos", "2")
+    assert "Ejecución: secuencial" in salida
+    codigo, salida, _ = ejecutar(
+        capsys, "pc", receta, "--config", configuracion, "--procesos", "2", "--modo", "paralelo"
+    )
     assert codigo == SALIDA_CORRECTA
+    assert "Ejecución: paralelo (2 proceso(s))" in salida
     assert receta.with_name("estudio_pc_2").is_dir()
     primero = json.loads((carpeta / "resultado.json").read_text(encoding="utf-8"))
     segundo = json.loads((receta.with_name("estudio_pc_2") / "resultado.json").read_text(encoding="utf-8"))
     assert primero["aristas"] == segundo["aristas"]
+    assert (primero["ejecucion"]["modo_usado"], segundo["ejecucion"]["modo_usado"]) == ("secuencial", "paralelo")
 
 
 def test_reanudar_sin_punto_de_control(capsys, receta):

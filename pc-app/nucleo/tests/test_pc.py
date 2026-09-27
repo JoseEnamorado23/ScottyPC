@@ -168,7 +168,9 @@ def test_paralelo_igual_a_secuencial():
     datos = preparados(colisionador(), "D")
 
     secuencial = ejecutar_bootstrap(datos, configuracion(datos, corridas_bootstrap=12, procesos=1))
-    paralelo = ejecutar_bootstrap(datos, configuracion(datos, corridas_bootstrap=12, procesos=3))
+    paralelo = ejecutar_bootstrap(
+        datos, configuracion(datos, corridas_bootstrap=12, procesos=3, modo_ejecucion="paralelo")
+    )
 
     assert paralelo.dirigidas == secuencial.dirigidas
     assert paralelo.sin_orientar == secuencial.sin_orientar
@@ -195,7 +197,10 @@ def test_cancelacion_devuelve_resultado_parcial(procesos):
             cancelar.set()
 
     resultado = ejecutar_bootstrap(
-        datos, configuracion(datos, corridas_bootstrap=60, procesos=procesos), progreso, cancelar
+        datos,
+        configuracion(datos, corridas_bootstrap=60, procesos=procesos, modo_ejecucion="paralelo"),
+        progreso,
+        cancelar,
     )
 
     assert resultado.completo is False
@@ -267,6 +272,80 @@ def test_chisq_guarda_limites_de_discretizacion():
     assert set(resultado.limites_discretizacion) == {"A", "B", "C", "D"}
     assert all(len(v) == 4 for v in resultado.limites_discretizacion.values())
     assert frozenset("AB") in esqueleto(grafo)
+
+
+# --- Modo de ejecución ------------------------------------------------------------------------------
+
+
+def test_adaptativo_con_corridas_rapidas_queda_en_secuencial():
+    datos = preparados(cadena(), "C")
+
+    resultado = ejecutar_bootstrap(datos, configuracion(datos, procesos=4, modo_ejecucion="adaptativo"))
+
+    ejecucion = resultado.ejecucion
+    assert (ejecucion.modo_solicitado, ejecucion.modo_usado, ejecucion.procesos) == ("adaptativo", "secuencial", 1)
+    assert ejecucion.segundos_primera_corrida is not None
+    assert ejecucion.segundos_estimados_restantes < 30
+    assert "no compensaba" in ejecucion.motivo
+
+
+def test_adaptativo_sobre_el_umbral_usa_procesos_con_el_mismo_resultado():
+    datos = preparados(colisionador(), "D")
+    llamadas = []
+
+    adaptativo = ejecutar_bootstrap(
+        datos,
+        configuracion(datos, corridas_bootstrap=10, procesos=2, umbral_paralelo_s=0.0),
+        progreso=lambda *args: llamadas.append(args),
+    )
+    secuencial = ejecutar_bootstrap(datos, configuracion(datos, corridas_bootstrap=10))
+
+    assert adaptativo.ejecucion.modo_usado == "paralelo" and adaptativo.ejecucion.procesos == 2
+    assert "umbral de 0 s" in adaptativo.ejecucion.motivo
+    assert adaptativo.ejecucion.segundos_segunda_corrida is not None
+    assert adaptativo.dirigidas == secuencial.dirigidas
+    assert adaptativo.sin_orientar == secuencial.sin_orientar
+    assert len(llamadas) == 10
+
+
+@pytest.mark.parametrize(
+    "cambios, usado, motivo",
+    [
+        ({"modo_ejecucion": "secuencial", "procesos": 4}, "secuencial", "secuencial forzado"),
+        ({"modo_ejecucion": "paralelo", "procesos": 2}, "paralelo", "paralelo forzado"),
+        ({"modo_ejecucion": "paralelo", "procesos": 1}, "secuencial", "un solo proceso"),
+    ],
+)
+def test_modos_forzados(cambios, usado, motivo):
+    datos = preparados(cadena(), "C")
+
+    resultado = ejecutar_bootstrap(datos, configuracion(datos, **cambios))
+
+    assert resultado.ejecucion.modo_usado == usado
+    assert motivo in resultado.ejecucion.motivo
+    assert resultado.ejecucion.segundos_primera_corrida is None
+
+
+def test_modo_de_ejecucion_invalido():
+    conf = replace(configuracion_por_defecto(["a", "y"], "y"), modo_ejecucion="rapido")
+
+    with pytest.raises(ErrorConfiguracionPC, match="Modo de ejecución no válido"):
+        validar_configuracion(conf, ["a", "y"], "y")
+
+
+def test_modo_no_cambia_la_firma_del_punto_de_control(tmp_path):
+    datos = preparados(colisionador(), "D")
+    punto = tmp_path / "punto_control.json"
+    cancelar = threading.Event()
+    conf = configuracion(datos, corridas_bootstrap=6, modo_ejecucion="secuencial")
+    ejecutar_bootstrap(datos, conf, lambda k, *_: cancelar.set() if k >= 2 else None, cancelar, punto)
+
+    reanudado = ejecutar_bootstrap(
+        datos, replace(conf, modo_ejecucion="adaptativo", procesos=3), punto_control=punto, reanudar=True
+    )
+
+    assert reanudado.completo
+    assert reanudado.dirigidas == ejecutar_bootstrap(datos, conf).dirigidas
 
 
 # --- Agregación a partir de cuentas construidas a mano --------------------------------------------
@@ -439,6 +518,7 @@ def test_exportacion(tmp_path):
     assert list(tabla.columns[:4]) == ["origen", "destino", "tipo", "frecuencia_total"]
     contenido = json.loads(rutas["resultado.json"].read_text(encoding="utf-8"))
     assert contenido["corridas"]["validas"] == 8
+    assert contenido["ejecucion"]["modo_usado"] == "secuencial"
     assert contenido["caracterizacion"]["candidatas_prescriptivas"] == ["A"]
     assert contenido["receta"]["sha256"] == datos.receta.origen.sha256
     assert rutas["grafo.png"].stat().st_size > 10_000
@@ -486,3 +566,25 @@ def test_etiquetas_se_parten_en_limites_naturales():
     assert partir_etiqueta("total sulfur dioxide") == "total sulfur\ndioxide"
     assert all(len(l) <= 18 for l in partir_etiqueta("abnormal_short_term_variability_x").split("\n"))
     assert partir_etiqueta("Age") == "Age"
+
+
+def test_adaptativo_descuenta_el_calentamiento_de_la_primera_corrida():
+    import time
+
+    from nucleo.pc_bootstrap import _decidir_y_ejecutar
+
+    ejecutadas, en_paralelo = [], []
+
+    def secuencial(corridas):
+        for corrida in corridas:
+            time.sleep(0.2 if corrida == 0 else 0.01)  # la primera paga el arranque
+            ejecutadas.append(corrida)
+
+    conf = replace(configuracion_por_defecto(["a", "y"], "y"), procesos=4, umbral_paralelo_s=1.0)
+
+    ejecucion = _decidir_y_ejecutar(conf, list(range(10)), secuencial, en_paralelo.extend, lambda: False)
+
+    assert ejecucion.modo_usado == "secuencial"
+    assert ejecucion.segundos_primera_corrida >= 0.2
+    assert ejecucion.segundos_segunda_corrida < 0.1
+    assert ejecutadas == list(range(10)) and en_paralelo == []

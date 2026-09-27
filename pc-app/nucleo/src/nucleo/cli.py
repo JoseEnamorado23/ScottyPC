@@ -8,7 +8,7 @@ Uso::
         [--hoja <nombre>] [--test 0.3] [--semilla 42] [--fecha <col> [--corte <fecha>]]
     python -m nucleo sugerir-prueba <receta.json> [--sin-estimacion]
     python -m nucleo plantilla-pc <receta.json>
-    python -m nucleo pc <receta.json> --config <pc.json> [--procesos N] [--reanudar]
+    python -m nucleo pc <receta.json> --config <pc.json> [--procesos N] [--modo adaptativo|secuencial|paralelo] [--reanudar]
 
 Códigos de salida:
 
@@ -159,6 +159,10 @@ def construir_parser() -> argparse.ArgumentParser:
     pc.add_argument("--config", required=True, help="Configuración de PC (ver 'plantilla-pc').")
     pc.add_argument("--procesos", type=int, help="Procesos en paralelo (no cambia el resultado).")
     pc.add_argument(
+        "--modo", choices=["adaptativo", "secuencial", "paralelo"],
+        help="Modo de ejecución (por defecto, el de la configuración: adaptativo).",
+    )
+    pc.add_argument(
         "--reanudar", action="store_true",
         help="Continuar un análisis interrumpido desde su punto de control.",
     )
@@ -199,7 +203,8 @@ def main(argumentos: list[str] | None = None) -> int:
     if opciones.comando == "plantilla-pc":
         return cli_pc.ejecutar_plantilla_pc(Path(opciones.receta))
     return cli_pc.ejecutar_pc(
-        Path(opciones.receta), Path(opciones.config), opciones.procesos, opciones.reanudar
+        Path(opciones.receta), Path(opciones.config), opciones.procesos, opciones.reanudar,
+        opciones.modo,
     )
 
 

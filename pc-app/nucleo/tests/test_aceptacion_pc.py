@@ -41,7 +41,8 @@ def analizar(datos, configuracion, nombre):
     categorias = {v.variable: v.categoria for v in caracterizar(grafo, resultado, []).variables}
     directas = {v for v, c in categorias.items() if c == CAUSA_DIRECTA}
     print(
-        f"\n{nombre}: {resultado.tiempo_s:.1f} s con {configuracion.procesos} proceso(s); "
+        f"\n{nombre}: {resultado.tiempo_s:.1f} s en modo {resultado.ejecucion.modo_usado} "
+        f"({resultado.ejecucion.procesos} proceso(s)); "
         f"{resultado.corridas_validas} corridas válidas; causas directas: {sorted(directas)}"
     )
     return categorias, directas

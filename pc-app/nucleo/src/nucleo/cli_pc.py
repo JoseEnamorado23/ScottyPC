@@ -115,7 +115,11 @@ def _grupos_redundantes(original, objetivo: str) -> list[list[str]]:
 
 
 def ejecutar_pc(
-    ruta_receta: Path, ruta_config: Path, procesos: int | None, reanudar: bool
+    ruta_receta: Path,
+    ruta_config: Path,
+    procesos: int | None,
+    reanudar: bool,
+    modo: str | None = None,
 ) -> int:
     """Ejecuta PC con bootstrap y guarda los resultados en ``<nombre>_pc/``."""
     datos_config = leer_json(ruta_config, "configuración de PC")
@@ -125,6 +129,8 @@ def ejecutar_pc(
         configuracion = configuracion_desde_diccionario(datos_config)
         if procesos is not None:
             configuracion = replace(configuracion, procesos=procesos)
+        if modo is not None:
+            configuracion = replace(configuracion, modo_ejecucion=modo)
     except ErrorConfiguracionPC as problema:
         error(f"Error: {problema}")
         return SALIDA_ERROR
@@ -152,8 +158,8 @@ def ejecutar_pc(
 
     print(
         f"Ejecutando PC ({configuracion.prueba}, {configuracion.corridas_bootstrap} corridas, "
-        f"{configuracion.procesos} proceso(s)){' desde el punto de control' if reanudar else ''}. "
-        "Pulse Ctrl+C para cancelar."
+        f"modo {configuracion.modo_ejecucion}, hasta {configuracion.procesos} proceso(s))"
+        f"{' desde el punto de control' if reanudar else ''}. Pulse Ctrl+C para cancelar."
     )
     cancelacion = threading.Event()
 
@@ -213,6 +219,13 @@ def _imprimir_resultado(
         f"Corridas: {resultado.corridas_validas} válidas"
         + (f", {fallidas} fallidas" if fallidas else "")
         + f" · tiempo {formatear_duracion(resultado.tiempo_s)}",
+    ]
+    if resultado.ejecucion is not None:
+        lineas.append(
+            f"Ejecución: {resultado.ejecucion.modo_usado} "
+            f"({resultado.ejecucion.procesos} proceso(s)). {resultado.ejecucion.motivo}"
+        )
+    lineas += [
         f"Aristas aceptadas (frecuencia >= {configuracion.umbral_frecuencia}): {len(grafo.aristas)} "
         f"({tipos['dirigida']} dirigidas, {tipos['sin_orientar']} sin orientar, {tipos['manual']} manuales)",
         "",

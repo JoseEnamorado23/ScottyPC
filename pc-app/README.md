@@ -171,9 +171,19 @@ justificación). La plantilla pone todas las variables en un nivel y el objetivo
 - **Reproducible:** la corrida `k` usa una submuestra sin reemplazo generada con
   `SeedSequence([semilla, k])` y PC es determinista, así que el resultado es idéntico con
   cualquier número de procesos, en cualquier orden y al reanudar.
-- **Paralelo:** `procesos` corridas simultáneas (por defecto, núcleos − 1). Con pocas
-  variables y `fisherz` cada corrida dura milisegundos y el arranque de los procesos puede
-  pesar más que el ahorro.
+- **Modo de ejecución** (`modo_ejecucion`, o `--modo` en la terminal):
+  - `adaptativo` (por defecto): ejecuta la primera corrida en el propio proceso y la mide.
+    Si el tiempo estimado del resto supera `umbral_paralelo_s` (30 s), mide una segunda
+    corrida (la primera incluye costos de arranque que pueden multiplicar su duración) y,
+    si aun así se supera, reparte el resto entre `procesos` procesos (por defecto,
+    núcleos − 1). Abrir los procesos cuesta unos 15–20 s en Windows, así que con corridas
+    rápidas es mejor seguir en secuencial.
+  - `secuencial` o `paralelo`: fuerzan el modo.
+
+  El modo nunca cambia el resultado. `resultado.json` registra en `ejecucion` el modo
+  solicitado y el usado, los procesos, los tiempos medidos y el motivo de la elección.
+  Tiempos de referencia (100 corridas): vino tinto 11 s en secuencial frente a 28 s en
+  paralelo; salud fetal con `chisq` 19,6 min en secuencial frente a 3,6 min en paralelo.
 - **Progreso y cancelación:** un callback `(completadas, total, segundos)` por corrida y un
   evento de cancelación (`is_set()`). En paralelo, cancelar termina las corridas en curso;
   el resultado parcial se marca `completo = False`. En la terminal, Ctrl+C cancela.
@@ -215,7 +225,7 @@ python -m nucleo preparar <archivo> --objetivo <columna> --decisiones <json>
     [--hoja <nombre>] [--test 0.3] [--semilla 42] [--fecha <columna> [--corte AAAA-MM-DD]]
 python -m nucleo sugerir-prueba <receta.json> [--sin-estimacion]
 python -m nucleo plantilla-pc <receta.json>
-python -m nucleo pc <receta.json> --config <pc.json> [--procesos N] [--reanudar]
+python -m nucleo pc <receta.json> --config <pc.json> [--procesos N] [--modo adaptativo|secuencial|paralelo] [--reanudar]
 ```
 
 Ejemplo completo con un dataset real:

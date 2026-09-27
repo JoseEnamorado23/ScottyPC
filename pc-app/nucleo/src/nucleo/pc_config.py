@@ -12,6 +12,7 @@ from dataclasses import dataclass, field, fields
 from typing import Any
 
 PRUEBAS_PC = ("fisherz", "mv_fisherz", "chisq", "kci")
+MODOS_EJECUCION = ("adaptativo", "secuencial", "paralelo")
 
 
 class ErrorConfiguracionPC(Exception):
@@ -38,6 +39,11 @@ class ConfiguracionPC:
     - ``umbral_frecuencia``: fracción mínima de corridas válidas en que debe
       aparecer una arista (en cualquier orientación) para aceptarla.
     - ``procesos``: procesos en paralelo; no cambia el resultado.
+    - ``modo_ejecucion``: ``"adaptativo"`` mide la primera corrida y usa
+      procesos solo si el tiempo estimado del resto supera
+      ``umbral_paralelo_s`` (abrir procesos tiene un costo fijo de varios
+      segundos); ``"secuencial"`` y ``"paralelo"`` fuerzan el modo. Ninguno
+      cambia el resultado.
     - ``punto_control_cada``: cada cuántas corridas se guarda un punto de
       control (si se indicó un archivo).
     """
@@ -54,6 +60,8 @@ class ConfiguracionPC:
     modificables: list[str] = field(default_factory=list)
     orientaciones_manuales: list[OrientacionManual] = field(default_factory=list)
     punto_control_cada: int = 10
+    modo_ejecucion: str = "adaptativo"
+    umbral_paralelo_s: float = 30.0
 
 
 def nivel_por_variable(configuracion: ConfiguracionPC) -> dict[str, int]:
@@ -114,6 +122,11 @@ def validar_configuracion(
         (c.max_k is None or c.max_k >= 0, "max_k debe ser null o un entero no negativo."),
         (c.procesos >= 1, "procesos debe ser al menos 1."),
         (c.punto_control_cada >= 1, "punto_control_cada debe ser al menos 1."),
+        (
+            c.modo_ejecucion in MODOS_EJECUCION,
+            f"Modo de ejecución no válido: {c.modo_ejecucion!r}. Opciones: {', '.join(MODOS_EJECUCION)}.",
+        ),
+        (c.umbral_paralelo_s >= 0, "umbral_paralelo_s no puede ser negativo."),
     ]
     for valido, mensaje in comprobaciones:
         if not valido:
