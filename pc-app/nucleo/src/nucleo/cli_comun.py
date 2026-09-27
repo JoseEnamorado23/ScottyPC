@@ -113,3 +113,22 @@ def leer_json(ruta: Path, descripcion: str) -> Any | None:
     except (OSError, json.JSONDecodeError) as problema:
         error(f"Error: no se pudo leer el archivo de {descripcion} ({ruta}): {problema}.")
     return None
+
+
+def carpetas_numeradas(ruta: Path, nombre: str) -> list[Path]:
+    """Carpetas existentes ``<nombre>``, ``<nombre>_2``... junto a ``ruta``, en orden."""
+    existentes = []
+    numero = 1
+    while True:
+        candidata = ruta.with_name(nombre if numero == 1 else f"{nombre}_{numero}")
+        if not candidata.exists():
+            return existentes
+        existentes.append(candidata)
+        numero += 1
+
+
+def carpeta_libre(ruta: Path, nombre: str) -> Path:
+    """Primera carpeta ``<nombre>``, ``<nombre>_2``... junto a ``ruta`` que no existe."""
+    existentes = carpetas_numeradas(ruta, nombre)
+    numero = len(existentes) + 1
+    return ruta.with_name(nombre if numero == 1 else f"{nombre}_{numero}")

@@ -27,4 +27,7 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-addopts = "-ra"
+addopts = "-ra -m 'not lento'"
+markers = [
+    "lento: pruebas de aceptación con datasets reales y PC completo (ejecutar con: pytest -m lento)",
+]

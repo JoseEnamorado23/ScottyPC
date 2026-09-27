@@ -9,9 +9,13 @@ sintéticos. No forman parte del código del paquete.
   informe se pueda serializar a JSON.
 - `nucleo/tests/test_aceptacion_datos_reales.py` comprueba los criterios de aceptación de
   cada dataset real (se omite si falta el archivo).
+- `nucleo/tests/test_aceptacion_pc.py` ejecuta PC con bootstrap (100 corridas) en vino
+  tinto, diabetes y salud fetal y comprueba sus causas directas. Es lento: se ejecuta con
+  `pytest -m lento -s` desde `nucleo/`.
 - La CLI guarda aquí los archivos que genera (`_revision.json`, `_decisiones.json`,
-  `_receta.json`, `_train.csv`, `_test.csv`, `_recomendacion.json`). Nunca sobrescribe un
-  archivo existente: añade `_2`, `_3`, etc. Estos archivos están excluidos de git.
+  `_receta.json`, `_train.csv`, `_test.csv`, `_recomendacion.json`, `_pc.json` y la
+  carpeta `_pc/`). Nunca sobrescribe un archivo existente: añade `_2`, `_3`, etc. Estos
+  archivos están excluidos de git.
 
 ## Ejecución
 

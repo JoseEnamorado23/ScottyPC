@@ -7,6 +7,8 @@ Uso::
     python -m nucleo preparar <archivo> --objetivo <columna> --decisiones <json>
         [--hoja <nombre>] [--test 0.3] [--semilla 42] [--fecha <col> [--corte <fecha>]]
     python -m nucleo sugerir-prueba <receta.json> [--sin-estimacion]
+    python -m nucleo plantilla-pc <receta.json>
+    python -m nucleo pc <receta.json> --config <pc.json> [--procesos N] [--reanudar]
 
 Códigos de salida:
 
@@ -146,6 +148,20 @@ def construir_parser() -> argparse.ArgumentParser:
         "--sin-estimacion", action="store_true",
         help="No estimar el tiempo de PC (la estimación puede tardar varios minutos).",
     )
+
+    texto = "Genera <nombre>_pc.json con la configuración de PC por defecto y la prueba recomendada."
+    plantilla_pc = comandos.add_parser("plantilla-pc", help=texto, description=texto)
+    plantilla_pc.add_argument("receta", help="Receta JSON generada por 'preparar'.")
+
+    texto = "Ejecuta PC con bootstrap y guarda los resultados en <nombre>_pc/."
+    pc = comandos.add_parser("pc", help=texto, description=texto)
+    pc.add_argument("receta", help="Receta JSON generada por 'preparar'.")
+    pc.add_argument("--config", required=True, help="Configuración de PC (ver 'plantilla-pc').")
+    pc.add_argument("--procesos", type=int, help="Procesos en paralelo (no cambia el resultado).")
+    pc.add_argument(
+        "--reanudar", action="store_true",
+        help="Continuar un análisis interrumpido desde su punto de control.",
+    )
     return parser
 
 
@@ -175,7 +191,16 @@ def main(argumentos: list[str] | None = None) -> int:
             Path(opciones.archivo), opciones.objetivo, opciones.hoja, Path(opciones.decisiones),
             opciones.test, opciones.semilla, opciones.fecha, opciones.corte,
         )
-    return cli_preparacion.ejecutar_sugerir(Path(opciones.receta), not opciones.sin_estimacion)
+    if opciones.comando == "sugerir-prueba":
+        return cli_preparacion.ejecutar_sugerir(Path(opciones.receta), not opciones.sin_estimacion)
+
+    from nucleo import cli_pc
+
+    if opciones.comando == "plantilla-pc":
+        return cli_pc.ejecutar_plantilla_pc(Path(opciones.receta))
+    return cli_pc.ejecutar_pc(
+        Path(opciones.receta), Path(opciones.config), opciones.procesos, opciones.reanudar
+    )
 
 
 def ejecutar_revisar(ruta: Path, objetivo: str, hoja: str | None) -> int:

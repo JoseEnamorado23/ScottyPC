@@ -21,6 +21,10 @@ dist/
 *_train_*.csv
 *_test.csv
 *_test_*.csv
+*_pc.json
+*_pc_*.json
+*_pc/
+*_pc_*/
 
 # Sistema operativo y editores
 .DS_Store

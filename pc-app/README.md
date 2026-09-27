@@ -4,17 +4,18 @@ Aplicación de escritorio para investigación sobre modelos prescriptivos.
 
 ## Objetivo del proyecto
 
-El paquete `nucleo` valida, revisa y prepara datasets antes del descubrimiento causal.
+El paquete `nucleo` valida, revisa y prepara datasets y ejecuta el descubrimiento causal.
 Comprueba que el dataset cumple las condiciones mínimas, perfila cada columna, detecta
 problemas de calidad y relaciones sospechosas, aplica las decisiones de preparación del
-usuario de forma reproducible y recomienda la prueba de independencia para PC.
+usuario de forma reproducible, recomienda la prueba de independencia, ejecuta PC con
+bootstrap y caracteriza cada variable respecto al objetivo (causa directa, indirecta,
+consecuencia...) para identificar candidatas prescriptivas.
 
 **El revisor solo informa y sugiere acciones: nunca modifica, corrige ni elimina datos.**
 Las transformaciones ocurren únicamente en la preparación, según las decisiones que el
 usuario revisa y confirma.
 
-La ejecución del algoritmo PC y las demás capas de la aplicación **todavía están
-pendientes** (causal-learn solo se usa, por ahora, para estimar el tiempo de PC).
+La API (sidecar FastAPI), el frontend y el almacenamiento **todavía están pendientes**.
 
 ## Arquitectura actual
 
@@ -31,7 +32,7 @@ pc-app/
 
 | Componente     | Tecnología prevista                     | Estado                    |
 |----------------|-----------------------------------------|---------------------------|
-| Núcleo         | Paquete Python independiente (`nucleo`) | Revisión, preparación y selección de prueba |
+| Núcleo         | Paquete Python independiente (`nucleo`) | Revisión, preparación, PC con bootstrap y caracterización |
 | Sidecar        | FastAPI local en Python                 | Pendiente                 |
 | Frontend       | Tauri v2 + React + Vite + TypeScript    | Pendiente                 |
 | Almacenamiento | SQLite + archivos locales               | Pendiente                 |
@@ -54,7 +55,11 @@ El núcleo no depende de ningún componente de presentación.
 | `plantilla.py` | Decisiones sugeridas a partir del informe de revisión. |
 | `preparacion.py` | Decisiones del usuario, preparación, receta reproducible y `aplicar_receta`. |
 | `seleccion_prueba.py` | Diagnósticos (faltantes, categóricas, no linealidad) y prueba sugerida para PC. |
-| `cli.py`, `cli_preparacion.py`, `cli_comun.py` | Interfaz de línea de comandos (`python -m nucleo`). |
+| `pc_config.py` | Configuración de PC: prueba, bootstrap, niveles, modificables y orientaciones manuales. |
+| `pc_bootstrap.py` | PC con bootstrap (paralelo, progreso, cancelación, puntos de control) y agregación del grafo. |
+| `caracterizacion.py` | Categoría de cada variable respecto al objetivo y candidatas prescriptivas. |
+| `exportacion.py` | `resultado.json`, `aristas.csv`, `mascara.csv`, `matriz_frecuencias.csv` y `grafo.png`. |
+| `cli.py`, `cli_preparacion.py`, `cli_pc.py`, `cli_comun.py` | Interfaz de línea de comandos (`python -m nucleo`). |
 | `modelos.py`, `configuracion.py`, `utilidades.py` | Dataclasses de resultados, umbrales centralizados y serialización a JSON. |
 
 ## Flujo
@@ -65,6 +70,8 @@ archivo → carga → validación ─┬─ errores bloqueantes → se informan 
                                   → plantilla de decisiones → el usuario revisa y edita
                                   → preparación → train / test + receta
                                   → selección de la prueba de independencia
+                                  → configuración de PC (niveles, modificables)
+                                  → PC con bootstrap → grafo agregado → caracterización
 ```
 
 ## Contrato del núcleo
@@ -81,6 +88,10 @@ archivo → carga → validación ─┬─ errores bloqueantes → se informan 
 | `preparacion.preparar(df, objetivo, decisiones)` | DataFrame, objetivo, decisiones | `DatosPreparados` | Aplica las decisiones y registra la `Receta`. Lanza `ErrorPreparacion`. |
 | `preparacion.aplicar_receta(df, receta)` | DataFrame original y receta | `DatosPreparados` | Reproduce exactamente train y test sin volver a aprender nada. |
 | `seleccion_prueba.recomendar_prueba(datos)` | `DatosPreparados` | `RecomendacionPrueba` | Prueba sugerida, motivo, evidencia, alternativas y tiempo estimado. Usa solo train. |
+| `pc_bootstrap.ejecutar_bootstrap(datos, config, progreso, cancelacion, punto_control, reanudar)` | `DatosPreparados`, `ConfiguracionPC` | `ResultadoBootstrap` | Cuentas de aristas por corrida. Usa solo train. |
+| `pc_bootstrap.agregar(resultado, datos, config)` | `ResultadoBootstrap` | `GrafoAgregado` | Aristas aceptadas, orientación, orientaciones manuales, signo y ciclos. |
+| `caracterizacion.caracterizar(grafo, resultado, modificables, grupos)` | `GrafoAgregado` | `Caracterizacion` | Categoría de cada variable y candidatas prescriptivas. |
+| `exportacion.exportar(carpeta, ...)` | Resultados | Archivos | Escribe los resultados en una carpeta. |
 
 Todos los umbrales están en `ConfiguracionValidacion` (`configuracion.py`).
 
@@ -148,6 +159,53 @@ dependencia de ese tamaño. El tiempo se estima con 2 ejecuciones reales de PC
 de bootstrap, se sugiere `max_k = 3` y se explica su costo. La recomendación es solo una
 sugerencia.
 
+## PC con bootstrap
+
+La configuración (`ConfiguracionPC`, editable como `<nombre>_pc.json`) define la prueba
+(`fisherz`, `mv_fisherz`, `chisq` o `kci`), alpha, las corridas de bootstrap, la fracción de
+cada submuestra, el umbral de frecuencia, `max_k`, la semilla, los procesos, los **niveles**
+(nada de un nivel posterior puede causar algo de uno anterior; cada variable en exactamente
+un nivel), las variables **modificables** y las **orientaciones manuales** (con su
+justificación). La plantilla pone todas las variables en un nivel y el objetivo después.
+
+- **Reproducible:** la corrida `k` usa una submuestra sin reemplazo generada con
+  `SeedSequence([semilla, k])` y PC es determinista, así que el resultado es idéntico con
+  cualquier número de procesos, en cualquier orden y al reanudar.
+- **Paralelo:** `procesos` corridas simultáneas (por defecto, núcleos − 1). Con pocas
+  variables y `fisherz` cada corrida dura milisegundos y el arranque de los procesos puede
+  pesar más que el ahorro.
+- **Progreso y cancelación:** un callback `(completadas, total, segundos)` por corrida y un
+  evento de cancelación (`is_set()`). En paralelo, cancelar termina las corridas en curso;
+  el resultado parcial se marca `completo = False`. En la terminal, Ctrl+C cancela.
+- **Puntos de control:** cada `punto_control_cada` corridas (y al cancelar) se guarda
+  `punto_control.json` con las matrices acumuladas, la lista de corridas completadas y
+  fallidas y una firma de la configuración y los datos; `--reanudar` continúa desde ahí.
+- **Corridas fallidas** (matriz singular, columna constante en la submuestra): se
+  descartan y se informan; las frecuencias se calculan sobre las corridas válidas.
+- **Agregación:** una arista se acepta si aparece (en cualquier orientación) en al menos
+  `umbral_frecuencia` de las corridas válidas; su orientación es la más frecuente entre
+  i→j, j→i y sin orientar (empate: sin orientar). Después se aplican las orientaciones
+  manuales a las aristas sin orientar. El signo es el de la correlación de Spearman en train.
+  Los ciclos se informan, no se corrigen.
+- **Caracterización** respecto al objetivo: `causa_directa`, `causa_indirecta` (indica por
+  qué variables pasa), `consecuencia`, `ambigua` (solo conectada mediante aristas sin
+  orientar) o `sin_camino`, con la frecuencia de la arista con el objetivo (aunque esté bajo
+  el umbral) y el grupo redundante del revisor. **Candidatas prescriptivas:** causas directas
+  o indirectas marcadas como modificables.
+
+Archivos en `<nombre>_pc/`:
+
+| Archivo | Contenido |
+|---|---|
+| `resultado.json` | Configuración, receta de origen (hash), corridas válidas y fallidas, tiempo, aristas, matrices de frecuencia, ciclos, caracterización y advertencias (base para el frontend). |
+| `aristas.csv` | Origen, destino, tipo (dirigida / sin_orientar / manual), frecuencia total y por dirección, signo. |
+| `mascara.csv` | 1 si se acepta la arista origen→destino (una sin orientar pone 1 en ambas direcciones). |
+| `matriz_frecuencias.csv` | Frecuencia de origen→destino más la frecuencia sin orientar. |
+| `grafo.png` | Variables en columnas por nivel; objetivo en rojo, causas directas en verde; aristas azules (positivas) o rojas (negativas), discontinuas si no están orientadas. |
+
+Las matrices usan el formato de pandas: primera columna con los nombres, fila = origen,
+columna = destino.
+
 ## Uso desde la terminal
 
 ```bash
@@ -156,6 +214,8 @@ python -m nucleo plantilla <archivo> --objetivo <columna> [--hoja <nombre>]
 python -m nucleo preparar <archivo> --objetivo <columna> --decisiones <json>
     [--hoja <nombre>] [--test 0.3] [--semilla 42] [--fecha <columna> [--corte AAAA-MM-DD]]
 python -m nucleo sugerir-prueba <receta.json> [--sin-estimacion]
+python -m nucleo plantilla-pc <receta.json>
+python -m nucleo pc <receta.json> --config <pc.json> [--procesos N] [--reanudar]
 ```
 
 Ejemplo completo con un dataset real:
@@ -166,19 +226,24 @@ python -m nucleo plantilla datasets_prueba/diabetes.csv --objetivo Outcome
 python -m nucleo preparar datasets_prueba/diabetes.csv --objetivo Outcome \
     --decisiones datasets_prueba/diabetes_decisiones.json
 python -m nucleo sugerir-prueba datasets_prueba/diabetes_receta.json
+python -m nucleo plantilla-pc datasets_prueba/diabetes_receta.json
+# editar datasets_prueba/diabetes_pc.json (niveles, modificables)
+python -m nucleo pc datasets_prueba/diabetes_receta.json --config datasets_prueba/diabetes_pc.json
 ```
 
 Archivos generados, junto al archivo de entrada: `<nombre>_revision.json`,
 `<nombre>_decisiones.json`, `<nombre>_receta.json`, `<nombre>_train.csv`,
-`<nombre>_test.csv` y `<nombre>_recomendacion.json`. **Nunca se sobrescribe un archivo
-existente**: se añade `_2`, `_3`, etc. (con el mismo número para la receta y sus CSV).
+`<nombre>_test.csv`, `<nombre>_recomendacion.json`, `<nombre>_pc.json` y la carpeta
+`<nombre>_pc/`. **Nunca se sobrescribe un archivo existente**: se añade `_2`, `_3`, etc.
+(con el mismo número para la receta y sus CSV). `--reanudar` es la única excepción:
+continúa el análisis interrumpido en su propia carpeta.
 
 Códigos de salida:
 
 | Código | Significado |
 |---|---|
 | `0` | Comando completado. |
-| `1` | Error de argumentos o de ejecución (archivo inexistente, hoja inexistente, decisiones no aplicables, receta de un archivo modificado...). |
+| `1` | Error de argumentos o de ejecución (archivo inexistente, hoja inexistente, decisiones o configuración no aplicables, receta de un archivo modificado, análisis de PC cancelado...). |
 | `2` | Dataset no válido (errores bloqueantes de validación). |
 
 En Windows, si la consola muestra mal las tildes, ejecute con `python -X utf8 -m nucleo ...`.
@@ -199,8 +264,8 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-Dependencias: `pandas`, `numpy`, `openpyxl`, `scipy`, `scikit-learn` y `causal-learn`;
-`pytest` para desarrollo.
+Dependencias: `pandas`, `numpy`, `openpyxl`, `scipy`, `scikit-learn` y `causal-learn`
+(que incluye `matplotlib` y `networkx`); `pytest` para desarrollo.
 
 ## Pruebas
 
@@ -211,3 +276,12 @@ pytest
 
 Las pruebas de aceptación con datos reales (`tests/test_aceptacion_datos_reales.py`) se
 omiten automáticamente si falta alguno de los archivos de `datasets_prueba/`.
+
+Las pruebas de aceptación de PC (`tests/test_aceptacion_pc.py`: vino tinto, diabetes y
+salud fetal, 100 corridas cada una) están marcadas como `lento` y **no** se ejecutan con
+`pytest`. Para correrlas (unos 4 minutos en paralelo; `-s` muestra tiempos y causas):
+
+```bash
+cd nucleo
+pytest -m lento -s
+```

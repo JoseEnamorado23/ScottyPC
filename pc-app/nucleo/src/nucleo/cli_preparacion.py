@@ -8,6 +8,8 @@ from collections import Counter
 from dataclasses import replace
 from pathlib import Path
 
+import pandas as pd
+
 from nucleo.analisis import analizar_dataset
 from nucleo.cli_comun import (
     SALIDA_CORRECTA,
@@ -232,39 +234,50 @@ def _imprimir_preparacion(
 # --- sugerir-prueba ----------------------------------------------------------------------------
 
 
-def ejecutar_sugerir(ruta_receta: Path, estimar: bool) -> int:
-    """Reproduce la preparación desde la receta y recomienda la prueba de independencia."""
+def cargar_desde_receta(ruta_receta: Path) -> tuple[pd.DataFrame, DatosPreparados] | None:
+    """Lee la receta, verifica el hash del archivo original y reproduce la preparación.
+
+    Devuelve (datos originales, datos preparados) o ``None`` tras informar el error.
+    """
     print("Cargando receta...")
     print(f"Receta: {ruta_receta}")
     datos_json = leer_json(ruta_receta, "receta")
     if datos_json is None:
-        return SALIDA_ERROR
+        return None
     try:
         receta = receta_desde_diccionario(datos_json)
     except ErrorPreparacion as problema:
         error(f"Error: {problema}")
-        return SALIDA_ERROR
+        return None
     if receta.origen.archivo is None:
         error("Error: la receta no indica el archivo de datos original.")
-        return SALIDA_ERROR
+        return None
     archivo = ruta_receta.parent / receta.origen.archivo
     if not archivo.is_file():
         error(f"Error: no se encontró el archivo original de la receta ({archivo}).")
-        return SALIDA_ERROR
+        return None
     if receta.origen.sha256 and calcular_sha256(archivo) != receta.origen.sha256:
         error(
             f"Error: el archivo '{archivo}' cambió desde que se creó la receta "
             "(el hash SHA-256 no coincide). Vuelva a ejecutar 'preparar'."
         )
-        return SALIDA_ERROR
+        return None
     dataframe = cargar(archivo, receta.origen.hoja)
     if dataframe is None:
-        return SALIDA_ERROR
+        return None
     try:
-        datos = aplicar_receta(dataframe, receta)
+        return dataframe, aplicar_receta(dataframe, receta)
     except ErrorPreparacion as problema:
         error(f"Error: {problema}")
+        return None
+
+
+def ejecutar_sugerir(ruta_receta: Path, estimar: bool) -> int:
+    """Reproduce la preparación desde la receta y recomienda la prueba de independencia."""
+    cargados = cargar_desde_receta(ruta_receta)
+    if cargados is None:
         return SALIDA_ERROR
+    _, datos = cargados
     if estimar:
         print("Estimando el tiempo de PC (varias ejecuciones; puede tardar algunos minutos)...")
         sys.stdout.flush()
