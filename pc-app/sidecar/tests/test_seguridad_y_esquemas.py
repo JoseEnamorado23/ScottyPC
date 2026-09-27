@@ -85,6 +85,25 @@ def test_errores_internos_no_llegan_al_cliente(cliente, tmp_path, monkeypatch):
         assert error["detalles"]["referencia"] in registro.read_text(encoding="utf-8")
 
 
+def test_error_interno_desde_origen_permitido_lleva_cors(cliente, tmp_path, monkeypatch):
+    def fallar(*_):
+        raise RuntimeError("detalle técnico secreto")
+
+    monkeypatch.setattr(cliente.app.state.servicios, "listar", fallar)
+    navegador = TestClient(cliente.app, raise_server_exceptions=False)
+
+    respuesta = navegador.get("/proyectos", headers={"X-Token": TOKEN, "Origin": "http://tauri.localhost"})
+
+    assert respuesta.status_code == 500
+    assert respuesta.headers["access-control-allow-origin"] == "http://tauri.localhost"
+    cuerpo = respuesta.json()
+    assert set(cuerpo) == {"error"}
+    assert cuerpo["error"]["codigo"] == "ERROR_INTERNO"
+    referencia = cuerpo["error"]["detalles"]["referencia"]
+    assert len(referencia) == 12 and referencia in cuerpo["error"]["mensaje"]
+    assert "secreto" not in respuesta.text
+
+
 # --- Esquemas ---------------------------------------------------------------------------------------
 
 PARES = [

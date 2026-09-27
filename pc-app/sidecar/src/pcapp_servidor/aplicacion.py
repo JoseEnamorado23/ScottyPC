@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 from pcapp_servidor import __version__
 from pcapp_servidor.almacenamiento.base_datos import BaseDatos
 from pcapp_servidor.configuracion import ORIGENES_PERMITIDOS, ConfiguracionServidor
-from pcapp_servidor.errores import cuerpo_error, registrar_manejadores
+from pcapp_servidor.errores import cuerpo_error, registrar_manejadores, respuesta_error_interno
 from pcapp_servidor.flujo import Servicios
 from pcapp_servidor.registro import REGISTRO
 from pcapp_servidor.rutas import proyectos, sistema, trabajos
@@ -57,7 +57,15 @@ def crear_aplicacion(
                 )
         return await siguiente(peticion)
 
-    # Se añade después del token para envolverlo: las respuestas 401 también llevan CORS.
+    @aplicacion.middleware("http")
+    async def capturar_errores(peticion: Request, siguiente):  # noqa: ANN001
+        try:
+            return await siguiente(peticion)
+        except Exception:  # noqa: BLE001 - el detalle va al registro; el cliente recibe la referencia
+            return respuesta_error_interno(peticion)
+
+    # Orden (de fuera hacia dentro): CORS → captura de errores → token → rutas. CORS se añade
+    # al final para envolver a los demás: las respuestas 401 y 500 también llevan sus encabezados.
     aplicacion.add_middleware(
         CORSMiddleware,
         allow_origins=list(ORIGENES_PERMITIDOS),

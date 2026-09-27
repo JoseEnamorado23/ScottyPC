@@ -100,15 +100,22 @@ def registrar_manejadores(aplicacion: FastAPI) -> None:
         codigo, mensaje = mensajes.get(error.status_code, ("ERROR_HTTP", str(error.detail)))
         return JSONResponse(cuerpo_error(codigo, mensaje), status_code=error.status_code)
 
-    @aplicacion.exception_handler(Exception)
-    async def _inesperado(peticion: Request, error: Exception) -> JSONResponse:
-        referencia = uuid.uuid4().hex[:12]
-        REGISTRO.exception("Error interno %s en %s %s", referencia, peticion.method, peticion.url.path)
-        return JSONResponse(
-            cuerpo_error(
-                "ERROR_INTERNO",
-                f"Ocurrió un error interno. Consulte el registro del servidor (referencia {referencia}).",
-                {"referencia": referencia},
-            ),
-            status_code=500,
-        )
+
+
+def respuesta_error_interno(peticion: Request) -> JSONResponse:
+    """Registra la excepción en curso con una referencia y devuelve el error 500 uniforme.
+
+    Se llama desde un middleware que queda por dentro del de CORS, para que la
+    respuesta lleve los encabezados CORS (un manejador de ``Exception`` de
+    Starlette se ejecuta fuera de todos los middlewares y no los tendría).
+    """
+    referencia = uuid.uuid4().hex[:12]
+    REGISTRO.exception("Error interno %s en %s %s", referencia, peticion.method, peticion.url.path)
+    return JSONResponse(
+        cuerpo_error(
+            "ERROR_INTERNO",
+            f"Ocurrió un error interno. Consulte el registro del servidor (referencia {referencia}).",
+            {"referencia": referencia},
+        ),
+        status_code=500,
+    )
