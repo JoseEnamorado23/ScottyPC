@@ -18,7 +18,7 @@ SRC = Path(__file__).resolve().parents[1] / "src"
 def lanzar(*argumentos: str) -> subprocess.Popen:
     entorno = {**os.environ, "PYTHONPATH": str(SRC), "PYTHONIOENCODING": "utf-8"}
     return subprocess.Popen(
-        [sys.executable, "-m", "servidor", *argumentos],
+        [sys.executable, "-m", "pcapp_servidor", *argumentos],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", env=entorno,
     )
 

@@ -79,7 +79,7 @@ def main() -> int:
 
     print(f"Arrancando el sidecar (datos en {datos})...")
     proceso = subprocess.Popen(
-        [sys.executable, "-m", "servidor", "--datos", str(datos), "--pid-padre", str(os.getpid())],
+        [sys.executable, "-m", "pcapp_servidor", "--datos", str(datos), "--pid-padre", str(os.getpid())],
         stdout=subprocess.PIPE, text=True, encoding="utf-8",
     )
     listo = json.loads(proceso.stdout.readline())

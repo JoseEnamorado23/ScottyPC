@@ -8,13 +8,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nucleo import detectores_relaciones as rel
-from nucleo.carga import cargar_dataset, obtener_hojas_excel
-from nucleo.configuracion import ConfiguracionValidacion
-from nucleo.modelos import TipoHallazgo
-from nucleo.perfilado import perfilar_columnas
-from nucleo.revision import DETECTORES_RELACIONES, revisar_dataset
-from nucleo.utilidades import a_diccionario_serializable
+from pcapp_nucleo import detectores_relaciones as rel
+from pcapp_nucleo.carga import cargar_dataset, obtener_hojas_excel
+from pcapp_nucleo.configuracion import ConfiguracionValidacion
+from pcapp_nucleo.modelos import TipoHallazgo
+from pcapp_nucleo.perfilado import perfilar_columnas
+from pcapp_nucleo.revision import DETECTORES_RELACIONES, revisar_dataset
+from pcapp_nucleo.utilidades import a_diccionario_serializable
 
 CONFIG = ConfiguracionValidacion()
 DATASETS_PRUEBA = Path(__file__).resolve().parents[2] / "datasets_prueba"

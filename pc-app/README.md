@@ -4,7 +4,7 @@ Aplicación de escritorio para investigación sobre modelos prescriptivos.
 
 ## Objetivo del proyecto
 
-El paquete `nucleo` valida, revisa y prepara datasets y ejecuta el descubrimiento causal.
+El paquete `pcapp_nucleo` valida, revisa y prepara datasets y ejecuta el descubrimiento causal.
 Comprueba que el dataset cumple las condiciones mínimas, perfila cada columna, detecta
 problemas de calidad y relaciones sospechosas, aplica las decisiones de preparación del
 usuario de forma reproducible, recomienda la prueba de independencia, ejecuta PC con
@@ -33,14 +33,14 @@ pc-app/
 
 | Componente     | Tecnología prevista                     | Estado                    |
 |----------------|-----------------------------------------|---------------------------|
-| Núcleo         | Paquete Python independiente (`nucleo`) | Revisión, preparación, PC con bootstrap y caracterización |
+| Núcleo         | Paquete Python independiente (`pcapp_nucleo`) | Revisión, preparación, PC con bootstrap y caracterización |
 | Sidecar        | FastAPI local en Python                 | Funcional                 |
 | Frontend       | Tauri v2 + React + Vite + TypeScript    | Pendiente                 |
 | Almacenamiento | SQLite + archivos locales               | Funcional (en el sidecar) |
 
 El núcleo no depende de ningún componente de presentación.
 
-### Módulos de `nucleo`
+### Módulos de `pcapp_nucleo`
 
 | Módulo | Responsabilidad |
 |---|---|
@@ -60,7 +60,7 @@ El núcleo no depende de ningún componente de presentación.
 | `pc_bootstrap.py` | PC con bootstrap (paralelo, progreso, cancelación, puntos de control) y agregación del grafo. |
 | `caracterizacion.py` | Categoría de cada variable respecto al objetivo y candidatas prescriptivas. |
 | `exportacion.py` | `resultado.json`, `aristas.csv`, `mascara.csv`, `matriz_frecuencias.csv` y `grafo.png`. |
-| `cli.py`, `cli_preparacion.py`, `cli_pc.py`, `cli_comun.py` | Interfaz de línea de comandos (`python -m nucleo`). |
+| `cli.py`, `cli_preparacion.py`, `cli_pc.py`, `cli_comun.py` | Interfaz de línea de comandos (`python -m pcapp_nucleo`). |
 | `modelos.py`, `configuracion.py`, `utilidades.py` | Dataclasses de resultados, umbrales centralizados y serialización a JSON. |
 
 ## Flujo
@@ -220,26 +220,26 @@ columna = destino.
 ## Uso desde la terminal
 
 ```bash
-python -m nucleo revisar <archivo> --objetivo <columna> [--hoja <nombre>]
-python -m nucleo plantilla <archivo> --objetivo <columna> [--hoja <nombre>]
-python -m nucleo preparar <archivo> --objetivo <columna> --decisiones <json>
+python -m pcapp_nucleo revisar <archivo> --objetivo <columna> [--hoja <nombre>]
+python -m pcapp_nucleo plantilla <archivo> --objetivo <columna> [--hoja <nombre>]
+python -m pcapp_nucleo preparar <archivo> --objetivo <columna> --decisiones <json>
     [--hoja <nombre>] [--test 0.3] [--semilla 42] [--fecha <columna> [--corte AAAA-MM-DD]]
-python -m nucleo sugerir-prueba <receta.json> [--sin-estimacion]
-python -m nucleo plantilla-pc <receta.json>
-python -m nucleo pc <receta.json> --config <pc.json> [--procesos N] [--modo adaptativo|secuencial|paralelo] [--reanudar]
+python -m pcapp_nucleo sugerir-prueba <receta.json> [--sin-estimacion]
+python -m pcapp_nucleo plantilla-pc <receta.json>
+python -m pcapp_nucleo pc <receta.json> --config <pc.json> [--procesos N] [--modo adaptativo|secuencial|paralelo] [--reanudar]
 ```
 
 Ejemplo completo con un dataset real:
 
 ```bash
-python -m nucleo plantilla datasets_prueba/diabetes.csv --objetivo Outcome
+python -m pcapp_nucleo plantilla datasets_prueba/diabetes.csv --objetivo Outcome
 # editar datasets_prueba/diabetes_decisiones.json
-python -m nucleo preparar datasets_prueba/diabetes.csv --objetivo Outcome \
+python -m pcapp_nucleo preparar datasets_prueba/diabetes.csv --objetivo Outcome \
     --decisiones datasets_prueba/diabetes_decisiones.json
-python -m nucleo sugerir-prueba datasets_prueba/diabetes_receta.json
-python -m nucleo plantilla-pc datasets_prueba/diabetes_receta.json
+python -m pcapp_nucleo sugerir-prueba datasets_prueba/diabetes_receta.json
+python -m pcapp_nucleo plantilla-pc datasets_prueba/diabetes_receta.json
 # editar datasets_prueba/diabetes_pc.json (niveles, modificables)
-python -m nucleo pc datasets_prueba/diabetes_receta.json --config datasets_prueba/diabetes_pc.json
+python -m pcapp_nucleo pc datasets_prueba/diabetes_receta.json --config datasets_prueba/diabetes_pc.json
 ```
 
 Archivos generados, junto al archivo de entrada: `<nombre>_revision.json`,
@@ -257,7 +257,7 @@ Códigos de salida:
 | `1` | Error de argumentos o de ejecución (archivo inexistente, hoja inexistente, decisiones o configuración no aplicables, receta de un archivo modificado, análisis de PC cancelado...). |
 | `2` | Dataset no válido (errores bloqueantes de validación). |
 
-En Windows, si la consola muestra mal las tildes, ejecute con `python -X utf8 -m nucleo ...`.
+En Windows, si la consola muestra mal las tildes, ejecute con `python -X utf8 -m pcapp_nucleo ...`.
 
 ## Entorno de desarrollo
 

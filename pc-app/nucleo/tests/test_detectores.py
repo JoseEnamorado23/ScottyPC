@@ -7,13 +7,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nucleo import detectores as det
-from nucleo.configuracion import ConfiguracionValidacion
-from nucleo.modelos import Severidad, TipoHallazgo, TipoObjetivo
-from nucleo.perfilado import perfilar_columnas
-from nucleo.revision import DETECTORES, DETECTORES_OBJETIVO, revisar_dataset
-from nucleo.utilidades import a_diccionario_serializable
-from nucleo.validacion import validar_dataset
+from pcapp_nucleo import detectores as det
+from pcapp_nucleo.configuracion import ConfiguracionValidacion
+from pcapp_nucleo.modelos import Severidad, TipoHallazgo, TipoObjetivo
+from pcapp_nucleo.perfilado import perfilar_columnas
+from pcapp_nucleo.revision import DETECTORES, DETECTORES_OBJETIVO, revisar_dataset
+from pcapp_nucleo.utilidades import a_diccionario_serializable
+from pcapp_nucleo.validacion import validar_dataset
 
 CONFIG = ConfiguracionValidacion()
 

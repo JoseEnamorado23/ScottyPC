@@ -4,7 +4,7 @@ import json
 
 import numpy as np
 
-from nucleo import (
+from pcapp_nucleo import (
     Hallazgo,
     InformeRevision,
     NivelProblema,
@@ -13,7 +13,7 @@ from nucleo import (
     ResultadoValidacion,
     Severidad,
 )
-from nucleo.utilidades import a_diccionario_serializable
+from pcapp_nucleo.utilidades import a_diccionario_serializable
 
 
 def test_contratos_se_serializan_a_json():

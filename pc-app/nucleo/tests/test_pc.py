@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nucleo.caracterizacion import (
+from pcapp_nucleo.caracterizacion import (
     AMBIGUA,
     CAUSA_DIRECTA,
     CAUSA_INDIRECTA,
@@ -17,8 +17,8 @@ from nucleo.caracterizacion import (
     SIN_CAMINO,
     caracterizar,
 )
-from nucleo.exportacion import exportar, matriz_frecuencias, matriz_mascara
-from nucleo.pc_bootstrap import (
+from pcapp_nucleo.exportacion import exportar, matriz_frecuencias, matriz_mascara
+from pcapp_nucleo.pc_bootstrap import (
     AristaAgregada,
     GrafoAgregado,
     ResultadoBootstrap,
@@ -26,15 +26,15 @@ from nucleo.pc_bootstrap import (
     ejecutar_bootstrap,
     frecuencia_par,
 )
-from nucleo.pc_config import (
+from pcapp_nucleo.pc_config import (
     ErrorConfiguracionPC,
     OrientacionManual,
     configuracion_desde_diccionario,
     configuracion_por_defecto,
     validar_configuracion,
 )
-from nucleo.preparacion import DecisionesUsuario, preparar
-from nucleo.utilidades import a_diccionario_serializable
+from pcapp_nucleo.preparacion import DecisionesUsuario, preparar
+from pcapp_nucleo.utilidades import a_diccionario_serializable
 
 N = 2000
 
@@ -544,7 +544,7 @@ def test_matriz_frecuencias_suma_dirigida_y_sin_orientar():
 
 
 def test_grafo_con_muchas_variables_y_un_solo_nivel(tmp_path):
-    from nucleo.exportacion import dibujar_grafo
+    from pcapp_nucleo.exportacion import dibujar_grafo
 
     variables = [f"variable_con_nombre_largo_{i}" for i in range(25)] + ["y"]
     aristas_grafo = [arista(variables[i], variables[i + 1]) for i in range(24)] + [arista(variables[3], "y")]
@@ -560,7 +560,7 @@ def test_grafo_con_muchas_variables_y_un_solo_nivel(tmp_path):
 
 
 def test_etiquetas_se_parten_en_limites_naturales():
-    from nucleo.exportacion import partir_etiqueta
+    from pcapp_nucleo.exportacion import partir_etiqueta
 
     assert partir_etiqueta("DiabetesPedigreeFunction") == "DiabetesPedigree\nFunction"
     assert partir_etiqueta("total sulfur dioxide") == "total sulfur\ndioxide"
@@ -571,7 +571,7 @@ def test_etiquetas_se_parten_en_limites_naturales():
 def test_adaptativo_descuenta_el_calentamiento_de_la_primera_corrida():
     import time
 
-    from nucleo.pc_bootstrap import _decidir_y_ejecutar
+    from pcapp_nucleo.pc_bootstrap import _decidir_y_ejecutar
 
     ejecutadas, en_paralelo = [], []
 
@@ -612,7 +612,7 @@ def test_progreso_detallado_incluye_fallidas_y_el_progreso_simple_no_cambia():
 
 
 def test_grupo_externo_reutilizable_con_el_mismo_resultado():
-    from nucleo.pc_bootstrap import crear_grupo_procesos
+    from pcapp_nucleo.pc_bootstrap import crear_grupo_procesos
 
     datos = preparados(colisionador(), "D")
     conf = configuracion(datos, corridas_bootstrap=10, procesos=2, modo_ejecucion="paralelo")

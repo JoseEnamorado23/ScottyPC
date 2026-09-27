@@ -7,8 +7,8 @@ from fastapi.testclient import TestClient
 
 from conftest import TOKEN, crear_cliente, esperar_trabajo, hasta_configuracion, ok
 
-from nucleo import caracterizacion, modelos, pc_bootstrap, pc_config, preparacion, seleccion_prueba
-from servidor import esquemas
+from pcapp_nucleo import caracterizacion, modelos, pc_bootstrap, pc_config, preparacion, seleccion_prueba
+from pcapp_servidor import esquemas
 
 
 # --- Token y CORS -----------------------------------------------------------------------------

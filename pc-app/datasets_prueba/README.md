@@ -1,6 +1,6 @@
 # Datasets de prueba
 
-Datasets para comprobar el comportamiento del núcleo (`nucleo`) con datos reales y
+Datasets para comprobar el comportamiento del núcleo (`pcapp_nucleo`) con datos reales y
 sintéticos. No forman parte del código del paquete.
 
 - La prueba `test_datasets_reales_se_revisan_sin_errores` carga y revisa automáticamente
@@ -22,10 +22,10 @@ sintéticos. No forman parte del código del paquete.
 Desde la raíz del repositorio (`pc-app/`), con el paquete instalado:
 
 ```bash
-python -m nucleo revisar datasets_prueba/dataset_prueba.csv --objetivo objetivo
-python -m nucleo plantilla datasets_prueba/diabetes.csv --objetivo Outcome
-python -m nucleo preparar datasets_prueba/diabetes.csv --objetivo Outcome --decisiones datasets_prueba/diabetes_decisiones.json
-python -m nucleo sugerir-prueba datasets_prueba/diabetes_receta.json
+python -m pcapp_nucleo revisar datasets_prueba/dataset_prueba.csv --objetivo objetivo
+python -m pcapp_nucleo plantilla datasets_prueba/diabetes.csv --objetivo Outcome
+python -m pcapp_nucleo preparar datasets_prueba/diabetes.csv --objetivo Outcome --decisiones datasets_prueba/diabetes_decisiones.json
+python -m pcapp_nucleo sugerir-prueba datasets_prueba/diabetes_receta.json
 ```
 
 Para XLSX con varias hojas, indique la hoja con `--hoja <nombre>`.

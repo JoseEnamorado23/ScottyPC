@@ -6,10 +6,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nucleo.modelos import Hallazgo, Severidad, TipoColumna, TipoObjetivo
-from nucleo.perfilado import perfilar_columna, perfilar_columnas
-from nucleo.revision import revisar_dataset
-from nucleo.utilidades import a_diccionario_serializable
+from pcapp_nucleo.modelos import Hallazgo, Severidad, TipoColumna, TipoObjetivo
+from pcapp_nucleo.perfilado import perfilar_columna, perfilar_columnas
+from pcapp_nucleo.revision import revisar_dataset
+from pcapp_nucleo.utilidades import a_diccionario_serializable
 
 from .conftest import OBJETIVO, construir_dataset
 

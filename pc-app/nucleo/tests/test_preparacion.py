@@ -11,9 +11,9 @@ import pytest
 importlib.import_module("sklearn.experimental.enable_iterative_imputer")
 from sklearn.impute import IterativeImputer  # noqa: E402
 
-from nucleo.analisis import analizar_dataset
-from nucleo.plantilla import generar_plantilla
-from nucleo.preparacion import (
+from pcapp_nucleo.analisis import analizar_dataset
+from pcapp_nucleo.plantilla import generar_plantilla
+from pcapp_nucleo.preparacion import (
     Codificacion,
     ConfiguracionSeparacion,
     ConversionUnidades,
@@ -28,7 +28,7 @@ from nucleo.preparacion import (
     receta_a_diccionario,
     receta_desde_diccionario,
 )
-from nucleo.utilidades import a_diccionario_serializable
+from pcapp_nucleo.utilidades import a_diccionario_serializable
 
 from .datos_sinteticos import construir_dataset_prueba
 

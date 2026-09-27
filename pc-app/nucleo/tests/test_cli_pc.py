@@ -7,10 +7,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nucleo.cli import SALIDA_CORRECTA, SALIDA_ERROR, main
-from nucleo.cli_preparacion import cargar_desde_receta
-from nucleo.pc_bootstrap import ejecutar_bootstrap
-from nucleo.pc_config import configuracion_desde_diccionario
+from pcapp_nucleo.cli import SALIDA_CORRECTA, SALIDA_ERROR, main
+from pcapp_nucleo.cli_preparacion import cargar_desde_receta
+from pcapp_nucleo.pc_bootstrap import ejecutar_bootstrap
+from pcapp_nucleo.pc_config import configuracion_desde_diccionario
 
 
 def ejecutar(capsys, *argumentos):

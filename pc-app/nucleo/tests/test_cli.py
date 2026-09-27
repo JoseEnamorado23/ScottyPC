@@ -9,8 +9,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from nucleo.analisis import analizar_dataset, resultado_a_diccionario
-from nucleo.cli import SALIDA_CORRECTA, SALIDA_DATASET_INVALIDO, SALIDA_ERROR, main
+from pcapp_nucleo.analisis import analizar_dataset, resultado_a_diccionario
+from pcapp_nucleo.cli import SALIDA_CORRECTA, SALIDA_DATASET_INVALIDO, SALIDA_ERROR, main
 
 from .conftest import OBJETIVO, construir_dataset
 from .datos_sinteticos import HALLAZGOS_ESPERADOS, construir_dataset_prueba
@@ -65,7 +65,7 @@ def test_analizar_dataset_invalido_no_ejecuta_revision(monkeypatch):
     def revision_prohibida(*_):
         raise AssertionError("la revisión no debe ejecutarse")
 
-    monkeypatch.setattr("nucleo.analisis.revisar_dataset", revision_prohibida)
+    monkeypatch.setattr("pcapp_nucleo.analisis.revisar_dataset", revision_prohibida)
 
     resultado = analizar_dataset(construir_dataset(filas=50), OBJETIVO)
 
@@ -256,7 +256,7 @@ def test_python_m_nucleo_en_subproceso(tmp_path):
     }
 
     proceso = subprocess.run(
-        [sys.executable, "-m", "nucleo", "revisar", str(ruta), "--objetivo", OBJETIVO],
+        [sys.executable, "-m", "pcapp_nucleo", "revisar", str(ruta), "--objetivo", OBJETIVO],
         capture_output=True,
         env=entorno,
         check=False,

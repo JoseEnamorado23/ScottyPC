@@ -9,12 +9,12 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from nucleo.analisis import analizar_dataset
-from nucleo.carga import cargar_dataset
-from nucleo.modelos import Severidad, TipoHallazgo
-from nucleo.plantilla import generar_plantilla
-from nucleo.preparacion import ConfiguracionSeparacion, TratamientoColumna, preparar
-from nucleo.seleccion_prueba import recomendar_prueba
+from pcapp_nucleo.analisis import analizar_dataset
+from pcapp_nucleo.carga import cargar_dataset
+from pcapp_nucleo.modelos import Severidad, TipoHallazgo
+from pcapp_nucleo.plantilla import generar_plantilla
+from pcapp_nucleo.preparacion import ConfiguracionSeparacion, TratamientoColumna, preparar
+from pcapp_nucleo.seleccion_prueba import recomendar_prueba
 
 DATASETS = Path(__file__).resolve().parents[2] / "datasets_prueba"
 DENGUE = "Dengue Dataset 2023-2025.xlsx"

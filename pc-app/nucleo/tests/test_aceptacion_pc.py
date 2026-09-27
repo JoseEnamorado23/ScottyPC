@@ -10,13 +10,13 @@ from pathlib import Path
 
 import pytest
 
-from nucleo.analisis import analizar_dataset
-from nucleo.caracterizacion import CAUSA_DIRECTA, SIN_CAMINO, caracterizar
-from nucleo.carga import cargar_dataset
-from nucleo.pc_bootstrap import agregar, ejecutar_bootstrap
-from nucleo.pc_config import ConfiguracionPC
-from nucleo.plantilla import generar_plantilla
-from nucleo.preparacion import Codificacion, TratamientoColumna, preparar
+from pcapp_nucleo.analisis import analizar_dataset
+from pcapp_nucleo.caracterizacion import CAUSA_DIRECTA, SIN_CAMINO, caracterizar
+from pcapp_nucleo.carga import cargar_dataset
+from pcapp_nucleo.pc_bootstrap import agregar, ejecutar_bootstrap
+from pcapp_nucleo.pc_config import ConfiguracionPC
+from pcapp_nucleo.plantilla import generar_plantilla
+from pcapp_nucleo.preparacion import Codificacion, TratamientoColumna, preparar
 
 pytestmark = pytest.mark.lento
 

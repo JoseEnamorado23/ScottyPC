@@ -3,15 +3,15 @@
 import pandas as pd
 import pytest
 
-from nucleo.carga import (
+from pcapp_nucleo.carga import (
     ErrorCarga,
     cargar_csv,
     cargar_dataset,
     cargar_excel,
     obtener_hojas_excel,
 )
-from nucleo.modelos import CodigoValidacion
-from nucleo.validacion import validar_dataset
+from pcapp_nucleo.modelos import CodigoValidacion
+from pcapp_nucleo.validacion import validar_dataset
 
 from .conftest import OBJETIVO
 

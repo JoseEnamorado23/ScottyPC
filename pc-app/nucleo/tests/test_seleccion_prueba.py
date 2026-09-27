@@ -7,9 +7,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nucleo.configuracion import ConfiguracionValidacion
-from nucleo.preparacion import DecisionesUsuario, TratamientoColumna, preparar
-from nucleo.seleccion_prueba import (
+from pcapp_nucleo.configuracion import ConfiguracionValidacion
+from pcapp_nucleo.preparacion import DecisionesUsuario, TratamientoColumna, preparar
+from pcapp_nucleo.seleccion_prueba import (
     CHISQ,
     FISHERZ,
     KCI,
@@ -18,7 +18,7 @@ from nucleo.seleccion_prueba import (
     discretizar,
     recomendar_prueba,
 )
-from nucleo.utilidades import a_diccionario_serializable
+from pcapp_nucleo.utilidades import a_diccionario_serializable
 
 
 def binario(logito, rng):

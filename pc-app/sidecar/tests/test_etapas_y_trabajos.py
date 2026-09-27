@@ -4,8 +4,8 @@ import time
 
 from conftest import crear_cliente, esperar_trabajo, hasta_configuracion, hasta_decisiones, ok
 
-from servidor.almacenamiento.base_datos import ahora
-from servidor.almacenamiento.repositorio import Trabajo
+from pcapp_servidor.almacenamiento.base_datos import ahora
+from pcapp_servidor.almacenamiento.repositorio import Trabajo
 
 
 def test_requisitos_de_cada_etapa(cliente, diabetes):

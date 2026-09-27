@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nucleo.cli import SALIDA_CORRECTA, SALIDA_DATASET_INVALIDO, SALIDA_ERROR, main
+from pcapp_nucleo.cli import SALIDA_CORRECTA, SALIDA_DATASET_INVALIDO, SALIDA_ERROR, main
 
 from .datos_sinteticos import construir_dataset_prueba
 

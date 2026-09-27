@@ -7,18 +7,18 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nucleo import detectores as det
-from nucleo.configuracion import ConfiguracionValidacion
-from nucleo.detectores_objetivo import (
+from pcapp_nucleo import detectores as det
+from pcapp_nucleo.configuracion import ConfiguracionValidacion
+from pcapp_nucleo.detectores_objetivo import (
     detectar_faltantes_dependientes_objetivo,
     detectar_tamano_efectivo,
 )
-from nucleo.detectores_relaciones import detectar_grupos_redundantes
-from nucleo.fechas import interpretar_fechas_texto
-from nucleo.modelos import Hallazgo, Severidad, TipoColumna, TipoHallazgo, TipoObjetivo
-from nucleo.perfilado import perfilar_columna, perfilar_columnas
-from nucleo.revision import DETECTORES_CON_OBJETIVO, revisar_dataset
-from nucleo.utilidades import a_diccionario_serializable
+from pcapp_nucleo.detectores_relaciones import detectar_grupos_redundantes
+from pcapp_nucleo.fechas import interpretar_fechas_texto
+from pcapp_nucleo.modelos import Hallazgo, Severidad, TipoColumna, TipoHallazgo, TipoObjetivo
+from pcapp_nucleo.perfilado import perfilar_columna, perfilar_columnas
+from pcapp_nucleo.revision import DETECTORES_CON_OBJETIVO, revisar_dataset
+from pcapp_nucleo.utilidades import a_diccionario_serializable
 
 CONFIG = ConfiguracionValidacion()
 

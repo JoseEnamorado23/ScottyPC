@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from servidor.aplicacion import crear_aplicacion
-from servidor.configuracion import ConfiguracionServidor
+from pcapp_servidor.aplicacion import crear_aplicacion
+from pcapp_servidor.configuracion import ConfiguracionServidor
 
 DATASETS = Path(__file__).resolve().parents[2] / "datasets_prueba"
 DIABETES = DATASETS / "diabetes.csv"

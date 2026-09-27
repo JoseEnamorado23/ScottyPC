@@ -1,6 +1,6 @@
 # Sidecar (servidor local)
 
-Servidor FastAPI local que expone el núcleo (`nucleo`) por HTTP. Tauri lo arranca como
+Servidor FastAPI local que expone el núcleo (`pcapp_nucleo`) por HTTP. Tauri lo arranca como
 proceso aparte y el frontend en React le hace peticiones.
 
 ## Instalación
@@ -13,14 +13,16 @@ pip install -e ../nucleo           # primero el núcleo, en modo editable
 pip install -e ".[dev]"
 ```
 
-> El núcleo **no** se declara como dependencia en `pyproject.toml`: en PyPI existe un
-> paquete ajeno llamado `nucleo`, y declararlo podría instalarlo por error. Al arrancar,
-> el servidor comprueba que el núcleo instalado sea el de pc-app.
+> Los paquetes se llaman `pcapp_nucleo` y `pcapp_servidor` para no chocar con paquetes de
+> PyPI (existe uno ajeno llamado `nucleo`). `pcapp_nucleo` no está publicado en PyPI, así que
+> debe instalarse antes y en modo editable; si falta, pip se detiene con un error en vez de
+> instalar algo ajeno. Al arrancar, el servidor comprueba además que el núcleo cargado sea
+> el de pc-app.
 
 ## Arranque
 
 ```bash
-python -m servidor --datos <carpeta> [--puerto N] [--pid-padre N] [--procesos N]
+python -m pcapp_servidor --datos <carpeta> [--puerto N] [--pid-padre N] [--procesos N]
                    [--modo-desarrollo [--sin-token]]
 ```
 
