@@ -53,5 +53,8 @@ Notas:
 - En `MASTER_CHART_F1000Research.xlsx` el nombre del objetivo termina en un espacio: debe
   escribirse entre comillas e incluir ese espacio:
   `--objetivo "GROUPS: DENGUE FEVER OR COMPLICATED DENGUE "`.
-- `NSW_AFDC_CS.csv` se usa en las pruebas locales, pero por decisión del usuario no se
-  incluye en el repositorio.
+- `NSW_AFDC_CS.csv` es un dataset público del programa de empleo National Supported
+  Work (NSW), estudiado por LaLonde (1986); por sus columnas (`afdc75`, `nchildren75`,
+  `sample_lalonde`, `sample_dw`...) corresponde a la muestra de beneficiarias de AFDC.
+  Está incluido en el repositorio para que las pruebas que lo usan funcionen en
+  cualquier computador.
