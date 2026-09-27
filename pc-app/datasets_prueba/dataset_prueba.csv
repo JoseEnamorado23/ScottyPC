@@ -1,0 +1,204 @@
+id,edad,peso,altura,altura_m,sexo,nivel,fecha,observacion,minimo,maximo,ancho,objetivo
+1,34,57.3,177.3,1.7730000000000001,M,medio,2024-01-01,El participante 0 mostró un desempeño notable en álgebra durante la sesión 1.,31,82,51,si
+2,24,49.4,182.8,1.828,F,bajo,2024-01-02,El participante 1 mostró un desempeño notable en lectura crítica durante la sesión 2.,29,83,54,no
+3,19,64.9,178.3,1.7830000000000001,M,alto,2024-01-03,El participante 2 mostró un desempeño notable en biología durante la sesión 3.,8,53,45,no
+4,56,67.5,159.2,1.5919999999999999,M,alto,2024-01-04,El participante 3 mostró un desempeño notable en historia durante la sesión 4.,32,68,36,no
+5,37,,155.5,1.555,F,bajo,2024-01-05,El participante 4 mostró un desempeño notable en programación durante la sesión 5.,17,26,9,no
+6,25,58.9,168.6,1.686,M,alto,2024-01-06,El participante 5 mostró un desempeño notable en álgebra durante la sesión 6.,33,85,52,no
+7,18,65.8,175.8,1.758,M,alto,2024-01-07,El participante 6 mostró un desempeño notable en lectura crítica durante la sesión 7.,27,75,48,no
+8,39,77.8,172.6,1.726,M,bajo,2024-01-08,El participante 7 mostró un desempeño notable en biología durante la sesión 8.,19,32,13,no
+9,15,56.9,184.3,1.8430000000000002,M,bajo,2024-01-09,El participante 8 mostró un desempeño notable en historia durante la sesión 9.,5,47,42,no
+10,39,66.8,174.8,1.7480000000000002,F,bajo,2024-01-10,El participante 9 mostró un desempeño notable en programación durante la sesión 10.,29,51,22,si
+11,24,63.9,173.8,1.7380000000000002,F,medio,2024-01-11,El participante 10 mostró un desempeño notable en álgebra durante la sesión 11.,25,64,39,no
+12,56,52.0,161.4,1.614,M,bajo,2024-01-12,El participante 11 mostró un desempeño notable en lectura crítica durante la sesión 12.,6,51,45,no
+13,34,66.6,158.0,1.58,?,medio,2024-01-13,El participante 12 mostró un desempeño notable en biología durante la sesión 13.,22,27,5,no
+14,49,80.2,181.4,1.814,F,bajo,2024-01-14,El participante 13 mostró un desempeño notable en historia durante la sesión 14.,2,12,10,no
+15,31,92.5,168.4,1.6840000000000002,M,bajo,2024-01-15,El participante 14 mostró un desempeño notable en programación durante la sesión 15.,10,22,12,no
+16,59,52.0,175.3,1.7530000000000001,F,alto,2024-01-16,El participante 15 mostró un desempeño notable en álgebra durante la sesión 16.,35,84,49,no
+17,56,78.1,155.6,1.556,M,alto,2024-01-17,El participante 16 mostró un desempeño notable en lectura crítica durante la sesión 17.,36,78,42,no
+18,22,80.1,164.1,1.641,F,alto,2024-01-18,El participante 17 mostró un desempeño notable en biología durante la sesión 1.,2,28,26,no
+19,53,81.3,156.4,1.564,M,alto,2024-01-19,El participante 18 mostró un desempeño notable en historia durante la sesión 2.,18,49,31,si
+20,25,63.1,161.0,1.61,F,bajo,2024-01-20,El participante 19 mostró un desempeño notable en programación durante la sesión 3.,2,24,22,no
+21,56,71.4,176.1,1.761,F,alto,2024-01-21,El participante 20 mostró un desempeño notable en álgebra durante la sesión 4.,22,81,59,no
+22,56,61.2,154.7,1.547,M,bajo,2024-01-22,El participante 21 mostró un desempeño notable en lectura crítica durante la sesión 5.,31,47,16,no
+23,24,74.1,163.2,1.632,M,medio,2024-01-23,El participante 22 mostró un desempeño notable en biología durante la sesión 6.,22,33,11,no
+24,56,81.1,169.5,1.695,M,medio,2024-01-24,El participante 23 mostró un desempeño notable en historia durante la sesión 7.,6,12,6,no
+25,33,65.2,162.0,1.62,M,alto,2024-01-25,El participante 24 mostró un desempeño notable en programación durante la sesión 8.,31,65,34,no
+26,21,70.3,165.7,1.6569999999999998,F,alto,2024-01-26,El participante 25 mostró un desempeño notable en álgebra durante la sesión 9.,2,51,49,no
+27,29,77.4,166.0,1.66,M,medio,2024-01-27,El participante 26 mostró un desempeño notable en lectura crítica durante la sesión 10.,12,27,15,no
+28,26,75.8,171.8,1.7180000000000002,F,bajo,2024-01-28,El participante 27 mostró un desempeño notable en biología durante la sesión 11.,12,67,55,si
+29,40,60.6,164.1,1.641,M,bajo,2024-01-29,El participante 28 mostró un desempeño notable en historia durante la sesión 12.,36,72,36,no
+30,25,83.0,170.5,1.705,M,medio,2024-01-30,El participante 29 mostró un desempeño notable en programación durante la sesión 13.,26,60,34,no
+31,15,,168.5,1.685,M,alto,2024-01-31,El participante 30 mostró un desempeño notable en álgebra durante la sesión 14.,32,50,18,no
+32,42,69.6,171.8,1.7180000000000002,F,bajo,2024-02-01,El participante 31 mostró un desempeño notable en lectura crítica durante la sesión 15.,4,48,44,no
+33,54,68.4,170.0,1.7,F,alto,2024-02-02,El participante 32 mostró un desempeño notable en biología durante la sesión 16.,22,43,21,no
+34,31,75.6,182.9,1.829,F,alto,2024-02-03,El participante 33 mostró un desempeño notable en historia durante la sesión 17.,34,83,49,no
+35,49,79.2,162.0,1.62,M,alto,2024-02-04,El participante 34 mostró un desempeño notable en programación durante la sesión 1.,11,63,52,no
+36,31,54.0,178.8,1.788,M,bajo,2024-02-05,El participante 35 mostró un desempeño notable en álgebra durante la sesión 2.,38,53,15,no
+37,19,58.4,164.4,1.6440000000000001,F,bajo,2024-02-06,El participante 36 mostró un desempeño notable en lectura crítica durante la sesión 3.,18,23,5,si
+38,55,49.0,159.4,1.594,M,bajo,2024-02-07,El participante 37 mostró un desempeño notable en biología durante la sesión 4.,25,57,32,no
+39,42,72.8,178.9,1.7890000000000001,F,alto,2024-02-08,El participante 38 mostró un desempeño notable en historia durante la sesión 5.,7,29,22,no
+40,16,72.2,164.0,1.64,M,bajo,2024-02-09,El participante 39 mostró un desempeño notable en programación durante la sesión 6.,29,57,28,no
+41,53,64.1,164.5,1.645,F,bajo,2024-02-10,El participante 40 mostró un desempeño notable en álgebra durante la sesión 7.,16,61,45,no
+42,59,55.9,155.5,1.555,F,alto,2024-02-11,El participante 41 mostró un desempeño notable en lectura crítica durante la sesión 8.,6,23,17,no
+43,19,82.4,149.1,1.4909999999999999,M,medio,2024-02-12,El participante 42 mostró un desempeño notable en biología durante la sesión 9.,25,81,56,no
+44,36,85.6,173.7,1.7369999999999999,M,medio,2024-02-13,El participante 43 mostró un desempeño notable en historia durante la sesión 10.,25,40,15,no
+45,51,85.4,157.5,1.575,F,bajo,2024-02-14,El participante 44 mostró un desempeño notable en programación durante la sesión 11.,9,19,10,no
+46,35,68.5,175.0,1.75,F,alto,2024-02-15,El participante 45 mostró un desempeño notable en álgebra durante la sesión 12.,38,81,43,si
+47,22,69.5,184.6,1.8459999999999999,F,alto,2024-02-16,El participante 46 mostró un desempeño notable en lectura crítica durante la sesión 13.,7,38,31,no
+48,52,69.5,167.0,1.67,F,medio,2024-02-17,El participante 47 mostró un desempeño notable en biología durante la sesión 14.,37,76,39,no
+49,31,66.5,157.9,1.579,M,bajo,2024-02-18,El participante 48 mostró un desempeño notable en historia durante la sesión 15.,18,36,18,no
+50,42,54.5,171.5,1.715,M,medio,2024-02-19,El participante 49 mostró un desempeño notable en programación durante la sesión 16.,13,62,49,no
+51,43,61.3,174.9,1.749,M,bajo,2024-02-20,El participante 50 mostró un desempeño notable en álgebra durante la sesión 17.,21,79,58,no
+52,42,77.0,165.6,1.656,F,alto,2024-02-21,El participante 51 mostró un desempeño notable en lectura crítica durante la sesión 1.,27,80,53,no
+53,40,68.0,168.2,1.682,F,bajo,2024-02-22,El participante 52 mostró un desempeño notable en biología durante la sesión 2.,5,49,44,no
+54,55,62.8,180.0,1.8,M,medio,2024-02-23,El participante 53 mostró un desempeño notable en historia durante la sesión 3.,6,16,10,no
+55,49,65.2,179.4,1.794,F,alto,2024-02-24,El participante 54 mostró un desempeño notable en programación durante la sesión 4.,16,46,30,si
+56,42,87.2,174.4,1.744,F,bajo,2024-02-25,El participante 55 mostró un desempeño notable en álgebra durante la sesión 5.,24,82,58,no
+57,34,84.4,160.2,1.6019999999999999,M,alto,2024-02-26,El participante 56 mostró un desempeño notable en lectura crítica durante la sesión 6.,0,38,38,no
+58,20,80.1,167.5,1.675,F,bajo,2024-02-27,El participante 57 mostró un desempeño notable en biología durante la sesión 7.,24,74,50,no
+59,34,69.9,173.4,1.734,M,bajo,2024-02-28,El participante 58 mostró un desempeño notable en historia durante la sesión 8.,16,35,19,no
+60,26,54.7,166.1,1.661,M,bajo,2024-02-29,El participante 59 mostró un desempeño notable en programación durante la sesión 9.,8,46,38,no
+61,57,70.1,162.5,1.625,F,medio,2024-03-01,El participante 60 mostró un desempeño notable en álgebra durante la sesión 10.,0,34,34,no
+62,40,64.5,161.1,1.611,M,alto,2024-03-02,El participante 61 mostró un desempeño notable en lectura crítica durante la sesión 11.,13,19,6,no
+63,54,74.8,162.3,1.6230000000000002,M,bajo,2024-03-03,El participante 62 mostró un desempeño notable en biología durante la sesión 12.,5,44,39,no
+64,39,79.3,162.0,1.62,M,bajo,2024-03-04,El participante 63 mostró un desempeño notable en historia durante la sesión 13.,34,82,48,si
+65,18,60.5,163.9,1.639,M,bajo,2024-03-05,El participante 64 mostró un desempeño notable en programación durante la sesión 14.,35,63,28,no
+66,37,82.5,178.3,1.7830000000000001,F,bajo,2024-03-06,El participante 65 mostró un desempeño notable en álgebra durante la sesión 15.,8,26,18,no
+67,59,68.6,160.8,1.608,M,medio,2024-03-07,El participante 66 mostró un desempeño notable en lectura crítica durante la sesión 16.,20,45,25,no
+68,17,69.0,176.0,1.76,M,medio,2024-03-08,El participante 67 mostró un desempeño notable en biología durante la sesión 17.,11,64,53,no
+69,28,61.9,171.8,1.7180000000000002,M,medio,2024-03-09,El participante 68 mostró un desempeño notable en historia durante la sesión 1.,20,31,11,no
+70,17,66.0,169.3,1.693,F,medio,2024-03-10,El participante 69 mostró un desempeño notable en programación durante la sesión 2.,18,60,42,no
+71,54,69.0,160.6,1.6059999999999999,F,alto,2024-03-11,El participante 70 mostró un desempeño notable en álgebra durante la sesión 3.,35,93,58,no
+72,32,65.8,163.9,1.639,F,bajo,2024-03-12,El participante 71 mostró un desempeño notable en lectura crítica durante la sesión 4.,7,35,28,no
+73,37,64.5,185.8,1.858,M,bajo,2024-03-13,El participante 72 mostró un desempeño notable en biología durante la sesión 5.,23,58,35,si
+74,53,63.7,168.9,1.689,M,alto,2024-03-14,El participante 73 mostró un desempeño notable en historia durante la sesión 6.,19,25,6,no
+75,27,90.4,172.8,1.7280000000000002,F,alto,2024-03-15,El participante 74 mostró un desempeño notable en programación durante la sesión 7.,7,59,52,no
+76,26,65.7,174.0,1.74,F,alto,2024-03-16,El participante 75 mostró un desempeño notable en álgebra durante la sesión 8.,14,51,37,no
+77,35,76.3,177.5,1.775,F,medio,2024-03-17,El participante 76 mostró un desempeño notable en lectura crítica durante la sesión 9.,30,79,49,no
+78,24,,165.9,1.659,M,medio,2024-03-18,El participante 77 mostró un desempeño notable en biología durante la sesión 10.,17,61,44,no
+79,31,35.9,162.5,1.625,F,alto,2024-03-19,El participante 78 mostró un desempeño notable en historia durante la sesión 11.,24,67,43,no
+80,38,102.3,167.5,1.675,F,medio,2024-03-20,El participante 79 mostró un desempeño notable en programación durante la sesión 12.,24,78,54,no
+81,50,68.0,165.7,1.6569999999999998,M,medio,2024-03-21,El participante 80 mostró un desempeño notable en álgebra durante la sesión 13.,12,49,37,no
+82,49,61.9,175.1,1.751,F,bajo,2024-03-22,El participante 81 mostró un desempeño notable en lectura crítica durante la sesión 14.,34,42,8,si
+83,45,82.5,169.7,1.6969999999999998,F,alto,2024-03-23,El participante 82 mostró un desempeño notable en biología durante la sesión 15.,37,86,49,no
+84,28,84.3,170.2,1.702,M,medio,2024-03-24,El participante 83 mostró un desempeño notable en historia durante la sesión 16.,14,53,39,no
+85,18,61.7,169.3,1.693,F,alto,2024-03-25,El participante 84 mostró un desempeño notable en programación durante la sesión 17.,2,47,45,no
+86,51,58.8,179.1,1.791,M,bajo,2024-03-26,El participante 85 mostró un desempeño notable en álgebra durante la sesión 1.,20,31,11,no
+87,37,58.2,163.1,1.631,M,alto,2024-03-27,El participante 86 mostró un desempeño notable en lectura crítica durante la sesión 2.,29,61,32,no
+88,19,71.8,163.7,1.6369999999999998,F,alto,2024-03-28,El participante 87 mostró un desempeño notable en biología durante la sesión 3.,4,56,52,no
+89,16,69.8,176.0,1.76,M,alto,2024-03-29,El participante 88 mostró un desempeño notable en historia durante la sesión 4.,8,14,6,no
+90,25,76.6,167.0,1.67,F,bajo,2024-03-30,El participante 89 mostró un desempeño notable en programación durante la sesión 5.,32,46,14,no
+91,21,66.7,171.2,1.712,M,alto,2024-03-31,El participante 90 mostró un desempeño notable en álgebra durante la sesión 6.,21,32,11,si
+92,53,62.4,161.4,1.614,M,alto,2024-04-01,El participante 91 mostró un desempeño notable en lectura crítica durante la sesión 7.,14,47,33,no
+93,58,69.3,168.2,1.682,F,medio,2024-04-02,El participante 92 mostró un desempeño notable en biología durante la sesión 8.,35,66,31,no
+94,46,61.7,171.9,1.719,F,alto,2024-04-03,El participante 93 mostró un desempeño notable en historia durante la sesión 9.,39,82,43,no
+95,25,75.3,156.1,1.561,M,bajo,2024-04-04,El participante 94 mostró un desempeño notable en programación durante la sesión 10.,15,20,5,no
+96,26,72.6,161.7,1.617,F,alto,2024-04-05,El participante 95 mostró un desempeño notable en álgebra durante la sesión 11.,29,42,13,no
+97,29,74.1,171.8,1.7180000000000002,M,bajo,2024-04-06,El participante 96 mostró un desempeño notable en lectura crítica durante la sesión 12.,29,65,36,no
+98,41,73.0,188.2,1.882,M,alto,2024-04-07,El participante 97 mostró un desempeño notable en biología durante la sesión 13.,30,80,50,no
+99,24,63.4,172.2,1.722,M,bajo,2024-04-08,El participante 98 mostró un desempeño notable en historia durante la sesión 14.,4,27,23,no
+100,28,49.0,167.5,1.675,?,bajo,2024-04-09,El participante 99 mostró un desempeño notable en programación durante la sesión 15.,26,41,15,si
+101,24,81.9,160.4,1.604,M,alto,2024-04-10,El participante 100 mostró un desempeño notable en álgebra durante la sesión 16.,34,67,33,no
+102,54,79.9,171.5,1.715,M,bajo,2024-04-11,El participante 101 mostró un desempeño notable en lectura crítica durante la sesión 17.,4,30,26,no
+103,49,59.8,145.5,1.455,M,bajo,2024-04-12,El participante 102 mostró un desempeño notable en biología durante la sesión 1.,38,60,22,no
+104,16,77.9,167.6,1.676,F,alto,2024-04-13,El participante 103 mostró un desempeño notable en historia durante la sesión 2.,33,38,5,no
+105,18,69.7,165.0,1.65,M,medio,2024-04-14,El participante 104 mostró un desempeño notable en programación durante la sesión 3.,24,43,19,no
+106,33,67.2,163.3,1.633,M,bajo,2024-04-15,El participante 105 mostró un desempeño notable en álgebra durante la sesión 4.,18,38,20,no
+107,55,67.9,188.9,1.889,M,alto,2024-04-16,El participante 106 mostró un desempeño notable en lectura crítica durante la sesión 5.,9,63,54,no
+108,56,58.9,145.7,1.4569999999999999,M,alto,2024-04-17,El participante 107 mostró un desempeño notable en biología durante la sesión 6.,27,68,41,no
+109,31,66.6,167.8,1.6780000000000002,F,bajo,2024-04-18,El participante 108 mostró un desempeño notable en historia durante la sesión 7.,12,41,29,si
+110,21,68.6,168.6,1.686,M,medio,2024-04-19,El participante 109 mostró un desempeño notable en programación durante la sesión 8.,30,77,47,no
+111,16,70.2,172.2,1.722,F,alto,2024-04-20,El participante 110 mostró un desempeño notable en álgebra durante la sesión 9.,3,33,30,no
+112,53,61.1,153.6,1.536,F,bajo,2024-04-21,El participante 111 mostró un desempeño notable en lectura crítica durante la sesión 10.,1,43,42,no
+113,27,72.2,163.8,1.6380000000000001,M,medio,2024-04-22,El participante 112 mostró un desempeño notable en biología durante la sesión 11.,13,46,33,no
+114,59,61.6,154.5,1.545,F,bajo,2024-04-23,El participante 113 mostró un desempeño notable en historia durante la sesión 12.,36,68,32,no
+115,18,62.4,166.9,1.669,M,medio,2024-04-24,El participante 114 mostró un desempeño notable en programación durante la sesión 13.,17,62,45,no
+116,33,68.9,169.8,1.6980000000000002,F,medio,2024-04-25,El participante 115 mostró un desempeño notable en álgebra durante la sesión 14.,0,33,33,no
+117,21,62.9,169.5,1.695,M,bajo,2024-04-26,El participante 116 mostró un desempeño notable en lectura crítica durante la sesión 15.,38,55,17,no
+118,46,56.6,166.2,1.662,M,alto,2024-04-27,El participante 117 mostró un desempeño notable en biología durante la sesión 16.,33,46,13,si
+119,36,62.2,169.7,1.6969999999999998,M,bajo,2024-04-28,El participante 118 mostró un desempeño notable en historia durante la sesión 17.,33,58,25,no
+120,19,60.3,169.6,1.696,F,bajo,2024-04-29,El participante 119 mostró un desempeño notable en programación durante la sesión 1.,21,67,46,no
+121,31,69.4,171.6,1.716,F,alto,2024-04-30,El participante 120 mostró un desempeño notable en álgebra durante la sesión 2.,4,12,8,no
+122,18,75.4,168.2,1.682,F,medio,2024-05-01,El participante 121 mostró un desempeño notable en lectura crítica durante la sesión 3.,14,33,19,no
+123,16,74.4,152.0,1.52,F,medio,2024-05-02,El participante 122 mostró un desempeño notable en biología durante la sesión 4.,0,54,54,no
+124,36,60.6,160.7,1.607,F,medio,2024-05-03,El participante 123 mostró un desempeño notable en historia durante la sesión 5.,31,65,34,no
+125,40,64.0,171.1,1.7109999999999999,F,alto,2024-05-04,El participante 124 mostró un desempeño notable en programación durante la sesión 6.,38,87,49,no
+126,57,70.9,159.8,1.598,M,alto,2024-05-05,El participante 125 mostró un desempeño notable en álgebra durante la sesión 7.,25,46,21,no
+127,59,50.1,160.8,1.608,F,bajo,2024-05-06,El participante 126 mostró un desempeño notable en lectura crítica durante la sesión 8.,10,55,45,si
+128,23,77.3,169.0,1.69,M,alto,2024-05-07,El participante 127 mostró un desempeño notable en biología durante la sesión 9.,32,75,43,no
+129,57,81.3,167.6,1.676,F,alto,2024-05-08,El participante 128 mostró un desempeño notable en historia durante la sesión 10.,23,60,37,no
+130,21,75.5,176.0,1.76,F,medio,2024-05-09,El participante 129 mostró un desempeño notable en programación durante la sesión 11.,26,36,10,no
+131,21,43.9,172.6,1.726,F,bajo,2024-05-10,El participante 130 mostró un desempeño notable en álgebra durante la sesión 12.,29,63,34,no
+132,17,70.8,164.1,1.641,M,bajo,2024-05-11,El participante 131 mostró un desempeño notable en lectura crítica durante la sesión 13.,25,50,25,no
+133,59,47.5,169.0,1.69,F,bajo,2024-05-12,El participante 132 mostró un desempeño notable en biología durante la sesión 14.,7,62,55,no
+134,53,78.1,142.3,1.423,F,medio,2024-05-13,El participante 133 mostró un desempeño notable en historia durante la sesión 15.,19,27,8,no
+135,58,43.9,160.8,1.608,M,bajo,2024-05-14,El participante 134 mostró un desempeño notable en programación durante la sesión 16.,36,80,44,no
+136,57,52.3,166.7,1.6669999999999998,M,medio,2024-05-15,El participante 135 mostró un desempeño notable en álgebra durante la sesión 17.,27,43,16,si
+137,36,71.8,146.5,1.465,M,alto,2024-05-16,El participante 136 mostró un desempeño notable en lectura crítica durante la sesión 1.,33,51,18,no
+138,56,52.1,165.1,1.651,F,bajo,2024-05-17,El participante 137 mostró un desempeño notable en biología durante la sesión 2.,25,46,21,no
+139,57,37.5,170.3,1.703,F,bajo,2024-05-18,El participante 138 mostró un desempeño notable en historia durante la sesión 3.,30,88,58,no
+140,23,55.9,177.3,1.7730000000000001,F,alto,2024-05-19,El participante 139 mostró un desempeño notable en programación durante la sesión 4.,15,54,39,no
+141,56,72.7,171.6,1.716,F,alto,2024-05-20,El participante 140 mostró un desempeño notable en álgebra durante la sesión 5.,27,54,27,no
+142,30,54.8,185.0,1.85,M,bajo,2024-05-21,El participante 141 mostró un desempeño notable en lectura crítica durante la sesión 6.,30,41,11,no
+143,57,55.7,181.8,1.818,F,alto,2024-05-22,El participante 142 mostró un desempeño notable en biología durante la sesión 7.,20,38,18,no
+144,45,69.7,153.3,1.5330000000000001,F,bajo,2024-05-23,El participante 143 mostró un desempeño notable en historia durante la sesión 8.,19,73,54,no
+145,50,67.8,166.0,1.66,F,medio,2024-05-24,El participante 144 mostró un desempeño notable en programación durante la sesión 9.,37,84,47,si
+146,52,81.5,166.6,1.666,F,alto,2024-05-25,El participante 145 mostró un desempeño notable en álgebra durante la sesión 10.,33,63,30,no
+147,42,77.2,168.8,1.6880000000000002,F,alto,2024-05-26,El participante 146 mostró un desempeño notable en lectura crítica durante la sesión 11.,23,81,58,no
+148,57,64.1,162.8,1.6280000000000001,M,bajo,2024-05-27,El participante 147 mostró un desempeño notable en biología durante la sesión 12.,26,77,51,no
+149,28,60.0,173.5,1.735,F,medio,2024-05-28,El participante 148 mostró un desempeño notable en historia durante la sesión 13.,23,61,38,no
+150,50,79.7,174.7,1.7469999999999999,F,alto,2024-05-29,El participante 149 mostró un desempeño notable en programación durante la sesión 14.,36,89,53,no
+151,43,,154.3,1.5430000000000001,F,alto,2024-05-30,El participante 150 mostró un desempeño notable en álgebra durante la sesión 15.,24,57,33,no
+152,51,55.7,176.5,1.765,F,alto,2024-05-31,El participante 151 mostró un desempeño notable en lectura crítica durante la sesión 16.,35,60,25,no
+153,56,72.9,162.2,1.6219999999999999,F,alto,2024-06-01,El participante 152 mostró un desempeño notable en biología durante la sesión 17.,22,65,43,no
+154,35,61.1,177.5,1.775,M,alto,2024-06-02,El participante 153 mostró un desempeño notable en historia durante la sesión 1.,38,47,9,si
+155,23,50.7,173.1,1.7309999999999999,M,bajo,2024-06-03,El participante 154 mostró un desempeño notable en programación durante la sesión 2.,30,88,58,no
+156,45,74.6,166.8,1.6680000000000001,M,medio,2024-06-04,El participante 155 mostró un desempeño notable en álgebra durante la sesión 3.,14,35,21,no
+157,45,77.8,185.9,1.859,F,alto,2024-06-05,El participante 156 mostró un desempeño notable en lectura crítica durante la sesión 4.,21,60,39,no
+158,38,54.6,176.0,1.76,M,medio,2024-06-06,El participante 157 mostró un desempeño notable en biología durante la sesión 5.,30,39,9,no
+159,28,63.8,168.3,1.683,M,medio,2024-06-07,El participante 158 mostró un desempeño notable en historia durante la sesión 6.,9,49,40,no
+160,42,62.6,170.2,1.702,F,medio,2024-06-08,El participante 159 mostró un desempeño notable en programación durante la sesión 7.,38,94,56,no
+161,32,66.0,189.7,1.8969999999999998,F,bajo,2024-06-09,El participante 160 mostró un desempeño notable en álgebra durante la sesión 8.,7,57,50,no
+162,45,62.9,180.8,1.808,F,medio,2024-06-10,El participante 161 mostró un desempeño notable en lectura crítica durante la sesión 9.,33,78,45,no
+163,29,51.3,176.5,1.765,F,alto,2024-06-11,El participante 162 mostró un desempeño notable en biología durante la sesión 10.,28,74,46,si
+164,17,68.3,169.9,1.699,F,alto,2024-06-12,El participante 163 mostró un desempeño notable en historia durante la sesión 11.,8,55,47,no
+165,29,64.2,173.1,1.7309999999999999,M,alto,2024-06-13,El participante 164 mostró un desempeño notable en programación durante la sesión 12.,19,75,56,no
+166,34,69.4,169.3,1.693,F,medio,2024-06-14,El participante 165 mostró un desempeño notable en álgebra durante la sesión 13.,20,66,46,no
+167,38,75.2,154.3,1.5430000000000001,M,alto,2024-06-15,El participante 166 mostró un desempeño notable en lectura crítica durante la sesión 14.,35,41,6,no
+168,25,76.9,176.0,1.76,M,bajo,2024-06-16,El participante 167 mostró un desempeño notable en biología durante la sesión 15.,10,26,16,no
+169,31,72.6,171.7,1.7169999999999999,M,medio,2024-06-17,El participante 168 mostró un desempeño notable en historia durante la sesión 16.,17,39,22,no
+170,27,38.9,155.8,1.558,F,alto,2024-06-18,El participante 169 mostró un desempeño notable en programación durante la sesión 17.,22,73,51,no
+171,45,56.5,162.2,1.6219999999999999,F,alto,2024-06-19,El participante 170 mostró un desempeño notable en álgebra durante la sesión 1.,37,73,36,no
+172,31,68.9,165.8,1.6580000000000001,M,alto,2024-06-20,El participante 171 mostró un desempeño notable en lectura crítica durante la sesión 2.,33,76,43,si
+173,36,77.0,170.9,1.709,F,alto,2024-06-21,El participante 172 mostró un desempeño notable en biología durante la sesión 3.,12,44,32,no
+174,38,56.6,183.6,1.8359999999999999,M,medio,2024-06-22,El participante 173 mostró un desempeño notable en historia durante la sesión 4.,33,68,35,no
+175,48,59.3,168.2,1.682,F,bajo,2024-06-23,El participante 174 mostró un desempeño notable en programación durante la sesión 5.,6,52,46,no
+176,53,87.0,150.5,1.505,F,bajo,2024-06-24,El participante 175 mostró un desempeño notable en álgebra durante la sesión 6.,6,64,58,no
+177,17,39.8,173.8,1.7380000000000002,M,medio,2024-06-25,El participante 176 mostró un desempeño notable en lectura crítica durante la sesión 7.,39,44,5,no
+178,55,64.3,166.5,1.665,F,alto,2024-06-26,El participante 177 mostró un desempeño notable en biología durante la sesión 8.,25,79,54,no
+179,43,60.5,152.3,1.5230000000000001,F,bajo,2024-06-27,El participante 178 mostró un desempeño notable en historia durante la sesión 9.,6,40,34,no
+180,21,63.4,147.5,1.475,M,bajo,2024-06-28,El participante 179 mostró un desempeño notable en programación durante la sesión 10.,19,60,41,no
+181,17,64.0,158.4,1.584,M,alto,2024-06-29,El participante 180 mostró un desempeño notable en álgebra durante la sesión 11.,24,32,8,si
+182,47,75.0,171.4,1.714,M,medio,2024-06-30,El participante 181 mostró un desempeño notable en lectura crítica durante la sesión 12.,13,69,56,no
+183,47,78.5,161.2,1.6119999999999999,F,medio,2024-07-01,El participante 182 mostró un desempeño notable en biología durante la sesión 13.,30,85,55,no
+184,59,102.0,173.4,1.734,M,medio,2024-07-02,El participante 183 mostró un desempeño notable en historia durante la sesión 14.,25,48,23,no
+185,32,87.8,165.5,1.655,F,bajo,2024-07-03,El participante 184 mostró un desempeño notable en programación durante la sesión 15.,4,39,35,no
+186,52,67.4,169.7,1.6969999999999998,M,medio,2024-07-04,El participante 185 mostró un desempeño notable en álgebra durante la sesión 16.,28,41,13,no
+187,38,70.8,174.3,1.743,M,alto,2024-07-05,El participante 186 mostró un desempeño notable en lectura crítica durante la sesión 17.,1,22,21,no
+188,28,79.7,173.2,1.732,F,alto,2024-07-06,El participante 187 mostró un desempeño notable en biología durante la sesión 1.,6,38,32,no
+189,47,97.6,158.5,1.585,M,alto,2024-07-07,El participante 188 mostró un desempeño notable en historia durante la sesión 2.,0,26,26,no
+190,25,66.1,185.4,1.854,M,bajo,2024-07-08,El participante 189 mostró un desempeño notable en programación durante la sesión 3.,32,55,23,si
+191,19,72.5,150.2,1.5019999999999998,F,medio,2024-07-09,El participante 190 mostró un desempeño notable en álgebra durante la sesión 4.,29,77,48,no
+192,49,66.1,166.3,1.663,F,alto,2024-07-10,El participante 191 mostró un desempeño notable en lectura crítica durante la sesión 5.,16,36,20,no
+193,58,81.3,158.8,1.588,F,alto,2024-07-11,El participante 192 mostró un desempeño notable en biología durante la sesión 6.,37,67,30,no
+194,22,53.1,178.7,1.787,M,bajo,2024-07-12,El participante 193 mostró un desempeño notable en historia durante la sesión 7.,28,60,32,no
+195,39,69.7,156.2,1.5619999999999998,M,alto,2024-07-13,El participante 194 mostró un desempeño notable en programación durante la sesión 8.,16,55,39,no
+196,46,53.5,158.7,1.587,F,bajo,2024-07-14,El participante 195 mostró un desempeño notable en álgebra durante la sesión 9.,11,35,24,no
+197,16,71.2,157.7,1.577,F,alto,2024-07-15,El participante 196 mostró un desempeño notable en lectura crítica durante la sesión 10.,10,45,35,no
+198,49,77.0,155.6,1.556,F,medio,2024-07-16,El participante 197 mostró un desempeño notable en biología durante la sesión 11.,28,47,19,no
+199,33,63.7,162.8,1.6280000000000001,M,alto,2024-07-17,El participante 198 mostró un desempeño notable en historia durante la sesión 12.,34,52,18,si
+200,38,65.6,169.6,1.696,F,medio,2024-07-18,El participante 199 mostró un desempeño notable en programación durante la sesión 13.,2,59,57,no
+1,34,57.3,177.3,1.7730000000000001,M,medio,2024-01-01,El participante 0 mostró un desempeño notable en álgebra durante la sesión 1.,31,82,51,si
+2,24,49.4,182.8,1.828,F,bajo,2024-01-02,El participante 1 mostró un desempeño notable en lectura crítica durante la sesión 2.,29,83,54,no
+3,19,64.9,178.3,1.7830000000000001,M,alto,2024-01-03,El participante 2 mostró un desempeño notable en biología durante la sesión 3.,8,53,45,no
