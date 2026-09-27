@@ -1,6 +1,7 @@
 """Pruebas de los detectores de relaciones entre columnas y mezcla de unidades."""
 
 import json
+import re
 from pathlib import Path
 
 import numpy as np
@@ -495,10 +496,13 @@ def test_detectores_avanzados_despues_de_los_del_objetivo():
 
 
 def datasets_reales():
+    """CSV y XLSX de datasets_prueba/, sin los conjuntos generados por 'preparar'."""
     if not DATASETS_PRUEBA.is_dir():
         return []
+    generado = re.compile(r".*_(train|test)(_\d+)?\.csv$", re.IGNORECASE)
     return sorted(
-        ruta for ruta in DATASETS_PRUEBA.iterdir() if ruta.suffix.lower() in (".csv", ".xlsx")
+        ruta for ruta in DATASETS_PRUEBA.iterdir()
+        if ruta.suffix.lower() in (".csv", ".xlsx") and not generado.match(ruta.name)
     )
 
 

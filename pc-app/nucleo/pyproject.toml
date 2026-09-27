@@ -11,6 +11,9 @@ dependencies = [
     "pandas",
     "numpy",
     "openpyxl",
+    "scipy",
+    "scikit-learn",
+    "causal-learn",
 ]
 
 [project.optional-dependencies]

@@ -11,7 +11,6 @@ Todas las funciones tratan los datos como solo lectura.
 from __future__ import annotations
 
 import datetime
-import re
 from collections.abc import Hashable
 from typing import Any
 
@@ -20,15 +19,8 @@ import pandas as pd
 from pandas.api import types as tipos_pandas
 
 from nucleo.configuracion import ConfiguracionValidacion
+from nucleo.fechas import interpretar_fechas_texto
 from nucleo.modelos import PerfilColumna, TipoColumna
-
-# Formatos de fecha habituales escritos como texto (ISO y día/mes/año).
-_PATRON_FECHA_TEXTO = re.compile(
-    r"\d{4}-\d{1,2}-\d{1,2}([ T]\d{1,2}:\d{2}(:\d{2}(\.\d+)?)?)?"
-    r"|\d{4}/\d{1,2}/\d{1,2}"
-    r"|\d{1,2}/\d{1,2}/\d{4}( \d{1,2}:\d{2}(:\d{2})?)?"
-)
-
 
 def perfilar_columnas(
     dataframe: pd.DataFrame,
@@ -98,7 +90,9 @@ def detectar_tipo_columna(
         return TipoColumna.CATEGORICA
     if _todos_son(valores, (bool, np.bool_)):
         return TipoColumna.BOOLEANA
-    if _todos_son(valores, (datetime.date, np.datetime64)) or _son_fechas_como_texto(valores):
+    if _todos_son(valores, (datetime.date, np.datetime64)) or interpretar_fechas_texto(
+        valores, configuracion.porcentaje_minimo_fechas_convertibles
+    ):
         return TipoColumna.FECHA
     if contar_valores_unicos(valores) <= configuracion.maximo_valores_categorica:
         return TipoColumna.CATEGORICA
@@ -126,12 +120,6 @@ def _porcentaje(parte: int, total: int) -> float:
 
 def _todos_son(valores: pd.Series, clases: tuple[type, ...]) -> bool:
     return all(isinstance(valor, clases) for valor in valores)
-
-
-def _son_fechas_como_texto(valores: pd.Series) -> bool:
-    return _todos_son(valores, (str,)) and all(
-        _PATRON_FECHA_TEXTO.fullmatch(valor.strip()) for valor in valores
-    )
 
 
 def _a_nativo(valor: Any) -> Any:

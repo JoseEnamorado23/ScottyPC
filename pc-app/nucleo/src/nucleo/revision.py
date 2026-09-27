@@ -5,20 +5,23 @@ preliminar del objetivo y ejecuta una colección de detectores
 independientes que producen ``Hallazgo``. Nunca modifica los datos.
 
 Los detectores se ejecutan en el orden de ``DETECTORES``,
-``DETECTORES_OBJETIVO`` y ``DETECTORES_RELACIONES``, de modo que el informe
-es reproducible.
+``DETECTORES_OBJETIVO``, ``DETECTORES_CON_OBJETIVO`` y
+``DETECTORES_RELACIONES``, de modo que el informe es reproducible. Cada
+hallazgo tiene un ``identificador`` único dentro del informe.
 """
 
 from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Callable, Sequence
+from dataclasses import replace
 from typing import Any
 
 import pandas as pd
 
 from nucleo.configuracion import ConfiguracionValidacion
 from nucleo.detectores import (
+    detectar_asimetria,
     detectar_casi_constantes,
     detectar_categoricas,
     detectar_ceros_sospechosos,
@@ -31,10 +34,15 @@ from nucleo.detectores import (
     detectar_texto_libre,
     detectar_valores_faltantes,
 )
+from nucleo.detectores_objetivo import (
+    detectar_faltantes_dependientes_objetivo,
+    detectar_tamano_efectivo,
+)
 from nucleo.detectores_relaciones import (
     detectar_binarias_derivadas,
     detectar_copias_exactas,
     detectar_correlaciones_casi_perfectas,
+    detectar_grupos_redundantes,
     detectar_mezcla_unidades,
     detectar_recodificaciones,
     detectar_relaciones_matematicas,
@@ -60,6 +68,13 @@ DetectorObjetivo = Callable[
 ]
 """Interfaz de un detector del objetivo: recibe la serie, su tipo y la configuración."""
 
+DetectorConObjetivo = Callable[
+    [pd.DataFrame, int, "str | None", ConfiguracionValidacion, list[PerfilColumna]],
+    list[Hallazgo],
+]
+"""Interfaz de un detector que necesita los datos y el objetivo: recibe el
+DataFrame, la posición del objetivo, su tipo, la configuración y los perfiles."""
+
 DETECTORES: tuple[Detector, ...] = (
     detectar_filas_duplicadas,
     detectar_valores_faltantes,
@@ -70,11 +85,18 @@ DETECTORES: tuple[Detector, ...] = (
     detectar_texto_libre,
     detectar_fechas,
     detectar_categoricas,
+    detectar_asimetria,
 )
 
 DETECTORES_OBJETIVO: tuple[DetectorObjetivo, ...] = (
     detectar_distribucion_objetivo,
     detectar_desbalance_objetivo,
+)
+
+DETECTORES_CON_OBJETIVO: tuple[DetectorConObjetivo, ...] = (
+    detectar_faltantes_dependientes_objetivo,
+    detectar_tamano_efectivo,
+    detectar_grupos_redundantes,
 )
 
 DETECTORES_RELACIONES: tuple[Detector, ...] = (
@@ -94,6 +116,7 @@ def revisar_dataset(
     detectores: Sequence[Detector] = DETECTORES,
     detectores_objetivo: Sequence[DetectorObjetivo] = DETECTORES_OBJETIVO,
     detectores_relaciones: Sequence[Detector] = DETECTORES_RELACIONES,
+    detectores_con_objetivo: Sequence[DetectorConObjetivo] = DETECTORES_CON_OBJETIVO,
 ) -> InformeRevision:
     """Revisa un dataset y genera un informe sin modificar los datos.
 
@@ -108,6 +131,9 @@ def revisar_dataset(
             en una única columna.
         detectores_relaciones: detectores de relaciones entre columnas y
             mezclas de unidades; por defecto ``DETECTORES_RELACIONES``.
+        detectores_con_objetivo: detectores que usan los datos y el
+            objetivo; por defecto ``DETECTORES_CON_OBJETIVO``. Solo se
+            ejecutan si el objetivo existe en una única columna.
 
     Returns:
         Un ``InformeRevision`` con resumen, hallazgos y perfiles de columnas.
@@ -118,13 +144,19 @@ def revisar_dataset(
     informacion_objetivo = analizar_objetivo(dataframe, objetivo, perfiles, configuracion)
     return InformeRevision(
         resumen=construir_resumen(dataframe, perfiles, objetivo, informacion_objetivo),
-        hallazgos=[
-            *_ejecutar_detectores(dataframe, configuracion, perfiles, detectores),
-            *_ejecutar_detectores_objetivo(
-                dataframe, objetivo, informacion_objetivo, configuracion, detectores_objetivo
-            ),
-            *_ejecutar_detectores(dataframe, configuracion, perfiles, detectores_relaciones),
-        ],
+        hallazgos=_identificadores_unicos(
+            [
+                *_ejecutar_detectores(dataframe, configuracion, perfiles, detectores),
+                *_ejecutar_detectores_objetivo(
+                    dataframe, objetivo, informacion_objetivo, configuracion, detectores_objetivo
+                ),
+                *_ejecutar_detectores_con_objetivo(
+                    dataframe, objetivo, informacion_objetivo, configuracion, perfiles,
+                    detectores_con_objetivo,
+                ),
+                *_ejecutar_detectores(dataframe, configuracion, perfiles, detectores_relaciones),
+            ]
+        ),
         perfiles_columnas=perfiles,
         objetivo=objetivo,
         informacion_objetivo=informacion_objetivo,
@@ -249,3 +281,37 @@ def _ejecutar_detectores_objetivo(
         for detector in detectores
         for hallazgo in detector(serie, informacion_objetivo["tipo"], configuracion)
     ]
+
+
+def _ejecutar_detectores_con_objetivo(
+    dataframe: pd.DataFrame,
+    objetivo: str | None,
+    informacion_objetivo: dict[str, Any],
+    configuracion: ConfiguracionValidacion,
+    perfiles: list[PerfilColumna],
+    detectores: Sequence[DetectorConObjetivo],
+) -> list[Hallazgo]:
+    """Ejecuta los detectores con objetivo si este existe en una única columna."""
+    posicion = _posicion_objetivo(dataframe, objetivo)
+    if posicion is None:
+        return []
+    return [
+        hallazgo
+        for detector in detectores
+        for hallazgo in detector(
+            dataframe, posicion, informacion_objetivo["tipo"], configuracion, perfiles
+        )
+    ]
+
+
+def _identificadores_unicos(hallazgos: list[Hallazgo]) -> list[Hallazgo]:
+    """Añade ``#2``, ``#3``... a los identificadores repetidos (orden estable)."""
+    vistos: Counter[str] = Counter()
+    resultado = []
+    for hallazgo in hallazgos:
+        vistos[hallazgo.identificador] += 1
+        repeticion = vistos[hallazgo.identificador]
+        if repeticion > 1:
+            hallazgo = replace(hallazgo, identificador=f"{hallazgo.identificador}#{repeticion}")
+        resultado.append(hallazgo)
+    return resultado

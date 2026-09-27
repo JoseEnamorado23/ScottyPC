@@ -13,6 +13,9 @@ from enum import Enum
 from typing import Any
 
 
+_MAXIMO_COLUMNAS_IDENTIFICADOR = 5
+
+
 class NivelProblema(str, Enum):
     """Nivel de un problema detectado durante la validación."""
 
@@ -97,6 +100,10 @@ class TipoHallazgo:
     BINARIA_DERIVADA = "binaria_derivada"
     CORRELACION_CASI_PERFECTA = "correlacion_casi_perfecta"
     POSIBLE_MEZCLA_UNIDADES = "posible_mezcla_unidades"
+    ASIMETRIA_FUERTE = "asimetria_fuerte"
+    FALTANTES_DEPENDIENTES_OBJETIVO = "faltantes_dependientes_objetivo"
+    TAMANO_EFECTIVO_INSUFICIENTE = "tamano_efectivo_insuficiente"
+    GRUPO_REDUNDANTE = "grupo_redundante"
 
 
 @dataclass(frozen=True)
@@ -125,6 +132,12 @@ class Hallazgo:
 
     Las acciones son descripciones en texto para el usuario; nunca se
     ejecutan automáticamente.
+
+    ``identificador`` permite referirse al hallazgo desde las decisiones del
+    usuario. Si no se indica se genera de forma determinista como
+    ``tipo:columna1|columna2`` (solo ``tipo`` si involucra más de
+    ``_MAXIMO_COLUMNAS_IDENTIFICADOR`` columnas); ``revisar_dataset``
+    garantiza que sea único dentro de un informe.
     """
 
     tipo: str
@@ -134,6 +147,13 @@ class Hallazgo:
     evidencia: dict[str, Any] = field(default_factory=dict)
     acciones_posibles: list[str] = field(default_factory=list)
     accion_sugerida: str | None = None
+    identificador: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.identificador:
+            columnas = self.columnas_involucradas
+            sufijo = "|".join(columnas) if len(columnas) <= _MAXIMO_COLUMNAS_IDENTIFICADOR else ""
+            object.__setattr__(self, "identificador", f"{self.tipo}:{sufijo}" if sufijo else self.tipo)
 
 
 @dataclass(frozen=True)

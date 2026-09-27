@@ -368,7 +368,7 @@ def test_enteros_con_forma_de_fecha_no_son_fecha():
 
 
 def test_fechas_insuficientes_no_se_reportan():
-    valores = [f"2024-01-{d:02d}" for d in range(1, 10)] + ["sin fecha"]
+    valores = [f"2024-01-{d:02d}" for d in range(1, 9)] + ["sin fecha", "otra cosa"]
 
     assert columna(det.detectar_fechas, valores) == []
 
@@ -504,8 +504,12 @@ ORDEN_DETECTOR = {
     TipoHallazgo.POSIBLE_FECHA: 7,
     TipoHallazgo.VARIABLE_CATEGORICA: 8,
     TipoHallazgo.POSIBLE_VARIABLE_ORDINAL: 8,
+    TipoHallazgo.ASIMETRIA_FUERTE: 8.5,
     TipoHallazgo.DISTRIBUCION_OBJETIVO: 9,
     TipoHallazgo.DESBALANCE_CLASES: 10,
+    TipoHallazgo.FALTANTES_DEPENDIENTES_OBJETIVO: 10.1,
+    TipoHallazgo.TAMANO_EFECTIVO_INSUFICIENTE: 10.2,
+    TipoHallazgo.GRUPO_REDUNDANTE: 10.3,
     TipoHallazgo.COLUMNAS_REDUNDANTES: 11,
     TipoHallazgo.RECODIFICACION_UNO_A_UNO: 12,
     TipoHallazgo.COLUMNA_DERIVADA: 13,

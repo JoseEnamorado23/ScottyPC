@@ -1,13 +1,17 @@
 # Datasets de prueba
 
-Datasets para comprobar manualmente el comportamiento del núcleo (`nucleo`) con datos
-reales y sintéticos. No forman parte del código del paquete.
+Datasets para comprobar el comportamiento del núcleo (`nucleo`) con datos reales y
+sintéticos. No forman parte del código del paquete.
 
 - La prueba `test_datasets_reales_se_revisan_sin_errores` carga y revisa automáticamente
-  todos los CSV y XLSX de esta carpeta. Solo comprueba que no fallen, que el DataFrame no
-  se modifique y que el informe se pueda serializar a JSON. No exige hallazgos concretos.
-- La CLI guarda aquí los informes `<nombre>_revision.json`. Un informe existente nunca se
-  sobrescribe: se crea `<nombre>_revision_2.json`, `_3`, etc.
+  todos los CSV y XLSX de esta carpeta (excepto los `*_train.csv` / `*_test.csv` generados
+  por `preparar`). Comprueba que no fallen, que el DataFrame no se modifique y que el
+  informe se pueda serializar a JSON.
+- `nucleo/tests/test_aceptacion_datos_reales.py` comprueba los criterios de aceptación de
+  cada dataset real (se omite si falta el archivo).
+- La CLI guarda aquí los archivos que genera (`_revision.json`, `_decisiones.json`,
+  `_receta.json`, `_train.csv`, `_test.csv`, `_recomendacion.json`). Nunca sobrescribe un
+  archivo existente: añade `_2`, `_3`, etc. Estos archivos están excluidos de git.
 
 ## Ejecución
 
@@ -15,6 +19,9 @@ Desde la raíz del repositorio (`pc-app/`), con el paquete instalado:
 
 ```bash
 python -m nucleo revisar datasets_prueba/dataset_prueba.csv --objetivo objetivo
+python -m nucleo plantilla datasets_prueba/diabetes.csv --objetivo Outcome
+python -m nucleo preparar datasets_prueba/diabetes.csv --objetivo Outcome --decisiones datasets_prueba/diabetes_decisiones.json
+python -m nucleo sugerir-prueba datasets_prueba/diabetes_receta.json
 ```
 
 Para XLSX con varias hojas, indique la hoja con `--hoja <nombre>`.
@@ -32,18 +39,19 @@ fija). La prueba end-to-end de la CLI usa la misma función.
 
 | Archivo | Objetivo sugerido | Qué permite comprobar |
 |---|---|---|
-| `Dengue Dataset 2023-2025.xlsx` | `Outcome` (multiclase) | Binaria derivada real (`Platelet_Risk = 0 si Platelete >= 100000`), recodificación uno a uno, correlación casi perfecta, posibles mezclas de unidades, ceros sospechosos y categóricas. |
-| `fetal_health.csv` | `fetal_health` (multiclase) | Filas duplicadas, ceros sospechosos, casi constantes, variable derivada y ausencia de falsos positivos de binaria derivada con clases muy desbalanceadas (`severe_decelerations`). |
-| `MASTER_CHART_F1000Research.xlsx` | `GROUPS: DENGUE FEVER OR COMPLICATED DENGUE ` (binario) | Faltantes, filas duplicadas, casi constantes y nombres de columna con espacios al final (advertencia de validación). |
-| `winequality-red.csv` | `quality` (multiclase) | Detección del separador `;`, filas duplicadas, objetivo ordinal entero. |
-| `winequality-white.csv` | `quality` (multiclase) | Igual que el anterior, con más filas (4 898). |
-| `xAPI-Edu-Data.csv` | `Class` (multiclase: L/M/H) | Muchas variables categóricas de texto y ceros sospechosos en conteos. |
+| `Dengue Dataset 2023-2025.xlsx` | `Outcome` (multiclase) | Fecha `dd.mm.yy` en `Date` (ofrece división temporal), posible mezcla de unidades en `Temp` (°C y °F), binaria derivada real (`Platelet_Risk = 0 si Platelete >= 100000`), recodificación uno a uno y correlación casi perfecta. |
+| `MASTER_CHART_F1000Research.xlsx` (dengue pediátrico) | `GROUPS: DENGUE FEVER OR COMPLICATED DENGUE ` (binario) | Faltantes de `FERRITIN` que dependen del objetivo (44 % en una clase, 10 % en la otra), grupo redundante `HB`–`PCV`, tamaño efectivo insuficiente (63 casos para 24 variables), asimetría fuerte y nombres de columna con espacios. |
+| `fetal_health.csv` | `fetal_health` (multiclase 1/2/3) | Relaciones en U con el objetivo (p. ej. `mean_value_of_short_term_variability`) → se recomienda `chisq`; agrupación de clases `{1: 0, 2: 1, 3: 1}`; duplicados, ceros sospechosos y variable derivada. |
+| `winequality-red.csv` | `quality` (multiclase) | Separador `;`, filas duplicadas; relaciones monótonas → se recomienda `fisherz`. |
+| `winequality-white.csv` | `quality` (multiclase) | Relaciones no monótonas reales (`citric acid`, `residual sugar`, `free sulfur dioxide`) → se recomienda `chisq`. |
+| `xAPI-Edu-Data.csv` | `Class` (multiclase: L/M/H) | Muchas variables categóricas de texto (one-hot), agrupación `{"L": 0, "M": 1, "H": 1}` y ceros sospechosos en conteos. |
+| `diabetes.csv` (Pima Indians, fuente: plotly/datasets) | `Outcome` (binario) | Ceros sospechosos en `Glucose`, `BloodPressure`, `SkinThickness`, `Insulin` y `BMI` (son faltantes). Marcados como faltantes sin imputar → `mv_fisherz`; imputados → `fisherz`. |
+| `NSW_AFDC_CS.csv` (NSW/Lalonde, programa de empleo) | `nodegree` (binario) para el flujo completo | `re78` y `treated` tienen faltantes, por lo que la validación los rechaza como objetivo (código 2). Muchas variables binarias y faltantes. Con `nodegree` se recomienda `chisq` (`moa` y `redif` no monótonas). |
 
 Notas:
 
 - En `MASTER_CHART_F1000Research.xlsx` el nombre del objetivo termina en un espacio: debe
   escribirse entre comillas e incluir ese espacio:
   `--objetivo "GROUPS: DENGUE FEVER OR COMPLICATED DENGUE "`.
-- Limitación conocida: la columna `Date` del dataset de dengue usa el formato `dd.mm.yy`
-  (`01.01.23`), que el detector de fechas todavía no reconoce, por lo que no se informa
-  como `posible_fecha`.
+- `NSW_AFDC_CS.csv` se usa en las pruebas locales, pero por decisión del usuario no se
+  incluye en el repositorio.

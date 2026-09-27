@@ -218,7 +218,10 @@ def test_informe_revision_resumen_y_perfiles():
     dataframe = dataset_mixto()
 
     informe = revisar_dataset(
-        dataframe, OBJETIVO, detectores=(), detectores_objetivo=(), detectores_relaciones=()
+        dataframe, OBJETIVO, detectores=(),
+        detectores_objetivo=(),
+        detectores_relaciones=(),
+        detectores_con_objetivo=(),
     )
 
     assert informe.hallazgos == []
@@ -280,6 +283,7 @@ def test_revision_ejecuta_detectores_inyectados():
         detectores=[detector_de_prueba],
         detectores_objetivo=(),
         detectores_relaciones=(),
+        detectores_con_objetivo=(),
     )
 
     assert [h.tipo for h in informe.hallazgos] == ["prueba"]

@@ -8,9 +8,19 @@ __pycache__/
 build/
 dist/
 
-# Informes generados por la CLI (python -m nucleo revisar ...)
+# Archivos generados por la CLI (python -m nucleo ...)
 *_revision.json
 *_revision_*.json
+*_decisiones.json
+*_decisiones_*.json
+*_receta.json
+*_receta_*.json
+*_recomendacion.json
+*_recomendacion_*.json
+*_train.csv
+*_train_*.csv
+*_test.csv
+*_test_*.csv
 
 # Sistema operativo y editores
 .DS_Store

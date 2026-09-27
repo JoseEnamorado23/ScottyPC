@@ -28,6 +28,7 @@ import numpy as np
 import pandas as pd
 
 from nucleo.configuracion import ConfiguracionValidacion
+from nucleo.fechas import convertir_fechas
 from nucleo.detectores import _columnas, _es_numerica, _evidencia_fecha, _nativo, _porcentaje
 from nucleo.modelos import Hallazgo, PerfilColumna, Severidad, TipoHallazgo
 
@@ -675,8 +676,7 @@ def _primera_columna_fecha(
         if evidencia is None:
             continue
         if evidencia["origen"] == "texto":
-            textos = serie.map(lambda v: v.strip() if isinstance(v, str) else v)
-            fechas = pd.to_datetime(textos, format=evidencia["formato"], errors="coerce")
+            fechas = convertir_fechas(serie, evidencia["formato"])
         else:
             fechas = pd.to_datetime(serie, errors="coerce")
         return perfil.nombre, fechas
@@ -755,3 +755,91 @@ def _hallazgo_mezcla(
         ],
         accion_sugerida="Revisar el origen de los valores de cada grupo.",
     )
+
+
+# --- Grupos de variables redundantes -----------------------------------------------
+
+
+def detectar_grupos_redundantes(
+    dataframe: pd.DataFrame,
+    posicion_objetivo: int,
+    tipo_objetivo: str | None,
+    configuracion: ConfiguracionValidacion,
+    perfiles: list[PerfilColumna],
+) -> list[Hallazgo]:
+    """Grupos de variables numéricas muy relacionadas entre sí.
+
+    Dos variables quedan conectadas si ``|ρ de Spearman| >=
+    umbral_spearman_grupo_redundante`` (con filas completas por par); cada
+    grupo es una componente conexa de al menos dos variables. El objetivo y
+    las copias exactas (ya informadas) no participan, y un grupo de solo dos
+    variables con correlación casi perfecta tampoco se repite aquí porque ya
+    lo informa ``detectar_correlaciones_casi_perfectas``. Solo informa: no
+    sugiere eliminar nada.
+    """
+    indices = [
+        i
+        for i in _sin_copias(dataframe, _indices_numericos(dataframe, perfiles), configuracion)
+        if i != posicion_objetivo
+    ]
+    if len(indices) < 2:
+        return []
+    tabla = pd.DataFrame({k: _a_flotantes(dataframe.iloc[:, i]) for k, i in enumerate(indices)})
+    rho = tabla.corr(method="spearman", min_periods=max(2, configuracion.minimo_filas_relacion))
+    rho = rho.to_numpy()
+    pearson = tabla.corr(min_periods=max(2, configuracion.minimo_filas_relacion)).to_numpy()
+    umbral = configuracion.umbral_spearman_grupo_redundante
+    vecinos: dict[int, set[int]] = {k: set() for k in range(len(indices))}
+    aristas = []
+    for a, b in combinations(range(len(indices)), 2):
+        if not math.isnan(rho[a, b]) and abs(rho[a, b]) >= umbral:
+            vecinos[a].add(b)
+            vecinos[b].add(a)
+            aristas.append((a, b))
+    hallazgos = []
+    visitados: set[int] = set()
+    for inicio in range(len(indices)):
+        if inicio in visitados or not vecinos[inicio]:
+            continue
+        grupo, pendientes = set(), [inicio]
+        while pendientes:
+            nodo = pendientes.pop()
+            if nodo not in grupo:
+                grupo.add(nodo)
+                pendientes.extend(vecinos[nodo] - grupo)
+        visitados |= grupo
+        miembros = sorted(grupo)
+        if len(miembros) == 2:
+            r = pearson[miembros[0], miembros[1]]
+            if not math.isnan(r) and abs(r) > configuracion.umbral_correlacion_casi_perfecta:
+                continue
+        nombres = [perfiles[indices[k]].nombre for k in miembros]
+        pares = [
+            {
+                "a": perfiles[indices[a]].nombre,
+                "b": perfiles[indices[b]].nombre,
+                "spearman": round(float(rho[a, b]), 4),
+            }
+            for a, b in aristas
+            if a in grupo
+        ]
+        hallazgos.append(
+            Hallazgo(
+                tipo=TipoHallazgo.GRUPO_REDUNDANTE,
+                columnas_involucradas=nombres,
+                severidad=Severidad.MEDIA,
+                detalle=(
+                    f"Las variables {', '.join(repr(n) for n in nombres)} forman un grupo de "
+                    f"variables muy relacionadas entre sí (|ρ de Spearman| >= {umbral:g}). PC "
+                    "tiende a conservar solo una variable de cada grupo como causa; que las demás "
+                    "no aparezcan en el grafo no significa que no importen."
+                ),
+                evidencia={"umbral": umbral, "correlaciones": pares},
+                acciones_posibles=[
+                    "Tener en cuenta el grupo al interpretar el grafo causal.",
+                    "Conservar todas las variables del grupo.",
+                ],
+                accion_sugerida="Tener en cuenta el grupo al interpretar el grafo causal.",
+            )
+        )
+    return hallazgos

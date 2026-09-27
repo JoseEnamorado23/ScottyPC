@@ -58,6 +58,55 @@ class ConfiguracionValidacion:
     # Variable objetivo: clase minoritaria por debajo de este porcentaje
     porcentaje_desbalance_clase: float = 20.0
 
+    # Faltantes que dependen del objetivo: se informan si la prueba es
+    # significativa y (objetivo categórico) la diferencia del porcentaje de
+    # faltantes entre clases es de al menos estos puntos porcentuales.
+    alfa_faltantes_objetivo: float = 0.05
+    diferencia_minima_faltantes_objetivo: float = 10.0
+
+    # Grupos de variables redundantes: |correlación de Spearman| mínima
+    umbral_spearman_grupo_redundante: float = 0.8
+
+    # Tamaño efectivo de la muestra (objetivo categórico)
+    minimo_casos_clase_minoritaria: int = 50
+    minimo_casos_por_variable: int = 10
+
+    # Asimetría fuerte en variables positivas (sugerencia de logaritmo)
+    umbral_asimetria: float = 2.0
+
+    # Preparación: rondas de la imputación multivariada (regresión iterativa)
+    rondas_imputacion_multivariada: int = 10
+
+    # Selección de la prueba de independencia para PC
+    # Intervalos (cuantiles de entrenamiento) para evaluar la forma de la relación.
+    intervalos_no_linealidad: int = 6
+    # Significación de la dependencia por intervalos y de cada tramo de subida o bajada.
+    alfa_no_linealidad: float = 0.01
+    # Una curva "sube y baja" si ambos tramos miden al menos esta fracción de su amplitud.
+    proporcion_minima_inversion: float = 0.2
+    # Tamaño de efecto mínimo, en desviaciones estándar del objetivo: lo que
+    # debe medir el tramo que invierte la tendencia (y la amplitud de la
+    # curva en el criterio de Spearman débil). Evita que, con muchas filas,
+    # ondulaciones pequeñas pero significativas cuenten como no linealidad.
+    efecto_minimo_no_linealidad: float = 0.3
+    # Correlación de Spearman considerada débil.
+    spearman_debil: float = 0.1
+    # Por encima de esta proporción de variables categóricas o binarias se sugiere chisq.
+    proporcion_maxima_categoricas: float = 0.5
+    # Intervalos para discretizar variables continuas cuando se usa chisq.
+    intervalos_chisq: int = 5
+    # KCI solo se menciona como alternativa con menos filas y pocas variables.
+    filas_maximas_kci: int = 500
+    variables_maximas_kci: int = 10
+    # Estimación del tiempo de PC.
+    alfa_pc: float = 0.05
+    ejecuciones_estimacion_tiempo: int = 2
+    fraccion_submuestra_tiempo: float = 0.8
+    corridas_bootstrap: int = 100
+    segundos_limite_por_ejecucion: float = 300.0
+    segundos_maximos_chisq: float = 600.0
+    max_k_sugerido: int = 3
+
     # Texto libre: deben cumplirse los tres criterios
     porcentaje_unicos_texto_libre: float = 50.0
     longitud_media_minima_texto_libre: int = 30
@@ -70,8 +119,9 @@ class ConfiguracionValidacion:
     # Posibles identificadores: filas mínimas para considerar el patrón
     minimo_filas_identificador: int = 5
 
-    # Fechas escritas como texto: porcentaje mínimo de valores convertibles
-    porcentaje_minimo_fechas_convertibles: float = 95.0
+    # Fechas escritas como texto: porcentaje mínimo de valores que deben
+    # interpretarse con un mismo formato
+    porcentaje_minimo_fechas_convertibles: float = 90.0
 
     # Categóricas enteras: rango de valores distintos
     minimo_valores_categorica_entera: int = 3

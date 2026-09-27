@@ -29,20 +29,9 @@ import pandas as pd
 from pandas.api import types as tipos_pandas
 
 from nucleo.configuracion import ConfiguracionValidacion
+from nucleo.fechas import interpretar_fechas_texto
 from nucleo.modelos import Hallazgo, PerfilColumna, Severidad, TipoHallazgo, TipoObjetivo
 
-# Formatos con separadores explícitos: valores como "20240101" no se
-# consideran fechas.
-_FORMATOS_FECHA = (
-    "%Y-%m-%d",
-    "%Y-%m-%d %H:%M",
-    "%Y-%m-%d %H:%M:%S",
-    "%Y-%m-%dT%H:%M:%S",
-    "%Y/%m/%d",
-    "%d/%m/%Y",
-    "%d/%m/%Y %H:%M",
-    "%d-%m-%Y",
-)
 _PATRON_NOMBRE_FECHA = re.compile(r"fecha|date|datetime|timestamp|hora", re.IGNORECASE)
 _PATRON_NOMBRE_IDENTIFICADOR = re.compile(
     r"(^|[_\s])(id|cod|codigo|código|documento|dni|matricula|matrícula)($|[_\s])",
@@ -164,21 +153,16 @@ def _evidencia_fecha(
         return None
     if all(isinstance(v, (datetime.date, np.datetime64)) for v in valores):
         return {"origen": "objetos_fecha"}
-    if not _son_textos(valores):
-        return None
-    textos = pd.Series([v.strip() for v in valores], dtype=object)
-    mejor_formato, mejor_porcentaje = None, 0.0
-    for formato in _FORMATOS_FECHA:
-        convertidas = pd.to_datetime(textos, format=formato, errors="coerce")
-        porcentaje = _porcentaje(int(convertidas.notna().sum()), len(textos))
-        if porcentaje > mejor_porcentaje:
-            mejor_formato, mejor_porcentaje = formato, porcentaje
-    if mejor_porcentaje < configuracion.porcentaje_minimo_fechas_convertibles:
+    interpretacion = interpretar_fechas_texto(
+        valores, configuracion.porcentaje_minimo_fechas_convertibles
+    )
+    if interpretacion is None:
         return None
     return {
         "origen": "texto",
-        "formato": mejor_formato,
-        "porcentaje_convertible": mejor_porcentaje,
+        "formato": interpretacion.formato,
+        "porcentaje_convertible": interpretacion.porcentaje_convertible,
+        "formatos_alternativos": list(interpretacion.formatos_alternativos),
     }
 
 
@@ -602,9 +586,10 @@ def detectar_fechas(
 ) -> list[Hallazgo]:
     """Columnas con fechas: dtype datetime, objetos fecha o texto convertible.
 
-    La detección es conservadora: el texto debe convertirse con un formato
-    con separadores en al menos ``porcentaje_minimo_fechas_convertibles`` de
-    los valores. Un nombre sugerente solo se registra como evidencia.
+    La detección es conservadora: al menos
+    ``porcentaje_minimo_fechas_convertibles`` de los valores deben
+    interpretarse con un mismo formato con separadores (ver
+    ``nucleo.fechas``). Un nombre sugerente solo se registra como evidencia.
     """
     hallazgos = []
     for serie, perfil in _columnas(dataframe, perfiles):
@@ -730,6 +715,59 @@ def _origen_categorica(
             return None
         return "enteros"
     return None
+
+
+# --- Asimetría fuerte ---------------------------------------------------------------
+
+
+def detectar_asimetria(
+    dataframe: pd.DataFrame,
+    configuracion: ConfiguracionValidacion,
+    perfiles: list[PerfilColumna],
+) -> list[Hallazgo]:
+    """Variables continuas estrictamente positivas y muy asimétricas a la derecha.
+
+    Se informa si la asimetría (coeficiente de Fisher-Pearson ajustado de
+    pandas) supera ``umbral_asimetria``; una transformación logarítmica suele
+    acercarlas a la normalidad que suponen pruebas como Fisher-z.
+    """
+    hallazgos = []
+    for serie, perfil in _columnas(dataframe, perfiles):
+        if not _es_numerica(serie):
+            continue
+        if perfil.valores_unicos < configuracion.minimo_valores_distintos_continua:
+            continue
+        valores = serie.dropna()
+        if float(valores.min()) <= 0:
+            continue
+        asimetria = float(valores.skew())
+        if asimetria <= configuracion.umbral_asimetria:
+            continue
+        hallazgos.append(
+            Hallazgo(
+                tipo=TipoHallazgo.ASIMETRIA_FUERTE,
+                columnas_involucradas=[perfil.nombre],
+                severidad=Severidad.BAJA,
+                detalle=(
+                    f"La variable '{perfil.nombre}' es positiva y muy asimétrica "
+                    f"(asimetría = {asimetria:.2f}). Una transformación logarítmica puede "
+                    "hacer su distribución más simétrica."
+                ),
+                evidencia={
+                    "asimetria": round(asimetria, 4),
+                    "umbral": configuracion.umbral_asimetria,
+                    "minimo": _nativo(valores.min()),
+                    "mediana": float(valores.median()),
+                    "maximo": _nativo(valores.max()),
+                },
+                acciones_posibles=[
+                    "Aplicar una transformación logarítmica.",
+                    "Conservar la variable como está.",
+                ],
+                accion_sugerida="Aplicar una transformación logarítmica.",
+            )
+        )
+    return hallazgos
 
 
 # --- 10. Distribución del objetivo ------------------------------------------
