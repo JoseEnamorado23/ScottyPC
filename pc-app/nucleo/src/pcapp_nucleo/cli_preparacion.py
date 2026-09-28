@@ -25,6 +25,7 @@ from pcapp_nucleo.cli_comun import (
 )
 from pcapp_nucleo.plantilla import generar_plantilla
 from pcapp_nucleo.preparacion import (
+    ConfiguracionSeparacion,
     DatosPreparados,
     DecisionesUsuario,
     ErrorPreparacion,
@@ -32,9 +33,12 @@ from pcapp_nucleo.preparacion import (
     aplicar_receta,
     calcular_sha256,
     decisiones_desde_diccionario,
+    evaluar_columnas,
     preparar,
     receta_a_diccionario,
     receta_desde_diccionario,
+    separacion_heredada,
+    separacion_sugerida,
 )
 from pcapp_nucleo.seleccion_prueba import RecomendacionPrueba, formatear_duracion, recomendar_prueba
 from pcapp_nucleo.utilidades import a_diccionario_serializable
@@ -111,15 +115,17 @@ def _imprimir_plantilla(
 # --- preparar --------------------------------------------------------------------------------
 
 
-def _aplicar_opciones(
+def _separacion(
     decisiones: DecisionesUsuario,
+    datos_json: dict,
     test: float | None,
     semilla: int | None,
     fecha: str | None,
     corte: str | None,
-) -> DecisionesUsuario:
-    """Las opciones de la línea de comandos sustituyen a las del JSON de decisiones."""
-    separacion = decisiones.separacion
+) -> ConfiguracionSeparacion:
+    """Separación a aplicar: la sugerida (o la de un archivo de decisiones antiguo),
+    con las opciones de la línea de comandos por encima."""
+    separacion = separacion_sugerida(decisiones, separacion_heredada(datos_json))
     if corte is not None and fecha is None and separacion.columna_fecha is None:
         raise ErrorPreparacion("--corte requiere indicar la columna de fecha con --fecha.")
     cambios: dict = {}
@@ -131,7 +137,7 @@ def _aplicar_opciones(
         cambios.update(tipo="temporal", columna_fecha=fecha)
     if corte is not None:
         cambios.update(tipo="temporal", corte=corte)
-    return replace(decisiones, separacion=replace(separacion, **cambios))
+    return replace(separacion, **cambios)
 
 
 def ejecutar_preparar(
@@ -151,9 +157,8 @@ def ejecutar_preparar(
     if datos_json is None:
         return SALIDA_ERROR
     try:
-        decisiones = _aplicar_opciones(
-            decisiones_desde_diccionario(datos_json), test, semilla, fecha, corte
-        )
+        decisiones = decisiones_desde_diccionario(datos_json)
+        separacion = _separacion(decisiones, datos_json, test, semilla, fecha, corte)
     except ErrorPreparacion as problema:
         error(f"Error: {problema}")
         return SALIDA_ERROR
@@ -172,7 +177,7 @@ def ejecutar_preparar(
         sha256=calcular_sha256(ruta),
     )
     try:
-        datos = preparar(dataframe, objetivo, decisiones, origen=origen)
+        datos = preparar(dataframe, objetivo, decisiones, origen=origen, separacion=separacion)
     except ErrorPreparacion as problema:
         error(f"Error: {problema}")
         return SALIDA_ERROR
@@ -212,9 +217,14 @@ def _imprimir_preparacion(
     faltantes = int(datos.train.drop(columns=[datos.objetivo]).isna().sum().sum())
     if faltantes:
         lineas.append(f"Faltantes conservados en entrenamiento: {faltantes}")
-    if receta.advertencias:
-        lineas += ["", "Advertencias:"] + [f"- {a}" for a in receta.advertencias]
-    confirmar = [k for k, a in decisiones.acciones_hallazgos.items() if a.requiere_confirmacion]
+    advertencias = list(receta.advertencias)
+    limite = evaluar_columnas(datos.columnas)
+    if limite.mensaje:
+        # La terminal solo advierte; la aplicación no continúa si el estado es "bloqueado".
+        advertencias.append(limite.mensaje)
+    if advertencias:
+        lineas += ["", "Advertencias:"] + [f"- {a}" for a in advertencias]
+    confirmar =[k for k, a in decisiones.acciones_hallazgos.items() if a.requiere_confirmacion]
     if confirmar:
         lineas += ["", f"Nota: {len(confirmar)} decisiones requerían confirmación del usuario "
                    "(ver 'acciones_hallazgos' en las decisiones)."]

@@ -33,6 +33,8 @@ class Contexto:
     reanudar: bool
     reportar: Callable[..., None]
     parametros: dict[str, Any] = field(default_factory=dict)
+    # Detalles del trabajo en curso (p. ej. el modo de ejecución); solo en memoria.
+    detallar: Callable[..., None] = lambda **_: None
 
 
 @dataclass
@@ -41,6 +43,7 @@ class _Activo:
     hilo: threading.Thread
     cancelacion: threading.Event
     restantes_s: float | None = None
+    detalles: dict[str, Any] | None = None
     guardado_en: float = 0.0
     inicio_monotono: float = field(default_factory=time.monotonic)
 
@@ -73,6 +76,11 @@ class GestorTrabajos:
         if trabajo is None:
             raise no_encontrado("El trabajo no existe.", "TRABAJO_NO_ENCONTRADO")
         return trabajo, None
+
+    def detalles(self, trabajo_id: str) -> dict[str, Any] | None:
+        with self._candado:
+            activo = self._activos.get(trabajo_id)
+            return dict(activo.detalles) if activo is not None and activo.detalles else None
 
     def hay_activo(self, proyecto_id: str) -> bool:
         return self.repositorio.activo_de(proyecto_id) is not None
@@ -149,6 +157,7 @@ class GestorTrabajos:
         contexto = Contexto(
             trabajo.id, cancelacion, reanudar,
             lambda **avance: self._reportar(activo, **avance), trabajo.parametros,
+            lambda **detalles: self._detallar(activo, detalles),
         )
         activo.hilo = threading.Thread(
             target=self._ejecutar, args=(activo, funcion, contexto), name=f"trabajo-{trabajo.id[:8]}", daemon=True
@@ -170,6 +179,10 @@ class GestorTrabajos:
                 activo.guardado_en = time.monotonic()
         if guardar:
             self._guardar_progreso(activo.trabajo)
+
+    def _detallar(self, activo: _Activo, detalles: dict[str, Any]) -> None:
+        with self._candado:
+            activo.detalles = {**(activo.detalles or {}), **detalles}
 
     def _guardar_progreso(self, trabajo: Trabajo) -> None:
         self.repositorio.actualizar(

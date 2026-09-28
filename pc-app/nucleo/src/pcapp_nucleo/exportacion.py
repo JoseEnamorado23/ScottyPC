@@ -156,7 +156,12 @@ def _orden_por_baricentro(
     return orden
 
 
-def dibujar_grafo(grafo: GrafoAgregado, caracterizacion: Caracterizacion, niveles: list[list[str]]):
+def dibujar_grafo(
+    grafo: GrafoAgregado,
+    caracterizacion: Caracterizacion,
+    niveles: list[list[str]],
+    nombres: list[str] | None = None,
+):
     """Figura de matplotlib con las variables en columnas por nivel."""
     import matplotlib
 
@@ -165,8 +170,14 @@ def dibujar_grafo(grafo: GrafoAgregado, caracterizacion: Caracterizacion, nivele
     from matplotlib.lines import Line2D
     from matplotlib.patches import FancyArrowPatch, Patch
 
-    niveles = [[v for v in nivel if v in grafo.variables] for nivel in niveles]
-    niveles = [nivel for nivel in niveles if nivel]
+    if nombres is None or len(nombres) != len(niveles):
+        nombres = [f"Nivel {i + 1}" for i in range(len(niveles))]
+    con_nombre = [
+        (nombre, [v for v in nivel if v in grafo.variables]) for nombre, nivel in zip(nombres, niveles)
+    ]
+    con_nombre = [(nombre, nivel) for nombre, nivel in con_nombre if nivel]
+    titulos = [nombre for nombre, _ in con_nombre]
+    niveles = [nivel for _, nivel in con_nombre]
     vecinos: dict[str, set[str]] = {v: set() for v in grafo.variables}
     for arista in grafo.aristas:
         vecinos[arista.origen].add(arista.destino)
@@ -184,7 +195,7 @@ def dibujar_grafo(grafo: GrafoAgregado, caracterizacion: Caracterizacion, nivele
         for fila, variable in enumerate(nivel):
             posiciones[variable] = (columna * separacion_x, ((len(nivel) - 1) / 2 - fila) * separacion_y)
         ejes.text(
-            columna * separacion_x, (mas_poblado - 1) / 2 * separacion_y + 0.9, f"Nivel {columna + 1}",
+            columna * separacion_x, (mas_poblado - 1) / 2 * separacion_y + 0.9, partir_etiqueta(titulos[columna]),
             ha="center", va="bottom", fontsize=9, color="#546e7a", fontweight="bold",
         )
 
@@ -272,7 +283,7 @@ def exportar(
     tabla_aristas(grafo).to_csv(rutas["aristas.csv"], index=False)
     matriz_mascara(grafo).to_csv(rutas["mascara.csv"])
     matriz_frecuencias(resultado).to_csv(rutas["matriz_frecuencias.csv"])
-    figura = dibujar_grafo(grafo, caracterizacion, configuracion.niveles)
+    figura = dibujar_grafo(grafo, caracterizacion, configuracion.niveles, configuracion.nombres_niveles)
     figura.savefig(rutas["grafo.png"], bbox_inches="tight")
     plt.close(figura)
     return rutas

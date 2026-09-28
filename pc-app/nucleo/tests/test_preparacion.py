@@ -27,6 +27,8 @@ from pcapp_nucleo.preparacion import (
     preparar,
     receta_a_diccionario,
     receta_desde_diccionario,
+    separacion_heredada,
+    separacion_sugerida,
 )
 from pcapp_nucleo.utilidades import a_diccionario_serializable
 
@@ -172,9 +174,10 @@ def test_normalizacion_e_imputacion_solo_con_entrenamiento():
     dataframe = dataset_con_extremos_en_test()
     separacion = ConfiguracionSeparacion(tipo="temporal", columna_fecha="fecha")
 
-    datos = preparar(dataframe, "y", decisiones(
-        separacion=separacion, faltantes={"glucosa": TratamientoColumna(imputacion="mediana")}
-    ))
+    datos = preparar(
+        dataframe, "y", decisiones(faltantes={"glucosa": TratamientoColumna(imputacion="mediana")}),
+        separacion=separacion,
+    )
     parametros = datos.receta.parametros_aprendidos
     train_original = dataframe.loc[datos.receta.indices_train]
 
@@ -193,7 +196,7 @@ def test_separacion_temporal_con_corte():
     dataframe = dataset_base()
     separacion = ConfiguracionSeparacion(tipo="temporal", columna_fecha="fecha", corte="2024-05-01")
 
-    datos = preparar(dataframe, "y", decisiones(separacion=separacion))
+    datos = preparar(dataframe, "y", decisiones(), separacion=separacion)
     fechas = pd.to_datetime(dataframe["fecha"], format="%d.%m.%y")
 
     assert (fechas[datos.receta.indices_train] < "2024-05-01").all()
@@ -203,9 +206,10 @@ def test_separacion_temporal_con_corte():
 
 
 def test_separacion_temporal_sin_corte_usa_el_primer_70_por_ciento():
-    datos = preparar(dataset_base(), "y", decisiones(
-        separacion=ConfiguracionSeparacion(tipo="temporal", columna_fecha="fecha")
-    ))
+    datos = preparar(
+        dataset_base(), "y", decisiones(),
+        separacion=ConfiguracionSeparacion(tipo="temporal", columna_fecha="fecha"),
+    )
 
     assert datos.receta.indices_train == list(range(140))
     assert datos.receta.indices_test == list(range(140, 200))
@@ -223,7 +227,7 @@ def test_corte_que_vacia_un_conjunto_es_error():
     separacion = ConfiguracionSeparacion(tipo="temporal", columna_fecha="fecha", corte="2030-01-01")
 
     with pytest.raises(ErrorPreparacion, match="vacío"):
-        preparar(dataset_base(), "y", decisiones(separacion=separacion))
+        preparar(dataset_base(), "y", decisiones(), separacion=separacion)
 
 
 # --- B4. Receta reproducible ------------------------------------------------------------------------
@@ -240,7 +244,6 @@ def test_aplicar_receta_reproduce_exactamente(tipo_separacion):
         semilla=11,
     )
     elegidas = decisiones(
-        separacion=separacion,
         faltantes={
             "glucosa": TratamientoColumna(imputacion="multivariada", indicador_medido=True),
             "temp": TratamientoColumna(imputacion="mediana"),
@@ -249,7 +252,8 @@ def test_aplicar_receta_reproduce_exactamente(tipo_separacion):
         logaritmos=["edad"],
     )
 
-    original = preparar(dataframe, "y", elegidas)
+    original = preparar(dataframe, "y", elegidas, separacion=separacion)
+    assert ida_y_vuelta(original.receta).separacion == separacion
     reproducida = aplicar_receta(dataframe, ida_y_vuelta(original.receta))
 
     pd.testing.assert_frame_equal(original.train, reproducida.train, check_exact=True)
@@ -308,7 +312,6 @@ def test_decisiones_ida_y_vuelta_json():
     elegidas = decisiones(
         faltantes={"glucosa": TratamientoColumna(True, True, "mediana")},
         conversiones=[ConversionUnidades("temp", ">", 50, 32, 5 / 9, "°F → °C")],
-        separacion=ConfiguracionSeparacion(tipo="temporal", columna_fecha="fecha"),
     )
 
     texto = json.dumps(a_diccionario_serializable(elegidas), ensure_ascii=False)
@@ -370,3 +373,61 @@ def test_plantilla_confirmaciones_y_agrupacion():
     assert "agrupar_clases" in distribucion.opciones
     assert "Al agruparlas" in distribucion.descripcion
     assert "ferritina" in plantilla.logaritmos
+
+
+# --- La separación vive solo en la receta ------------------------------------------------------------
+
+
+def test_decisiones_antiguas_con_separacion_se_leen_y_la_separacion_es_solo_valor_inicial():
+    antiguas = a_diccionario_serializable(decisiones())
+    antiguas["separacion"] = {"tipo": "temporal", "proporcion_test": 0.2, "semilla": 5,
+                              "columna_fecha": "fecha", "corte": None}
+
+    leidas = decisiones_desde_diccionario(antiguas)
+    heredada = separacion_heredada(antiguas)
+
+    assert leidas == decisiones()
+    assert heredada == ConfiguracionSeparacion(tipo="temporal", proporcion_test=0.2, semilla=5, columna_fecha="fecha")
+    assert separacion_sugerida(leidas, heredada) == heredada
+    assert separacion_heredada(a_diccionario_serializable(decisiones())) is None
+
+
+def test_separacion_sugerida_sin_archivo_antiguo():
+    assert separacion_sugerida(decisiones()) == ConfiguracionSeparacion()
+    reservada = decisiones(columnas_excluidas=[], columnas_fecha_disponibles=["fecha"])
+    assert separacion_sugerida(reservada) == ConfiguracionSeparacion(tipo="temporal", columna_fecha="fecha")
+
+
+def test_fecha_reservada_no_es_variable_aunque_la_separacion_sea_estratificada():
+    reservada = decisiones(columnas_excluidas=[], columnas_fecha_disponibles=["fecha"])
+
+    datos = preparar(dataset_base(), "y", reservada)
+
+    assert "fecha" not in datos.train.columns
+    assert datos.receta.separacion == ConfiguracionSeparacion()
+
+
+def test_separacion_temporal_solo_con_una_fecha_detectada():
+    con_fechas = decisiones(columnas_fecha_disponibles=["fecha"])
+
+    with pytest.raises(ErrorPreparacion, match="no es una columna de fecha detectada"):
+        preparar(dataset_base(), "y", con_fechas, separacion=ConfiguracionSeparacion(tipo="temporal", columna_fecha="temp"))
+    with pytest.raises(ErrorPreparacion, match="no existe en el dataset"):
+        preparar(dataset_base(), "y", decisiones(), separacion=ConfiguracionSeparacion(tipo="temporal", columna_fecha="nada"))
+
+
+def test_receta_version_1_se_lee_con_la_separacion_de_sus_decisiones():
+    receta = receta_a_diccionario(
+        preparar(dataset_base(), "y", decisiones(), separacion=ConfiguracionSeparacion(semilla=9)).receta
+    )
+    antigua = {**receta, "version": 1}
+    antigua["decisiones"] = {**antigua.pop("decisiones"), "separacion": antigua.pop("separacion")}
+
+    leida = receta_desde_diccionario(antigua)
+
+    assert leida.separacion == ConfiguracionSeparacion(semilla=9)
+    assert leida.version == 2
+    pd.testing.assert_frame_equal(
+        aplicar_receta(dataset_base(), leida).train,
+        preparar(dataset_base(), "y", decisiones(), separacion=ConfiguracionSeparacion(semilla=9)).train,
+    )

@@ -26,7 +26,7 @@ REQUISITOS: dict[str, str | None] = {
 ARCHIVOS = {
     "revision": ["revision.json"],
     "decisiones": ["decisiones.json"],
-    "preparacion": ["receta.json", "train.csv", "test.csv"],
+    "preparacion": ["receta.json", "preparacion.json", "train.csv", "test.csv"],
     "recomendacion": ["recomendacion.json"],
     "configuracion_pc": ["pc.json"],
     "analisis": ["pc"],

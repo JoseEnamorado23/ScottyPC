@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Permisos mínimos de la ventana principal: el motor se lanza desde Rust (no hay permisos de shell para el frontend) y solo se permite el diálogo de abrir archivo.",
+  "description": "Permisos mínimos de la ventana principal: el motor se lanza desde Rust (no hay permisos de shell para el frontend); diálogo de abrir archivo; saber si la ventana está en primer plano y notificar al terminar un trabajo.",
   "windows": ["main"],
-  "permissions": ["core:default", "dialog:allow-open"]
+  "permissions": ["core:default", "core:window:allow-is-focused", "dialog:allow-open", "notification:default"]
 }

@@ -6,7 +6,13 @@ import pytest
 
 from pcapp_nucleo.analisis import analizar_dataset
 from pcapp_nucleo.plantilla import ErrorEleccion, aplicar_elecciones, generar_plantilla
-from pcapp_nucleo.preparacion import Codificacion, TratamientoColumna, preparar
+from pcapp_nucleo.preparacion import (
+    Codificacion,
+    ConfiguracionSeparacion,
+    TratamientoColumna,
+    preparar,
+    separacion_sugerida,
+)
 
 from .datos_sinteticos import construir_dataset_prueba
 
@@ -124,8 +130,9 @@ def test_acciones_con_valores_iniciales_editables(informe_clinico):
     assert 34 < conversion.umbral < 60
     assert decisiones.codificaciones["clase"] == Codificacion("agrupacion", grupos={"1": 0, "2": 1, "3": 1})
     assert "pcv" in decisiones.columnas_excluidas and "hb" not in decisiones.columnas_excluidas
-    assert decisiones.separacion.tipo == "temporal" and decisiones.separacion.columna_fecha == "fecha"
+    # La fecha queda reservada para separar por tiempo; la separación se elige al preparar.
     assert "fecha" not in decisiones.columnas_excluidas
+    assert separacion_sugerida(decisiones) == ConfiguracionSeparacion(tipo="temporal", columna_fecha="fecha")
 
 
 def test_excluir_faltantes_dependientes_y_agrupar_clases(informe_clinico):
@@ -170,7 +177,7 @@ def test_preparar_con_decisiones_elegidas():
         },
     )
 
-    datos = preparar(dataframe, "objetivo", decisiones)
+    datos = preparar(dataframe, "objetivo", decisiones, separacion=separacion_sugerida(decisiones))
 
     assert datos.receta.separacion_aplicada["tipo"] == "temporal"
     assert any(c.startswith("nivel=") for c in datos.train.columns)

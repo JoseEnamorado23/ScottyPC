@@ -68,3 +68,21 @@ export async function elegirArchivo(): Promise<string | null> {
   });
   return typeof ruta === "string" ? ruta : null;
 }
+
+/**
+ * Notificación del sistema operativo, solo si la ventana de la app no está en primer
+ * plano (dentro de la app ya se muestra la notificación de siempre).
+ */
+export async function notificarSistema(titulo: string, cuerpo: string): Promise<void> {
+  if (!enTauri()) return;
+  try {
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    if (await getCurrentWindow().isFocused()) return;
+    const notificacion = await import("@tauri-apps/plugin-notification");
+    let permitido = await notificacion.isPermissionGranted();
+    if (!permitido) permitido = (await notificacion.requestPermission()) === "granted";
+    if (permitido) notificacion.sendNotification({ title: titulo, body: cuerpo });
+  } catch {
+    // Una notificación que no se puede mostrar no debe interrumpir la aplicación.
+  }
+}

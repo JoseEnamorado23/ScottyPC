@@ -50,8 +50,9 @@ def test_flujo_completo(capsys, dataset, decisiones):
     receta = cargar_json(dataset.with_name("estudio_receta.json"))
     train = pd.read_csv(dataset.with_name("estudio_train.csv"))
     test = pd.read_csv(dataset.with_name("estudio_test.csv"))
-    assert receta["decisiones"]["separacion"]["proporcion_test"] == 0.25
-    assert receta["decisiones"]["separacion"]["semilla"] == 7
+    assert receta["separacion"]["proporcion_test"] == 0.25
+    assert receta["separacion"]["semilla"] == 7
+    assert "separacion" not in receta["decisiones"]
     assert receta["origen"]["archivo"] == "estudio.csv" and len(receta["origen"]["sha256"]) == 64
     assert len(train) == len(receta["indices_train"]) and len(test) == len(receta["indices_test"])
     assert list(train.columns)[-1] == "objetivo"
@@ -111,7 +112,7 @@ def test_no_sobrescribe_archivos(capsys, dataset, decisiones):
     [
         (["--corte", "2024-05-01"], "--corte requiere"),
         (["--test", "1.5"], "proporción de test"),
-        (["--fecha", "no_existe"], "no existen"),
+        (["--fecha", "no_existe"], "no existe en el dataset"),
     ],
 )
 def test_errores_de_opciones(capsys, dataset, decisiones, extra, mensaje):

@@ -4,24 +4,29 @@ from fastapi import APIRouter, Depends, Query, Response
 from fastapi.responses import FileResponse
 
 from pcapp_servidor.esquemas import (
-    RESPUESTAS_ERROR,
     ConfiguracionPC,
     DatosHoja,
     DecisionesUsuario,
     Distribucion,
+    EstadoPreparacion,
+    EvaluacionEleccion,
     Proyecto,
     ProyectoCreado,
+    RESPUESTAS_ERROR,
     RecomendacionPrueba,
     RespuestaConfiguracionPC,
     ResultadoExportar,
     ResultadoPC,
     ResumenPreparacion,
     Revision,
+    SolicitudEvaluarPrueba,
     SolicitudExportar,
+    SolicitudPreparar,
     SolicitudPrevisualizar,
     SolicitudProyecto,
     SolicitudRevision,
     Trabajo,
+    ValidacionConfiguracionPC,
 )
 from pcapp_servidor.flujo import Servicios
 from pcapp_servidor.rutas import servicios
@@ -109,8 +114,22 @@ def guardar_decisiones(proyecto_id: str, decisiones: DecisionesUsuario, s: Servi
 
 
 @router.post("/{proyecto_id}/preparar", response_model=ResumenPreparacion, summary="Prepara los datos")
-def preparar(proyecto_id: str, s: Servicios = Depends(servicios)) -> dict:
-    return s.preparar(proyecto_id)
+def preparar(
+    proyecto_id: str, solicitud: SolicitudPreparar | None = None, s: Servicios = Depends(servicios)
+) -> dict:
+    """La separación elegida se guarda en la receta (su única fuente). Rehacer la
+    preparación deja desactualizadas la recomendación, la configuración de PC y el
+    análisis, pero no las decisiones."""
+    separacion = solicitud.separacion.model_dump() if solicitud and solicitud.separacion else None
+    return s.preparar(proyecto_id, separacion)
+
+
+@router.get(
+    "/{proyecto_id}/preparacion", response_model=EstadoPreparacion,
+    summary="Resumen de la preparación vigente y separación inicial del formulario",
+)
+def estado_preparacion(proyecto_id: str, s: Servicios = Depends(servicios)) -> dict:
+    return s.estado_preparacion(proyecto_id)
 
 
 @router.post(
@@ -132,6 +151,36 @@ def obtener_recomendacion(proyecto_id: str, s: Servicios = Depends(servicios)) -
     proyecto = s.proyecto(proyecto_id)
     s.etapas.exigir_vigente(proyecto_id, "recomendacion")
     return s.archivos.leer_json(s.archivos.carpeta(proyecto.id) / "recomendacion.json")
+
+
+@router.post(
+    "/{proyecto_id}/recomendacion/evaluar", response_model=EvaluacionEleccion,
+    summary="Advertencias sobre la prueba y el max_k elegidos",
+)
+def evaluar_prueba(
+    proyecto_id: str, solicitud: SolicitudEvaluarPrueba, s: Servicios = Depends(servicios)
+) -> dict:
+    """Compara la elección con la recomendación guardada; no guarda nada."""
+    return s.evaluar_prueba(proyecto_id, solicitud.prueba, solicitud.max_k)
+
+
+@router.get(
+    "/{proyecto_id}/configuracion-pc/plantilla", response_model=ConfiguracionPC,
+    summary="Plantilla de la configuración de PC (para restablecer)",
+)
+def plantilla_configuracion_pc(proyecto_id: str, s: Servicios = Depends(servicios)) -> dict:
+    return s.plantilla_configuracion_pc(proyecto_id)
+
+
+@router.post(
+    "/{proyecto_id}/configuracion-pc/validar", response_model=ValidacionConfiguracionPC,
+    summary="Valida la configuración de PC sin guardarla",
+)
+def validar_configuracion_pc(
+    proyecto_id: str, configuracion: ConfiguracionPC, s: Servicios = Depends(servicios)
+) -> dict:
+    """Todos los errores (con su campo) y las advertencias, p. ej. si el objetivo no está al final."""
+    return s.validar_configuracion_pc(proyecto_id, configuracion.model_dump())
 
 
 @router.get(

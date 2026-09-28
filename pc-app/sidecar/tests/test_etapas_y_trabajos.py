@@ -76,6 +76,10 @@ def test_progreso_cancelacion_y_reanudacion(cliente, diabetes):
     assert intermedio is not None and intermedio["estado"] == "en_curso"
     assert intermedio["total"] == 150 and intermedio["segundos_restantes_estimados"] is not None
     assert intermedio["segundos_transcurridos"] > 0
+    assert intermedio["detalles"] == {"modo": "secuencial", "procesos": 1}
+    en_curso = ok(cliente.get(f"/proyectos/{proyecto}"))
+    assert en_curso["trabajo_activo"] == trabajo["id"]
+    assert en_curso["ultimo_trabajo"]["estado"] == "en_curso" and not en_curso["ultimo_trabajo"]["reanudable"]
 
     assert cliente.post(f"/proyectos/{proyecto}/recomendacion").status_code == 409  # un trabajo a la vez
     decisiones = ok(cliente.get(f"/proyectos/{proyecto}/decisiones"))
@@ -87,6 +91,9 @@ def test_progreso_cancelacion_y_reanudacion(cliente, diabetes):
     assert cancelado["estado"] == "cancelado" and cancelado["completadas"] < 150
     assert cliente.post(f"/trabajos/{trabajo['id']}/cancelar").status_code == 409
     assert cliente.get(f"/proyectos/{proyecto}/resultado").status_code == 409
+    assert cancelado["detalles"] is None
+    ultimo = ok(cliente.get(f"/proyectos/{proyecto}"))["ultimo_trabajo"]
+    assert (ultimo["id"], ultimo["tipo"], ultimo["estado"], ultimo["reanudable"]) == (trabajo["id"], "pc", "cancelado", True)
 
     ok(cliente.post(f"/trabajos/{trabajo['id']}/reanudar"), 202)
     final = esperar_trabajo(cliente, trabajo["id"])
@@ -108,6 +115,8 @@ def test_trabajo_interrumpido_por_reinicio_se_reanuda(diabetes, tmp_path):
     with crear_cliente(datos) as cliente:  # "reinicio" del servidor
         interrumpido = ok(cliente.get(f"/trabajos/{'a' * 32}"))
         assert interrumpido["estado"] == "interrumpido"
+        [listado] = ok(cliente.get("/proyectos"))
+        assert listado["ultimo_trabajo"]["estado"] == "interrumpido" and listado["ultimo_trabajo"]["reanudable"]
         ok(cliente.post(f"/trabajos/{'a' * 32}/reanudar"), 202)
         assert esperar_trabajo(cliente, "a" * 32)["estado"] == "completado"
         assert ok(cliente.get(f"/proyectos/{proyecto}/resultado"))["corridas"]["validas"] == 10

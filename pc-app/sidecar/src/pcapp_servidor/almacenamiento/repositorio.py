@@ -138,6 +138,14 @@ class RepositorioTrabajos:
             ).fetchone()
         return _fila(Trabajo, fila)
 
+    def ultimo_de(self, proyecto_id: str) -> Trabajo | None:
+        with self.base.conexion() as con:
+            fila = con.execute(
+                "SELECT * FROM trabajos WHERE proyecto_id = ? ORDER BY actualizado_en DESC, rowid DESC LIMIT 1",
+                (proyecto_id,),
+            ).fetchone()
+        return _fila(Trabajo, fila)
+
     def actualizar(self, trabajo_id: str, **campos: Any) -> None:
         if "parametros" in campos:
             campos["parametros"] = json.dumps(campos["parametros"])

@@ -196,8 +196,30 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Prepara los datos */
+        /**
+         * Prepara los datos
+         * @description La separación elegida se guarda en la receta (su única fuente). Rehacer la
+         *     preparación deja desactualizadas la recomendación, la configuración de PC y el
+         *     análisis, pero no las decisiones.
+         */
         post: operations["preparar_proyectos__proyecto_id__preparar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/preparacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resumen de la preparación vigente y separación inicial del formulario */
+        get: operations["estado_preparacion_proyectos__proyecto_id__preparacion_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -216,6 +238,63 @@ export interface paths {
         put?: never;
         /** Lanza la recomendación de prueba (trabajo) */
         post: operations["recomendacion_proyectos__proyecto_id__recomendacion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/recomendacion/evaluar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Advertencias sobre la prueba y el max_k elegidos
+         * @description Compara la elección con la recomendación guardada; no guarda nada.
+         */
+        post: operations["evaluar_prueba_proyectos__proyecto_id__recomendacion_evaluar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/configuracion-pc/plantilla": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Plantilla de la configuración de PC (para restablecer) */
+        get: operations["plantilla_configuracion_pc_proyectos__proyecto_id__configuracion_pc_plantilla_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/configuracion-pc/validar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Valida la configuración de PC sin guardarla
+         * @description Todos los errores (con su campo) y las advertencias, p. ej. si el objetivo no está al final.
+         */
+        post: operations["validar_configuracion_pc_proyectos__proyecto_id__configuracion_pc_validar_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -392,6 +471,20 @@ export interface components {
              */
             requiere_confirmacion: boolean;
         };
+        /** AdvertenciaEleccion */
+        AdvertenciaEleccion: {
+            /** Codigo */
+            codigo: string;
+            /** Campo */
+            campo: string;
+            /** Mensaje */
+            mensaje: string;
+            /**
+             * Nivel
+             * @enum {string}
+             */
+            nivel: "advertencia" | "info";
+        };
         /** AlternativaPrueba */
         AlternativaPrueba: {
             /** Prueba */
@@ -463,6 +556,15 @@ export interface components {
         };
         /** Categoria */
         Categoria: {
+            /** Valor */
+            valor: unknown;
+            /** Conteo */
+            conteo: number;
+            /** Porcentaje */
+            porcentaje: number;
+        };
+        /** ClaseObjetivo */
+        ClaseObjetivo: {
             /** Valor */
             valor: unknown;
             /** Conteo */
@@ -554,6 +656,11 @@ export interface components {
              * @default 30
              */
             umbral_paralelo_s: number;
+            /**
+             * Nombres Niveles
+             * @description Títulos de los niveles (opcionales).
+             */
+            nombres_niveles?: string[] | null;
         };
         /** ConfiguracionSeparacion */
         ConfiguracionSeparacion: {
@@ -704,14 +811,6 @@ export interface components {
              */
             normalizar: boolean;
             /**
-             * @default {
-             *       "tipo": "estratificada",
-             *       "proporcion_test": 0.3,
-             *       "semilla": 42
-             *     }
-             */
-            separacion: components["schemas"]["ConfiguracionSeparacion"];
-            /**
              * Columnas Fecha Disponibles
              * @default []
              */
@@ -721,6 +820,16 @@ export interface components {
              * @default []
              */
             notas: string[];
+        };
+        /** DetallesTrabajo */
+        DetallesTrabajo: {
+            /**
+             * Modo
+             * @enum {string}
+             */
+            modo: "midiendo" | "secuencial" | "paralelo";
+            /** Procesos */
+            procesos: number;
         };
         /** DiagnosticoVariable */
         DiagnosticoVariable: {
@@ -769,6 +878,34 @@ export interface components {
             categorias: components["schemas"]["Categoria"][];
             histograma?: components["schemas"]["Histograma"] | null;
         };
+        /** DistribucionObjetivo */
+        DistribucionObjetivo: {
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "clases" | "continuo";
+            /** Filas */
+            filas: number;
+            /**
+             * Clases
+             * @default []
+             */
+            clases: components["schemas"]["ClaseObjetivo"][];
+            /** Media */
+            media?: number | null;
+            /** Mediana */
+            mediana?: number | null;
+            /** Minimo */
+            minimo?: number | null;
+            /** Maximo */
+            maximo?: number | null;
+        };
+        /** DistribucionesObjetivo */
+        DistribucionesObjetivo: {
+            train: components["schemas"]["DistribucionObjetivo"];
+            test: components["schemas"]["DistribucionObjetivo"];
+        };
         /** EjecucionBootstrap */
         EjecucionBootstrap: {
             /** Modo Solicitado */
@@ -785,6 +922,36 @@ export interface components {
             segundos_segunda_corrida: number | null;
             /** Segundos Estimados Restantes */
             segundos_estimados_restantes: number | null;
+        };
+        /** EstadoPreparacion */
+        EstadoPreparacion: {
+            /**
+             * Vigente
+             * @description Si hay una preparación vigente (entonces 'resumen' es el suyo).
+             */
+            vigente: boolean;
+            resumen: components["schemas"]["ResumenPreparacion"] | null;
+            /** @description La de la receta vigente o, si no la hay, la sugerida (valor inicial del formulario). */
+            separacion: components["schemas"]["ConfiguracionSeparacion"];
+            /**
+             * Columnas Fecha Disponibles
+             * @description Fechas detectadas para la separación temporal.
+             */
+            columnas_fecha_disponibles: string[];
+        };
+        /** EvaluacionEleccion */
+        EvaluacionEleccion: {
+            /** Prueba */
+            prueba: string;
+            /** Max K */
+            max_k: number | null;
+            /** Advertencias */
+            advertencias: components["schemas"]["AdvertenciaEleccion"][];
+            /**
+             * Tiempo Estimado S
+             * @description Tiempo del bootstrap con esta elección, si se estimó.
+             */
+            tiempo_estimado_s: number | null;
         };
         /** Hallazgo */
         Hallazgo: {
@@ -819,6 +986,25 @@ export interface components {
             limites: number[];
             /** Conteos */
             conteos: number[];
+        };
+        /** LimiteColumnas */
+        LimiteColumnas: {
+            /**
+             * Estado
+             * @enum {string}
+             */
+            estado: "ok" | "lento" | "bloqueado";
+            /** Columnas */
+            columnas: number;
+            /** Mensaje */
+            mensaje: string | null;
+            /**
+             * Columnas One Hot
+             * @description Columnas que aporta cada codificación one-hot.
+             */
+            columnas_one_hot: {
+                [key: string]: number;
+            };
         };
         /** Matrices */
         Matrices: {
@@ -869,6 +1055,13 @@ export interface components {
             /** Maximo */
             maximo: number | null;
         };
+        /** ProblemaConfiguracion */
+        ProblemaConfiguracion: {
+            /** Campo */
+            campo: string;
+            /** Mensaje */
+            mensaje: string;
+        };
         /** ProblemaValidacion */
         ProblemaValidacion: {
             /**
@@ -915,6 +1108,8 @@ export interface components {
              * @description Id del trabajo en curso, si hay uno.
              */
             trabajo_activo: string | null;
+            /** @description Último trabajo del proyecto (para marcar los interrumpidos y reanudarlos). */
+            ultimo_trabajo?: components["schemas"]["ResumenTrabajo"] | null;
             /** Creado En */
             creado_en: string;
             /** Actualizado En */
@@ -948,6 +1143,8 @@ export interface components {
              * @description Id del trabajo en curso, si hay uno.
              */
             trabajo_activo: string | null;
+            /** @description Último trabajo del proyecto (para marcar los interrumpidos y reanudarlos). */
+            ultimo_trabajo?: components["schemas"]["ResumenTrabajo"] | null;
             /** Creado En */
             creado_en: string;
             /** Actualizado En */
@@ -1097,12 +1294,44 @@ export interface components {
             faltantes_restantes: {
                 [key: string]: number;
             };
-            /** Separacion */
+            /**
+             * Separacion
+             * @description Separación aplicada (corte real, filas de cada conjunto).
+             */
             separacion: {
                 [key: string]: unknown;
             };
+            separacion_configurada: components["schemas"]["ConfiguracionSeparacion"];
+            distribucion_objetivo: components["schemas"]["DistribucionesObjetivo"];
+            limite_columnas: components["schemas"]["LimiteColumnas"];
             /** Advertencias */
             advertencias: string[];
+        };
+        /** ResumenTrabajo */
+        ResumenTrabajo: {
+            /** Id */
+            id: string;
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "recomendacion" | "pc";
+            /**
+             * Estado
+             * @enum {string}
+             */
+            estado: "pendiente" | "en_curso" | "completado" | "cancelado" | "fallido" | "interrumpido";
+            /** Completadas */
+            completadas: number;
+            /** Total */
+            total: number | null;
+            /** Mensaje */
+            mensaje: string | null;
+            /**
+             * Reanudable
+             * @description Si se puede reanudar ahora (estado y etapas lo permiten).
+             */
+            reanudable: boolean;
         };
         /** Revision */
         Revision: {
@@ -1138,10 +1367,25 @@ export interface components {
             /** Grupo Procesos Creado */
             grupo_procesos_creado: boolean;
         };
+        /** SolicitudEvaluarPrueba */
+        SolicitudEvaluarPrueba: {
+            /**
+             * Prueba
+             * @enum {string}
+             */
+            prueba: "fisherz" | "mv_fisherz" | "chisq" | "kci";
+            /** Max K */
+            max_k?: number | null;
+        };
         /** SolicitudExportar */
         SolicitudExportar: {
             /** Carpeta Destino */
             carpeta_destino: string;
+        };
+        /** SolicitudPreparar */
+        SolicitudPreparar: {
+            /** @description Separación en train y test; si falta, la de la receta anterior o la sugerida. */
+            separacion?: components["schemas"]["ConfiguracionSeparacion"] | null;
         };
         /** SolicitudPrevisualizar */
         SolicitudPrevisualizar: {
@@ -1208,6 +1452,8 @@ export interface components {
             inicio: string | null;
             /** Fin */
             fin: string | null;
+            /** @description Modo de ejecución del análisis en curso. */
+            detalles?: components["schemas"]["DetallesTrabajo"] | null;
         };
         /** TratamientoColumna */
         TratamientoColumna: {
@@ -1223,6 +1469,15 @@ export interface components {
             indicador_medido: boolean;
             /** Imputacion */
             imputacion?: ("eliminar_filas" | "mediana" | "multivariada") | null;
+        };
+        /** ValidacionConfiguracionPC */
+        ValidacionConfiguracionPC: {
+            /** Valida */
+            valida: boolean;
+            /** Errores */
+            errores: components["schemas"]["ProblemaConfiguracion"][];
+            /** Advertencias */
+            advertencias: components["schemas"]["ProblemaConfiguracion"][];
         };
     };
     responses: never;
@@ -1888,7 +2143,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SolicitudPreparar"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -1897,6 +2156,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResumenPreparacion"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    estado_preparacion_proyectos__proyecto_id__preparacion_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EstadoPreparacion"];
                 };
             };
             /** @description No encontrado. */
@@ -1998,6 +2306,161 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Trabajo"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    evaluar_prueba_proyectos__proyecto_id__recomendacion_evaluar_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SolicitudEvaluarPrueba"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluacionEleccion"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    plantilla_configuracion_pc_proyectos__proyecto_id__configuracion_pc_plantilla_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfiguracionPC"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    validar_configuracion_pc_proyectos__proyecto_id__configuracion_pc_validar_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfiguracionPC"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValidacionConfiguracionPC"];
                 };
             };
             /** @description No encontrado. */

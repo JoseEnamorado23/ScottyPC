@@ -97,7 +97,7 @@ Un índice único parcial en `trabajos` garantiza **un solo trabajo activo por p
 |---|---|---|
 | revision | proyecto | `revision.json` |
 | decisiones | revision | `decisiones.json` |
-| preparacion | decisiones | `receta.json`, `train.csv`, `test.csv` |
+| preparacion | decisiones | `receta.json`, `preparacion.json`, `train.csv`, `test.csv` |
 | recomendacion | preparacion | `recomendacion.json` |
 | configuracion_pc | preparacion | `pc.json` |
 | analisis | configuracion_pc | `pc/` |
@@ -106,6 +106,9 @@ Al rehacer una etapa, sus archivos anteriores y los de **todas las posteriores**
 a `anteriores/<fecha-hora>/` y esas etapas quedan `desactualizada`. Ejecutar una etapa sin
 su requisito vigente, o modificar un proyecto con un trabajo en curso, devuelve **409** con
 un mensaje que indica qué falta.
+
+Rehacer la preparación (p. ej. con otra separación) deja desactualizadas la recomendación,
+la configuración de PC y el análisis, pero no las decisiones.
 
 ## Endpoints
 
@@ -122,12 +125,16 @@ un mensaje que indica qué falta.
 | `GET /proyectos/{id}/decisiones/plantilla` | Decisiones sugeridas. |
 | `POST /proyectos/{id}/decisiones/previsualizar` `{elecciones: {identificador: accion}}` | Decisiones que resultan de las acciones elegidas, calculadas por el núcleo (`aplicar_elecciones`); no guarda nada. Una elección no válida da 422 con `campo = elecciones.<identificador>`. |
 | `GET/PUT /proyectos/{id}/decisiones` | Decisiones guardadas; el PUT valida (422 por campo) e invalida lo posterior. |
-| `POST /proyectos/{id}/preparar` | Receta y resumen (filas, columnas finales, faltantes restantes). |
-| `POST /proyectos/{id}/recomendacion?estimar_tiempo=` | Recomendación de prueba como **trabajo** (202). |
+| `POST /proyectos/{id}/preparar` `{separacion?}` | Prepara con la separación indicada (o la inicial) y la guarda en la receta. Resumen: filas y distribución del objetivo en train y test, columnas finales, faltantes restantes y `limite_columnas`. |
+| `GET /proyectos/{id}/preparacion` | Resumen vigente (o `null`), separación inicial del formulario (la de la receta más reciente o la sugerida) y fechas disponibles. |
+| `POST /proyectos/{id}/recomendacion?estimar_tiempo=` | Recomendación de prueba como **trabajo** (202). 409 `DEMASIADAS_COLUMNAS` si hay más de 50 columnas finales. |
 | `GET /proyectos/{id}/recomendacion` | Recomendación guardada. |
-| `GET/PUT /proyectos/{id}/configuracion-pc` | Configuración de PC (el GET devuelve la plantilla con `guardada: false` si no existe). |
-| `POST /proyectos/{id}/pc` | Lanza el análisis como **trabajo** (202). |
-| `GET /trabajos/{id}` | Estado, completadas, total, fallidas, tiempo transcurrido y restante estimado. |
+| `POST /proyectos/{id}/recomendacion/evaluar` `{prueba, max_k}` | Advertencias del núcleo si la elección contradice los datos y tiempo estimado con ella; no guarda nada. |
+| `GET/PUT /proyectos/{id}/configuracion-pc` | Configuración de PC (el GET devuelve la plantilla con `guardada: false` si no existe). El PUT devuelve 422 con todos los errores, cada uno con su campo (`niveles.2`, `nombres_niveles.0`, `modificables`...). |
+| `GET /proyectos/{id}/configuracion-pc/plantilla` | Plantilla (todas las variables en un nivel y el objetivo al final), para restablecer. |
+| `POST /proyectos/{id}/configuracion-pc/validar` | `{valida, errores, advertencias}` sin guardar (p. ej. el objetivo fuera del último nivel). |
+| `POST /proyectos/{id}/pc` | Lanza el análisis como **trabajo** (202). 409 `DEMASIADAS_COLUMNAS` como la recomendación. |
+| `GET /trabajos/{id}` | Estado, completadas, total, fallidas, tiempo transcurrido y restante estimado; `detalles` = modo del análisis en curso (`midiendo`, `secuencial` o `paralelo` con N procesos). |
 | `POST /trabajos/{id}/cancelar` · `POST /trabajos/{id}/reanudar` | Cancelar; reanudar (PC continúa desde su punto de control; la recomendación se repite). |
 | `GET /proyectos/{id}/resultado` | `resultado.json`. |
 | `GET /proyectos/{id}/archivos/{nombre}` | Archivos de resultados (ver *Seguridad*). |
@@ -147,7 +154,7 @@ uniforme:
   guarda en memoria en cada corrida y en SQLite como mucho una vez por segundo. El tiempo
   restante se estima con el ritmo de la sesión actual.
 - Si el servidor se reinicia, los trabajos que estaban activos quedan `interrumpido` y se
-  pueden reanudar.
+  pueden reanudar. Cada proyecto expone `ultimo_trabajo` (con `reanudable`) para marcarlos.
 - El grupo de procesos de PC se crea una sola vez, de forma perezosa (solo cuando un
   análisis decide ir en paralelo), y se reutiliza entre análisis: arrancarlo cuesta unos
   20 s en Windows. Tras una cancelación se recicla cuando ningún otro análisis lo usa. El

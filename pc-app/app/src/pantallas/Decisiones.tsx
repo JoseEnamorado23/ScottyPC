@@ -139,6 +139,9 @@ export function PantallaDecisiones() {
   );
 }
 
+/** Fechas detectadas que las decisiones no excluyen (reservadas para una separación temporal). */
+const fechasReservadas = (d: Decisiones) => d.columnas_fecha_disponibles.filter((c) => !d.columnas_excluidas.includes(c));
+
 function Resumen({ decisiones }: { decisiones: Decisiones }) {
   const faltantes = Object.entries(decisiones.faltantes);
   const codificaciones = Object.entries(decisiones.codificaciones);
@@ -166,8 +169,9 @@ function Resumen({ decisiones }: { decisiones: Decisiones }) {
             Logaritmo: {decisiones.logaritmos.length ? decisiones.logaritmos.join(", ") : "ninguna"}
           </Text>
           <Text size="sm" mt="xs">
-            Separación: {decisiones.separacion.tipo === "temporal" ? `temporal por «${decisiones.separacion.columna_fecha}»` : "estratificada"}{" "}
-            ({formatoValor(decisiones.separacion.proporcion_test * 100)} % de prueba)
+            Fechas para separar por tiempo:{" "}
+            {fechasReservadas(decisiones).length ? fechasReservadas(decisiones).join(", ") : "ninguna"} (la separación se
+            elige al preparar)
           </Text>
         </Card>
         <Card withBorder>

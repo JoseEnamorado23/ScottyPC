@@ -87,10 +87,14 @@ archivo → carga → validación ─┬─ errores bloqueantes → se informan 
 | `analisis.analizar_dataset(df, objetivo)` | DataFrame y objetivo | `ResultadoAnalisis` | Valida y solo revisa si no hay errores bloqueantes. |
 | `plantilla.generar_plantilla(informe)` | `InformeRevision` | `DecisionesUsuario` | Acción sugerida por hallazgo, con `requiere_confirmacion`. |
 | `plantilla.aplicar_elecciones(informe, elecciones)` | `InformeRevision`, `{identificador: accion}` | `DecisionesUsuario` | Única implementación del paso acciones → decisiones; los hallazgos sin elección usan la sugerida. `ErrorEleccion` si el hallazgo o la acción no existen. |
-| `preparacion.preparar(df, objetivo, decisiones)` | DataFrame, objetivo, decisiones | `DatosPreparados` | Aplica las decisiones y registra la `Receta`. Lanza `ErrorPreparacion`. |
+| `preparacion.preparar(df, objetivo, decisiones, separacion=None)` | DataFrame, objetivo, decisiones y `ConfiguracionSeparacion` | `DatosPreparados` | Aplica las decisiones, separa y registra la `Receta` (única fuente de la separación). Lanza `ErrorPreparacion`. |
+| `preparacion.separacion_sugerida(decisiones, heredada=None)` | Decisiones | `ConfiguracionSeparacion` | Valor inicial cuando aún no hay receta: la de un archivo de decisiones antiguo (`separacion_heredada`), temporal si hay una fecha reservada o estratificada. |
+| `preparacion.evaluar_columnas(columnas)` | Metadatos de las columnas finales | `LimiteColumnas` | `ok`, `lento` (más de 30) o `bloqueado` (más de 50), con el mensaje y lo que aporta cada one-hot. |
 | `preparacion.aplicar_receta(df, receta)` | DataFrame original y receta | `DatosPreparados` | Reproduce exactamente train y test sin volver a aprender nada. |
 | `seleccion_prueba.recomendar_prueba(datos)` | `DatosPreparados` | `RecomendacionPrueba` | Prueba sugerida, motivo, evidencia, alternativas y tiempo estimado. Usa solo train. |
-| `pc_bootstrap.ejecutar_bootstrap(datos, config, progreso, cancelacion, punto_control, reanudar)` | `DatosPreparados`, `ConfiguracionPC` | `ResultadoBootstrap` | Cuentas de aristas por corrida. Usa solo train. |
+| `seleccion_prueba.evaluar_eleccion(recomendacion, prueba, max_k)` | Recomendación y elección del usuario | `EvaluacionEleccion` | Advertencias (con su campo) si la elección contradice los datos y el tiempo estimado con ella. |
+| `pc_config.problemas_configuracion(config, variables, objetivo)` | `ConfiguracionPC` | `list[ProblemaConfiguracion]` | Todos los errores con la ruta de su campo; `advertencias_configuracion` avisa si el objetivo no está en el último nivel. |
+| `pc_bootstrap.ejecutar_bootstrap(datos, config, progreso, cancelacion, punto_control, reanudar, al_decidir_modo)` | `DatosPreparados`, `ConfiguracionPC` | `ResultadoBootstrap` | Cuentas de aristas por corrida. Usa solo train. |
 | `pc_bootstrap.agregar(resultado, datos, config)` | `ResultadoBootstrap` | `GrafoAgregado` | Aristas aceptadas, orientación, orientaciones manuales, signo y ciclos. |
 | `caracterizacion.caracterizar(grafo, resultado, modificables, grupos)` | `GrafoAgregado` | `Caracterizacion` | Categoría de cada variable y candidatas prescriptivas. |
 | `exportacion.exportar(carpeta, ...)` | Resultados | Archivos | Escribe los resultados en una carpeta. |
@@ -129,7 +133,14 @@ Las decisiones (`DecisionesUsuario`, editables como JSON) cubren: eliminar dupli
 excluir columnas, tratamiento de faltantes por columna (eliminar filas, mediana,
 imputación multivariada, indicador de "dato medido", ceros como faltantes), codificación
 de categóricas (binaria, ordinal, one-hot o agrupación de clases), conversiones de
-unidades (`si columna > umbral: (x − restar) × multiplicar`), logaritmos y la separación.
+unidades (`si columna > umbral: (x − restar) × multiplicar`) y logaritmos.
+
+**La separación no forma parte de las decisiones**: se elige al preparar y se guarda solo
+en la receta (`Receta.separacion`, versión 2 de la receta). Las decisiones antiguas que aún
+tengan `separacion` se leen igual y ese valor solo se usa como valor inicial mientras no hay
+receta; las recetas versión 1 se leen tomando la separación de sus decisiones. Las fechas
+detectadas (`columnas_fecha_disponibles`) nunca son variables: la acción
+`separacion_temporal` solo la reserva para poder separar por ella.
 
 Orden de aplicación, para no filtrar información del test:
 
@@ -143,7 +154,10 @@ Orden de aplicación, para no filtrar información del test:
    mediana, imputación multivariada (regresión lineal iterativa propia, 10 rondas) y
    normalización min-max.
 
-La receta JSON guarda todas las decisiones, los índices de train y test, la semilla, los
+Con más de 30 columnas finales (el one-hot suma una por categoría) PC será lento; con más
+de 50, la aplicación no continúa (la terminal solo lo advierte).
+
+La receta JSON guarda todas las decisiones, la separación, los índices de train y test, los
 parámetros aprendidos (medianas, mínimos, máximos, coeficientes del imputador) y el hash
 SHA-256 del archivo original.
 
@@ -169,6 +183,7 @@ cada submuestra, el umbral de frecuencia, `max_k`, la semilla, los procesos, los
 (nada de un nivel posterior puede causar algo de uno anterior; cada variable en exactamente
 un nivel), las variables **modificables** y las **orientaciones manuales** (con su
 justificación). La plantilla pone todas las variables en un nivel y el objetivo después.
+`nombres_niveles` (opcional) da un título a cada nivel; se usa en las columnas de `grafo.png`.
 
 - **Reproducible:** la corrida `k` usa una submuestra sin reemplazo generada con
   `SeedSequence([semilla, k])` y PC es determinista, así que el resultado es idéntico con

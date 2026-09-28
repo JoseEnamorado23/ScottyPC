@@ -31,7 +31,6 @@ from pcapp_nucleo.modelos import Hallazgo, InformeRevision, TipoColumna, TipoHal
 from pcapp_nucleo.preparacion import (
     AccionHallazgo,
     Codificacion,
-    ConfiguracionSeparacion,
     ConversionUnidades,
     DecisionesUsuario,
     ErrorPreparacion,
@@ -79,7 +78,8 @@ class _Decisiones:
     fechas: list[str] = field(default_factory=list)
     notas: list[str] = field(default_factory=list)
     eliminar_duplicados: bool = False
-    separacion: ConfiguracionSeparacion = field(default_factory=ConfiguracionSeparacion)
+    # Columna de fecha reservada para una separación temporal (no se excluye).
+    fecha_temporal: str | None = None
 
     @property
     def objetivo(self) -> str | None:
@@ -162,7 +162,6 @@ def _construir(decisiones: _Decisiones) -> DecisionesUsuario:
         codificaciones={c: k for c, k in decisiones.codificaciones.items() if c not in excluidas},
         conversiones=[c for c in decisiones.conversiones if c.columna not in excluidas],
         logaritmos=[c for c in decisiones.logaritmos if c not in excluidas],
-        separacion=decisiones.separacion,
         columnas_fecha_disponibles=decisiones.fechas,
         notas=decisiones.notas,
     )
@@ -267,13 +266,13 @@ def _fecha(d: _Decisiones, h: Hallazgo) -> _Especificacion:
     d.fechas.append(columna)
 
     def temporal() -> None:
-        d.separacion = ConfiguracionSeparacion(tipo="temporal", columna_fecha=columna)
+        d.fecha_temporal = columna
 
     return _Especificacion(
         "excluir_columna",
         {"excluir_columna": lambda: d.excluir(columna), "separacion_temporal": temporal},
-        "La fecha no se usa como variable. Puede usarse para separar entrenamiento y test por "
-        "tiempo (lo anterior al corte para entrenar).",
+        "La fecha no se usa como variable. Puede reservarse para separar entrenamiento y test "
+        "por tiempo (lo anterior al corte para entrenar); la separación se elige al preparar.",
     )
 
 
@@ -448,7 +447,7 @@ _ESPECIFICADORES = {
 def _excluir_no_numericas(d: _Decisiones) -> None:
     """Excluye columnas que no serían numéricas tras la preparación, con una nota."""
     no_numericas = (TipoColumna.CATEGORICA, TipoColumna.TEXTO, TipoColumna.FECHA, TipoColumna.VACIA)
-    temporal = d.separacion.columna_fecha if d.separacion.tipo == "temporal" else None
+    temporal = d.fecha_temporal
     for perfil in d.informe.perfiles_columnas:
         columna = perfil.nombre
         if columna in (d.objetivo, temporal) or columna in d.excluidas:

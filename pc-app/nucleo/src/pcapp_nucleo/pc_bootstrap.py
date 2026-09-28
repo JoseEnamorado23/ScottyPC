@@ -385,6 +385,7 @@ def ejecutar_bootstrap(
     reanudar: bool = False,
     progreso_detallado: Callable[[ProgresoBootstrap], None] | None = None,
     ejecutor: Executor | None = None,
+    al_decidir_modo: Callable[[str, int], None] | None = None,
 ) -> ResultadoBootstrap:
     """Ejecuta PC en ``corridas_bootstrap`` submuestras del conjunto de entrenamiento.
 
@@ -400,6 +401,9 @@ def ejecutar_bootstrap(
         punto_control: archivo donde guardar el estado cada ``punto_control_cada``
             corridas y al cancelar; se borra al terminar con éxito.
         reanudar: continuar desde ``punto_control`` si existe.
+        al_decidir_modo: se llama con (modo, procesos) cuando se sabe cómo se
+            ejecutarán las corridas: ``"midiendo"`` (modo adaptativo, mientras se
+            miden las primeras corridas), ``"secuencial"`` o ``"paralelo"``.
 
     Raises:
         ErrorConfiguracionPC: si la configuración no es válida para los datos o el
@@ -460,6 +464,7 @@ def ejecutar_bootstrap(
             matriz, variables, prohibidos, configuracion, corridas, registrar, cancelado, ejecutor
         ),
         cancelado,
+        al_decidir_modo,
     )
 
     completo = len(estado.completadas) == total
@@ -491,6 +496,7 @@ def _decidir_y_ejecutar(
     secuencial: Callable[[list[int]], None],
     paralelo: Callable[[list[int]], None],
     cancelado: Callable[[], bool],
+    al_decidir_modo: Callable[[str, int], None] | None = None,
 ) -> EjecucionBootstrap:
     """Ejecuta las corridas pendientes en el modo configurado y explica la elección.
 
@@ -501,22 +507,34 @@ def _decidir_y_ejecutar(
     solicitado = configuracion.modo_ejecucion
     procesos = configuracion.procesos
 
+    def avisar(modo: str, n: int) -> None:
+        if al_decidir_modo is not None:
+            al_decidir_modo(modo, n)
+
+    def en_secuencial(corridas: list[int]) -> None:
+        avisar("secuencial", 1)
+        secuencial(corridas)
+
+    def en_paralelo(corridas: list[int]) -> None:
+        avisar("paralelo", procesos)
+        paralelo(corridas)
+
     def registro(usado: str, motivo: str, **tiempos: float | None) -> EjecucionBootstrap:
         return EjecucionBootstrap(
             solicitado, usado, procesos if usado == "paralelo" else 1, motivo, **tiempos
         )
 
     if len(pendientes) <= 1:
-        secuencial(pendientes)
+        en_secuencial(pendientes)
         return registro("secuencial", "Como mucho quedaba una corrida pendiente.")
     if procesos == 1:
-        secuencial(pendientes)
+        en_secuencial(pendientes)
         return registro("secuencial", "Se configuró un solo proceso.")
     if solicitado == "secuencial":
-        secuencial(pendientes)
+        en_secuencial(pendientes)
         return registro("secuencial", "Modo secuencial forzado en la configuración.")
     if solicitado == "paralelo":
-        paralelo(pendientes)
+        en_paralelo(pendientes)
         return registro("paralelo", f"Modo paralelo forzado en la configuración ({procesos} procesos).")
 
     def medir(corrida: int) -> float:
@@ -525,6 +543,7 @@ def _decidir_y_ejecutar(
         return time.perf_counter() - inicio
 
     umbral = configuracion.umbral_paralelo_s
+    avisar("midiendo", 1)
     primera = medir(pendientes[0])
     tiempos: dict[str, float | None] = {"segundos_primera_corrida": round(primera, 3)}
     restantes = pendientes[1:]
@@ -543,14 +562,14 @@ def _decidir_y_ejecutar(
     tiempos["segundos_estimados_restantes"] = round(estimado, 1)
     medicion = f"Cada corrida tarda unos {referencia:.2f} s; las {len(restantes)} restantes tardarían unos {estimado:.0f} s en secuencial"
     if estimado > umbral:
-        paralelo(restantes)
+        en_paralelo(restantes)
         return registro(
             "paralelo",
             f"{medicion}, más que el umbral de {umbral:g} s, así que se repartieron entre "
             f"{procesos} procesos.",
             **tiempos,
         )
-    secuencial(restantes)
+    en_secuencial(restantes)
     return registro(
         "secuencial",
         f"{medicion}, sin superar el umbral de {umbral:g} s, así que no compensaba el costo de "

@@ -56,8 +56,10 @@ def test_dengue_fecha_division_temporal_y_unidades():
     assert ("Temp",) in hallazgos(informe, TipoHallazgo.POSIBLE_MEZCLA_UNIDADES)
     decisiones = generar_plantilla(informe)
     assert "Date" in decisiones.columnas_fecha_disponibles
-    temporal = replace(decisiones, separacion=ConfiguracionSeparacion(tipo="temporal", columna_fecha="Date"))
-    datos = preparar(dataframe, "Outcome", temporal)
+    datos = preparar(
+        dataframe, "Outcome", decisiones,
+        separacion=ConfiguracionSeparacion(tipo="temporal", columna_fecha="Date"),
+    )
     fechas = pd.to_datetime(dataframe["Date"], format="%d.%m.%y")
     assert fechas[datos.receta.indices_train].max() < fechas[datos.receta.indices_test].min()
     assert "Date" not in datos.train.columns

@@ -393,7 +393,7 @@ def recomendar_prueba(
         alternativas.append(AlternativaPrueba(KCI, *_VENTAJAS_DESVENTAJAS[KCI]))
 
     tiempo, completa, total, max_k, nota, total_max_k = None, False, None, None, None, None
-    semilla = datos.receta.decisiones.separacion.semilla
+    semilla = datos.receta.separacion.semilla
     if estimar:
         tiempo, completa = estimar_tiempo(
             matriz.to_numpy(dtype=float), prueba, configuracion, semilla
@@ -442,3 +442,101 @@ def recomendar_prueba(
         tiempo_estimado_bootstrap_max_k_s=total_max_k,
         nota_tiempo=nota,
     )
+
+
+# --- Elección del usuario --------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class AdvertenciaEleccion:
+    """Aviso sobre una prueba o un max_k elegidos. ``nivel``: ``"advertencia"`` si la
+    elección contradice los datos, ``"info"`` si solo conviene saberlo."""
+
+    codigo: str
+    campo: str
+    mensaje: str
+    nivel: str = "advertencia"
+
+
+@dataclass(frozen=True)
+class EvaluacionEleccion:
+    prueba: str
+    max_k: int | None
+    advertencias: list[AdvertenciaEleccion]
+    # Tiempo estimado de todas las corridas de bootstrap con esta elección (None si no se estimó).
+    tiempo_estimado_s: float | None
+
+
+def evaluar_eleccion(
+    recomendacion: RecomendacionPrueba,
+    prueba: str,
+    max_k: int | None,
+    configuracion: ConfiguracionValidacion | None = None,
+) -> EvaluacionEleccion:
+    """Compara la prueba y el max_k que elige el usuario con lo que indican los datos
+    (la recomendación). No cambia la elección: solo advierte."""
+    configuracion = configuracion or ConfiguracionValidacion()
+    avisos: list[AdvertenciaEleccion] = []
+    r = recomendacion
+
+    if r.faltantes_restantes and prueba != MV_FISHERZ:
+        avisos.append(AdvertenciaEleccion(
+            "FALTANTES_SIN_IMPUTAR", "prueba",
+            f"Quedan faltantes sin imputar en {len(r.faltantes_restantes)} columnas "
+            f"({', '.join(r.faltantes_restantes)}) y {prueba} no los admite. Use mv_fisherz o "
+            "vuelva a Decisiones para imputarlos.",
+        ))
+    if not r.faltantes_restantes and prueba == MV_FISHERZ:
+        avisos.append(AdvertenciaEleccion(
+            "SIN_FALTANTES", "prueba",
+            "No quedan faltantes: mv_fisherz da lo mismo que fisherz y es más lenta.", "info",
+        ))
+    if r.variables_no_monotonas and prueba in (FISHERZ, MV_FISHERZ):
+        avisos.append(AdvertenciaEleccion(
+            "RELACIONES_NO_MONOTONAS", "prueba",
+            f"{prueba} supone relaciones lineales y puede no detectar la relación no monótona "
+            f"(en U) de: {', '.join(r.variables_no_monotonas)}.",
+        ))
+    if prueba == FISHERZ and r.proporcion_categoricas > configuracion.proporcion_maxima_categoricas:
+        avisos.append(AdvertenciaEleccion(
+            "MAYORIA_CATEGORICAS", "prueba",
+            f"El {100 * r.proporcion_categoricas:.0f} % de las variables son categóricas o binarias; "
+            "fisherz supone variables continuas con relaciones lineales.",
+        ))
+    if prueba == KCI and (
+        r.filas_train >= configuracion.filas_maximas_kci or r.variables > configuracion.variables_maximas_kci
+    ):
+        avisos.append(AdvertenciaEleccion(
+            "KCI_DEMASIADO_LENTA", "prueba",
+            f"KCI con {r.filas_train} filas y {r.variables} variables tardaría demasiado; solo es "
+            f"práctica con menos de {configuracion.filas_maximas_kci} filas y hasta "
+            f"{configuracion.variables_maximas_kci} variables.",
+        ))
+
+    tiempo = None
+    if prueba == r.prueba:
+        if max_k is None:
+            tiempo = r.tiempo_estimado_bootstrap_s
+        elif max_k == r.max_k_sugerido:
+            tiempo = r.tiempo_estimado_bootstrap_max_k_s
+        lento = r.tiempo_estimado_bootstrap_s is None or r.tiempo_estimado_bootstrap_s > configuracion.segundos_maximos_chisq
+        if prueba == CHISQ and max_k is None and r.max_k_sugerido is not None and lento:
+            duracion = (
+                f"unos {formatear_duracion(r.tiempo_estimado_bootstrap_s)}"
+                if r.tiempo_estimado_bootstrap_s is not None else "horas"
+            )
+            con_max_k = (
+                f" (con max_k = {r.max_k_sugerido}, unos {formatear_duracion(r.tiempo_estimado_bootstrap_max_k_s)})"
+                if r.tiempo_estimado_bootstrap_max_k_s is not None else ""
+            )
+            avisos.append(AdvertenciaEleccion(
+                "CHISQ_SIN_MAX_K", "max_k",
+                f"Sin max_k, el análisis con chisq tardaría {duracion}. Se sugiere max_k = "
+                f"{r.max_k_sugerido}{con_max_k}.",
+            ))
+    elif r.tiempo_por_ejecucion_s is not None or r.nota_tiempo:
+        avisos.append(AdvertenciaEleccion(
+            "TIEMPO_NO_ESTIMADO", "prueba",
+            f"El tiempo estimado corresponde a {r.prueba}; con {prueba} puede ser muy distinto.", "info",
+        ))
+    return EvaluacionEleccion(prueba, max_k, avisos, tiempo)

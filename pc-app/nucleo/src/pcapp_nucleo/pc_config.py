@@ -46,6 +46,7 @@ class ConfiguracionPC:
       cambia el resultado.
     - ``punto_control_cada``: cada cuántas corridas se guarda un punto de
       control (si se indicó un archivo).
+    - ``nombres_niveles``: títulos opcionales de los niveles.
     """
 
     prueba: str = "fisherz"
@@ -62,6 +63,9 @@ class ConfiguracionPC:
     punto_control_cada: int = 10
     modo_ejecucion: str = "adaptativo"
     umbral_paralelo_s: float = 30.0
+    # Títulos opcionales de los niveles (misma longitud que niveles). Solo presentación:
+    # se usan como títulos de las columnas en grafo.png.
+    nombres_niveles: list[str] | None = None
 
 
 def nivel_por_variable(configuracion: ConfiguracionPC) -> dict[str, int]:
@@ -101,75 +105,132 @@ def configuracion_desde_diccionario(datos: Any) -> ConfiguracionPC:
         raise ErrorConfiguracionPC(f"La configuración de PC no es válida: {error}.") from error
 
 
+@dataclass(frozen=True)
+class ProblemaConfiguracion:
+    """Error o advertencia de la configuración; ``campo`` es la ruta del campo en el JSON."""
+
+    campo: str
+    mensaje: str
+
+
+def problemas_configuracion(
+    configuracion: ConfiguracionPC, variables: list[str], objetivo: str
+) -> list[ProblemaConfiguracion]:
+    """Todos los errores de la configuración frente a las variables del conjunto de
+    entrenamiento (lista vacía si es válida)."""
+    c = configuracion
+    problemas: list[ProblemaConfiguracion] = []
+
+    def error(campo: str, mensaje: str) -> None:
+        problemas.append(ProblemaConfiguracion(campo, mensaje))
+
+    if c.prueba not in PRUEBAS_PC:
+        error("prueba", f"Prueba no válida: {c.prueba!r}. Opciones: {', '.join(PRUEBAS_PC)}.")
+    comprobaciones = [
+        ("alpha", 0 < c.alpha < 1, "alpha debe estar entre 0 y 1."),
+        ("corridas_bootstrap", c.corridas_bootstrap >= 1, "corridas_bootstrap debe ser al menos 1."),
+        ("fraccion_submuestra", 0 < c.fraccion_submuestra <= 1, "fraccion_submuestra debe estar entre 0 y 1."),
+        ("umbral_frecuencia", 0 < c.umbral_frecuencia <= 1, "umbral_frecuencia debe estar entre 0 y 1."),
+        ("max_k", c.max_k is None or c.max_k >= 0, "max_k debe ser null o un entero no negativo."),
+        ("procesos", c.procesos >= 1, "procesos debe ser al menos 1."),
+        ("punto_control_cada", c.punto_control_cada >= 1, "punto_control_cada debe ser al menos 1."),
+        (
+            "modo_ejecucion",
+            c.modo_ejecucion in MODOS_EJECUCION,
+            f"Modo de ejecución no válido: {c.modo_ejecucion!r}. Opciones: {', '.join(MODOS_EJECUCION)}.",
+        ),
+        ("umbral_paralelo_s", c.umbral_paralelo_s >= 0, "umbral_paralelo_s no puede ser negativo."),
+    ]
+    for campo, valido, mensaje in comprobaciones:
+        if not valido:
+            error(campo, mensaje)
+
+    en_niveles = [v for nivel in c.niveles for v in nivel]
+    repetidas = sorted({v for v in en_niveles if en_niveles.count(v) > 1})
+    if repetidas:
+        error("niveles", f"Estas variables aparecen en más de un nivel: {', '.join(repetidas)}.")
+    desconocidas = sorted(set(en_niveles) - set(variables))
+    if desconocidas:
+        error(
+            "niveles",
+            "Los niveles mencionan variables que no están en los datos preparados: "
+            f"{', '.join(desconocidas)}.",
+        )
+    ausentes = [v for v in variables if v not in en_niveles]
+    if objetivo in ausentes:
+        error("niveles", f"El objetivo '{objetivo}' debe estar en algún nivel.")
+    otras_ausentes = [v for v in ausentes if v != objetivo]
+    if otras_ausentes:
+        error(
+            "niveles",
+            f"Cada variable debe estar en exactamente un nivel; faltan: {', '.join(otras_ausentes)}.",
+        )
+    for i, nivel in enumerate(c.niveles):
+        if not nivel:
+            error(f"niveles.{i}", f"El nivel {i + 1} está vacío: agregue variables o elimínelo.")
+
+    if c.nombres_niveles is not None:
+        if len(c.nombres_niveles) != len(c.niveles):
+            error(
+                "nombres_niveles",
+                f"Hay {len(c.nombres_niveles)} nombres para {len(c.niveles)} niveles.",
+            )
+        for i, nombre in enumerate(c.nombres_niveles):
+            if not isinstance(nombre, str) or not nombre.strip():
+                error(f"nombres_niveles.{i}", f"El nombre del nivel {i + 1} no puede estar vacío.")
+
+    candidatas = set(variables) - {objetivo}
+    fuera = sorted(set(c.modificables) - candidatas)
+    if fuera:
+        error(
+            "modificables",
+            "Las variables modificables deben ser variables de los datos distintas del "
+            f"objetivo: {', '.join(fuera)}.",
+        )
+
+    nivel = nivel_por_variable(c)
+    for i, orientacion in enumerate(c.orientaciones_manuales):
+        desconocido = [e for e in (orientacion.origen, orientacion.destino) if e not in nivel]
+        if desconocido:
+            error(
+                f"orientaciones_manuales.{i}",
+                f"La orientación manual menciona una variable desconocida: '{desconocido[0]}'.",
+            )
+        elif nivel[orientacion.origen] > nivel[orientacion.destino]:
+            error(
+                f"orientaciones_manuales.{i}",
+                f"La orientación manual {orientacion.origen} → {orientacion.destino} contradice "
+                "los niveles: una variable de un nivel posterior no puede causar una de un nivel "
+                "anterior.",
+            )
+    return problemas
+
+
+def advertencias_configuracion(
+    configuracion: ConfiguracionPC, objetivo: str
+) -> list[ProblemaConfiguracion]:
+    """Situaciones válidas pero probablemente no deseadas."""
+    advertencias = []
+    nivel = nivel_por_variable(configuracion)
+    if objetivo in nivel:
+        posteriores = [v for v, n in nivel.items() if n > nivel[objetivo]]
+        if posteriores:
+            advertencias.append(ProblemaConfiguracion(
+                "niveles",
+                f"El objetivo '{objetivo}' no está en el último nivel: {', '.join(posteriores)} "
+                "no podrán ser causas del objetivo, solo consecuencias.",
+            ))
+    return advertencias
+
+
 def validar_configuracion(
     configuracion: ConfiguracionPC, variables: list[str], objetivo: str
 ) -> None:
     """Comprueba la configuración frente a las variables del conjunto de entrenamiento.
 
     Raises:
-        ErrorConfiguracionPC: con un mensaje en español si algo no es válido.
+        ErrorConfiguracionPC: con el primer problema, en español.
     """
-    c = configuracion
-    if c.prueba not in PRUEBAS_PC:
-        raise ErrorConfiguracionPC(
-            f"Prueba no válida: {c.prueba!r}. Opciones: {', '.join(PRUEBAS_PC)}."
-        )
-    comprobaciones = [
-        (0 < c.alpha < 1, "alpha debe estar entre 0 y 1."),
-        (c.corridas_bootstrap >= 1, "corridas_bootstrap debe ser al menos 1."),
-        (0 < c.fraccion_submuestra <= 1, "fraccion_submuestra debe estar entre 0 y 1."),
-        (0 < c.umbral_frecuencia <= 1, "umbral_frecuencia debe estar entre 0 y 1."),
-        (c.max_k is None or c.max_k >= 0, "max_k debe ser null o un entero no negativo."),
-        (c.procesos >= 1, "procesos debe ser al menos 1."),
-        (c.punto_control_cada >= 1, "punto_control_cada debe ser al menos 1."),
-        (
-            c.modo_ejecucion in MODOS_EJECUCION,
-            f"Modo de ejecución no válido: {c.modo_ejecucion!r}. Opciones: {', '.join(MODOS_EJECUCION)}.",
-        ),
-        (c.umbral_paralelo_s >= 0, "umbral_paralelo_s no puede ser negativo."),
-    ]
-    for valido, mensaje in comprobaciones:
-        if not valido:
-            raise ErrorConfiguracionPC(mensaje)
-
-    en_niveles = [v for nivel in c.niveles for v in nivel]
-    repetidas = sorted({v for v in en_niveles if en_niveles.count(v) > 1})
-    if repetidas:
-        raise ErrorConfiguracionPC(
-            f"Estas variables aparecen en más de un nivel: {', '.join(repetidas)}."
-        )
-    desconocidas = sorted(set(en_niveles) - set(variables))
-    if desconocidas:
-        raise ErrorConfiguracionPC(
-            f"Los niveles mencionan variables que no están en los datos preparados: "
-            f"{', '.join(desconocidas)}."
-        )
-    ausentes = [v for v in variables if v not in en_niveles]
-    if objetivo in ausentes:
-        raise ErrorConfiguracionPC(f"El objetivo '{objetivo}' debe estar en algún nivel.")
-    if ausentes:
-        raise ErrorConfiguracionPC(
-            f"Cada variable debe estar en exactamente un nivel; faltan: {', '.join(ausentes)}."
-        )
-
-    candidatas = set(variables) - {objetivo}
-    fuera = sorted(set(c.modificables) - candidatas)
-    if fuera:
-        raise ErrorConfiguracionPC(
-            f"Las variables modificables deben ser variables de los datos distintas del "
-            f"objetivo: {', '.join(fuera)}."
-        )
-
-    nivel = nivel_por_variable(c)
-    for orientacion in c.orientaciones_manuales:
-        for extremo in (orientacion.origen, orientacion.destino):
-            if extremo not in nivel:
-                raise ErrorConfiguracionPC(
-                    f"La orientación manual menciona una variable desconocida: '{extremo}'."
-                )
-        if nivel[orientacion.origen] > nivel[orientacion.destino]:
-            raise ErrorConfiguracionPC(
-                f"La orientación manual {orientacion.origen} → {orientacion.destino} contradice "
-                "los niveles: una variable de un nivel posterior no puede causar una de un nivel "
-                "anterior."
-            )
+    problemas = problemas_configuracion(configuracion, variables, objetivo)
+    if problemas:
+        raise ErrorConfiguracionPC(problemas[0].mensaje)

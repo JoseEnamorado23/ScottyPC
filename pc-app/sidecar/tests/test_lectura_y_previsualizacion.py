@@ -118,7 +118,9 @@ def test_previsualizar_eleccion_no_valida(cliente, diabetes):
 def test_decisiones_de_la_app_coinciden_con_las_de_la_terminal(cliente, diabetes):
     """Criterio de aceptación: confirmar los ceros como faltantes en la app da las mismas
     decisiones que datasets_prueba/diabetes_decisiones.json (plantilla editada en la terminal).
-    Solo difiere ``acciones_hallazgos``: en la terminal se editó ``faltantes`` a mano."""
+    Solo difiere ``acciones_hallazgos``: en la terminal se editó ``faltantes`` a mano. El
+    archivo es anterior a que la separación pasara a la receta: su ``separacion`` es la
+    antigua (estratificada por defecto) y se lee solo como valor inicial."""
     terminal = json.loads((diabetes.parent / "diabetes_decisiones.json").read_text(encoding="utf-8"))
     proyecto = crear_proyecto(cliente, diabetes)
     informe = ok(cliente.post(f"/proyectos/{proyecto}/revision", json={"objetivo": "Outcome"}))
@@ -132,5 +134,6 @@ def test_decisiones_de_la_app_coinciden_con_las_de_la_terminal(cliente, diabetes
     guardadas = ok(cliente.get(f"/proyectos/{proyecto}/decisiones"))
 
     assert {k: v for k, v in guardadas.items() if k != "acciones_hallazgos"} == {
-        k: v for k, v in terminal.items() if k != "acciones_hallazgos"
+        k: v for k, v in terminal.items() if k not in ("acciones_hallazgos", "separacion")
     }
+    assert terminal["separacion"]["tipo"] == "estratificada"

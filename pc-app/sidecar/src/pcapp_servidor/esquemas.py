@@ -72,6 +72,9 @@ class Proyecto(BaseModel):
     etapa_actual: str | None
     etapas: dict[str, EstadoEtapa] = Field(description="Estado de cada etapa realizada.")
     trabajo_activo: str | None = Field(description="Id del trabajo en curso, si hay uno.")
+    ultimo_trabajo: ResumenTrabajo | None = Field(
+        None, description="Último trabajo del proyecto (para marcar los interrumpidos y reanudarlos)."
+    )
     creado_en: str
     actualizado_en: str
 
@@ -215,7 +218,6 @@ class DecisionesUsuario(_Entrada):
     conversiones: list[ConversionUnidades] = []
     logaritmos: list[str] = []
     normalizar: bool = True
-    separacion: ConfiguracionSeparacion = ConfiguracionSeparacion()
     columnas_fecha_disponibles: list[str] = []
     notas: list[str] = []
 
@@ -236,14 +238,60 @@ class MetadatosColumna(BaseModel):
     parametros: dict[str, Any]
 
 
+class SolicitudPreparar(_Entrada):
+    separacion: ConfiguracionSeparacion | None = Field(
+        None, description="Separación en train y test; si falta, la de la receta anterior o la sugerida."
+    )
+
+
+class LimiteColumnas(BaseModel):
+    estado: Literal["ok", "lento", "bloqueado"]
+    columnas: int
+    mensaje: str | None
+    columnas_one_hot: dict[str, int] = Field(description="Columnas que aporta cada codificación one-hot.")
+
+
+class ClaseObjetivo(BaseModel):
+    valor: Any
+    conteo: int
+    porcentaje: float
+
+
+class DistribucionObjetivo(BaseModel):
+    tipo: Literal["clases", "continuo"]
+    filas: int
+    clases: list[ClaseObjetivo] = []
+    media: float | None = None
+    mediana: float | None = None
+    minimo: float | None = None
+    maximo: float | None = None
+
+
+class DistribucionesObjetivo(BaseModel):
+    train: DistribucionObjetivo
+    test: DistribucionObjetivo
+
+
 class ResumenPreparacion(BaseModel):
     filas_train: int
     filas_test: int
     tipo_objetivo: str | None
     columnas: list[MetadatosColumna]
     faltantes_restantes: dict[str, int] = Field(description="Faltantes por columna en train.")
-    separacion: dict[str, Any]
+    separacion: dict[str, Any] = Field(description="Separación aplicada (corte real, filas de cada conjunto).")
+    separacion_configurada: ConfiguracionSeparacion
+    distribucion_objetivo: DistribucionesObjetivo
+    limite_columnas: LimiteColumnas
     advertencias: list[str]
+
+
+class EstadoPreparacion(BaseModel):
+    vigente: bool = Field(description="Si hay una preparación vigente (entonces 'resumen' es el suyo).")
+    resumen: ResumenPreparacion | None
+    separacion: ConfiguracionSeparacion = Field(
+        description="La de la receta vigente o, si no la hay, la sugerida (valor inicial del formulario)."
+    )
+    columnas_fecha_disponibles: list[str] = Field(description="Fechas detectadas para la separación temporal.")
 
 
 class DiagnosticoVariable(BaseModel):
@@ -286,6 +334,25 @@ class RecomendacionPrueba(BaseModel):
     nota_tiempo: str | None
 
 
+class SolicitudEvaluarPrueba(_Entrada):
+    prueba: Literal["fisherz", "mv_fisherz", "chisq", "kci"]
+    max_k: int | None = Field(None, ge=0)
+
+
+class AdvertenciaEleccion(BaseModel):
+    codigo: str
+    campo: str
+    mensaje: str
+    nivel: Literal["advertencia", "info"]
+
+
+class EvaluacionEleccion(BaseModel):
+    prueba: str
+    max_k: int | None
+    advertencias: list[AdvertenciaEleccion]
+    tiempo_estimado_s: float | None = Field(description="Tiempo del bootstrap con esta elección, si se estimó.")
+
+
 # --- Configuración de PC ---------------------------------------------------------------------
 
 
@@ -314,6 +381,18 @@ class ConfiguracionPC(_Entrada):
     punto_control_cada: int = Field(10, ge=1)
     modo_ejecucion: Literal["adaptativo", "secuencial", "paralelo"] = "adaptativo"
     umbral_paralelo_s: float = Field(30.0, ge=0)
+    nombres_niveles: list[str] | None = Field(None, description="Títulos de los niveles (opcionales).")
+
+
+class ProblemaConfiguracion(BaseModel):
+    campo: str
+    mensaje: str
+
+
+class ValidacionConfiguracionPC(BaseModel):
+    valida: bool
+    errores: list[ProblemaConfiguracion]
+    advertencias: list[ProblemaConfiguracion]
 
 
 class RespuestaConfiguracionPC(BaseModel):
@@ -341,6 +420,22 @@ class Trabajo(BaseModel):
     parametros: dict[str, Any]
     inicio: str | None
     fin: str | None
+    detalles: DetallesTrabajo | None = Field(None, description="Modo de ejecución del análisis en curso.")
+
+
+class DetallesTrabajo(BaseModel):
+    modo: Literal["midiendo", "secuencial", "paralelo"]
+    procesos: int
+
+
+class ResumenTrabajo(BaseModel):
+    id: str
+    tipo: Literal["recomendacion", "pc"]
+    estado: EstadoTrabajo
+    completadas: int
+    total: int | None
+    mensaje: str | None
+    reanudable: bool = Field(description="Si se puede reanudar ahora (estado y etapas lo permiten).")
 
 
 # --- Resultado de PC ---------------------------------------------------------------------------
@@ -440,3 +535,8 @@ class ResultadoExportar(BaseModel):
 
 class Apagado(BaseModel):
     mensaje: str
+
+
+# Modelos con referencias a clases definidas más abajo.
+for _modelo in (Proyecto, ProyectoCreado, Trabajo):
+    _modelo.model_rebuild()

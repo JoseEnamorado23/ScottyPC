@@ -9,6 +9,8 @@ import type { Esquemas } from "../api/cliente";
 import { crearCliente } from "../api/cliente";
 import { ProveedorApi } from "../api/contexto";
 import { ProveedorBorradores } from "../estado/borrador";
+import { ProveedorBorradoresAnalisis } from "../estado/borradorAnalisis";
+import { VigilanteTrabajos } from "../estado/trabajos";
 
 export const TOKEN = "token-de-prueba";
 
@@ -70,9 +72,13 @@ export function renderizar(ruta: string, simulacion: Simulacion) {
       <QueryClientProvider client={consultas}>
         <ProveedorApi valor={{ cliente, avisarSinRespuesta: () => {} }}>
           <ProveedorBorradores>
-            <MemoryRouter initialEntries={[ruta]}>
-              <Rutas />
-            </MemoryRouter>
+            <ProveedorBorradoresAnalisis>
+              <VigilanteTrabajos>
+                <MemoryRouter initialEntries={[ruta]}>
+                  <Rutas />
+                </MemoryRouter>
+              </VigilanteTrabajos>
+            </ProveedorBorradoresAnalisis>
           </ProveedorBorradores>
         </ProveedorApi>
       </QueryClientProvider>
@@ -162,7 +168,6 @@ export function decisionesPara(elecciones: Record<string, string>): Esquemas["De
       : [],
     logaritmos: [],
     normalizar: false,
-    separacion: { tipo: "estratificada", proporcion_test: 0.2, semilla: 42, columna_fecha: null, corte: null },
     columnas_fecha_disponibles: [],
     notas: [],
   };

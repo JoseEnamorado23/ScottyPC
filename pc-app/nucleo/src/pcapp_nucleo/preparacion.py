@@ -39,7 +39,9 @@ from pcapp_nucleo.perfilado import detectar_tipo_columna
 from pcapp_nucleo.revision import detectar_tipo_objetivo
 from pcapp_nucleo.utilidades import a_diccionario_serializable
 
-VERSION_RECETA = 1
+VERSION_RECETA = 2
+# Versiones de receta que se pueden leer (la 1 guardaba la separación en las decisiones).
+VERSIONES_RECETA_LEGIBLES = (1, 2)
 
 IMPUTACIONES = ("eliminar_filas", "mediana", "multivariada")
 TIPOS_CODIFICACION = ("binaria", "ordinal", "one_hot", "agrupacion")
@@ -140,6 +142,11 @@ class AccionHallazgo:
 class DecisionesUsuario:
     """Todas las decisiones de preparación, editables como JSON.
 
+    La separación en entrenamiento y test no forma parte de las decisiones: se
+    elige al preparar y queda en la receta (única fuente). Las columnas de
+    ``columnas_fecha_disponibles`` nunca son variables de PC; solo pueden usarse
+    para una separación temporal.
+
     Los campos concretos (``columnas_excluidas``, ``faltantes``...) son los
     que se aplican; ``acciones_hallazgos`` registra qué se decidió para cada
     hallazgo del revisor (trazabilidad para la interfaz).
@@ -153,7 +160,6 @@ class DecisionesUsuario:
     conversiones: list[ConversionUnidades] = field(default_factory=list)
     logaritmos: list[str] = field(default_factory=list)
     normalizar: bool = True
-    separacion: ConfiguracionSeparacion = field(default_factory=ConfiguracionSeparacion)
     columnas_fecha_disponibles: list[str] = field(default_factory=list)
     notas: list[str] = field(default_factory=list)
 
@@ -187,6 +193,7 @@ class Receta:
     objetivo: str
     tipo_objetivo: str | None
     decisiones: DecisionesUsuario
+    separacion: ConfiguracionSeparacion
     separacion_aplicada: dict[str, Any]
     indices_train: list[int]
     indices_test: list[int]
@@ -259,26 +266,66 @@ def decisiones_desde_diccionario(datos: Any) -> DecisionesUsuario:
             _construir(ConversionUnidades, valor, f"La conversión {i + 1}")
             for i, valor in enumerate(datos.get("conversiones", []))
         ],
-        "separacion": _construir(
-            ConfiguracionSeparacion, datos.get("separacion", {}), "La separación"
-        ),
     }
-    resto = {clave: valor for clave, valor in datos.items() if clave not in anidados}
+    # 'separacion' de archivos antiguos se ignora aquí (ver ``separacion_heredada``).
+    resto = {
+        clave: valor for clave, valor in datos.items()
+        if clave not in anidados and clave != "separacion"
+    }
     return _construir(DecisionesUsuario, resto, "Las decisiones", **anidados)
+
+
+def separacion_desde_diccionario(datos: Any) -> ConfiguracionSeparacion:
+    return _construir(ConfiguracionSeparacion, datos, "La separación")
+
+
+def separacion_heredada(datos: Any) -> ConfiguracionSeparacion | None:
+    """Separación de un archivo de decisiones antiguo (antes vivía ahí); ``None`` si no la tiene.
+
+    Solo debe usarse como valor inicial cuando todavía no hay receta.
+    """
+    if isinstance(datos, dict) and isinstance(datos.get("separacion"), dict):
+        return separacion_desde_diccionario(datos["separacion"])
+    return None
+
+
+def columnas_fecha_reservadas(decisiones: DecisionesUsuario) -> list[str]:
+    """Columnas de fecha que las decisiones no excluyen: se reservaron para separar por tiempo."""
+    return [c for c in decisiones.columnas_fecha_disponibles if c not in decisiones.columnas_excluidas]
+
+
+def separacion_sugerida(
+    decisiones: DecisionesUsuario, heredada: ConfiguracionSeparacion | None = None
+) -> ConfiguracionSeparacion:
+    """Separación inicial cuando todavía no hay receta: la de un archivo antiguo
+    si existe; si no, temporal por la fecha reservada en las decisiones; si no,
+    estratificada."""
+    if heredada is not None:
+        return heredada
+    reservadas = columnas_fecha_reservadas(decisiones)
+    if reservadas:
+        return ConfiguracionSeparacion(tipo="temporal", columna_fecha=reservadas[0])
+    return ConfiguracionSeparacion()
 
 
 def receta_desde_diccionario(datos: Any) -> Receta:
     """Construye una ``Receta`` desde un diccionario (p. ej. leído de JSON)."""
     if not isinstance(datos, dict):
         raise ErrorPreparacion("La receta debe ser un objeto JSON.")
-    if datos.get("version") != VERSION_RECETA:
+    if datos.get("version") not in VERSIONES_RECETA_LEGIBLES:
         raise ErrorPreparacion(
             f"Versión de receta no soportada: {datos.get('version')!r} "
             f"(se esperaba {VERSION_RECETA})."
         )
+    if datos["version"] == 1:
+        separacion = separacion_heredada(datos.get("decisiones")) or ConfiguracionSeparacion()
+        datos = {**datos, "version": VERSION_RECETA}
+    else:
+        separacion = separacion_desde_diccionario(datos.get("separacion", {}))
     anidados = {
         "origen": _construir(OrigenDatos, datos.get("origen", {}), "El origen de la receta"),
         "decisiones": decisiones_desde_diccionario(datos.get("decisiones", {})),
+        "separacion": separacion,
         "columnas": [
             _construir(MetadatosColumna, valor, "Los metadatos de una columna")
             for valor in datos.get("columnas", [])
@@ -308,8 +355,6 @@ def _validar_decisiones(
         "conversiones": [c.columna for c in decisiones.conversiones],
         "logaritmos": decisiones.logaritmos,
     }
-    if decisiones.separacion.columna_fecha is not None:
-        referencias["separacion"] = [decisiones.separacion.columna_fecha]
     for seccion, nombres in referencias.items():
         faltan = [n for n in nombres if n not in existentes]
         if faltan:
@@ -343,7 +388,16 @@ def _validar_decisiones(
                 f"Condición no válida en la conversión de '{conversion.columna}': "
                 f"{conversion.condicion!r}. Opciones: {', '.join(_CONDICIONES)}."
             )
-    separacion = decisiones.separacion
+
+
+def validar_separacion(
+    separacion: ConfiguracionSeparacion, columnas: list[str], decisiones: DecisionesUsuario
+) -> None:
+    """Comprueba que la separación sea aplicable.
+
+    Raises:
+        ErrorPreparacion: con un mensaje en español.
+    """
     if separacion.tipo not in TIPOS_SEPARACION:
         raise ErrorPreparacion(
             f"Tipo de separación no válido: {separacion.tipo!r}. "
@@ -353,6 +407,19 @@ def _validar_decisiones(
         raise ErrorPreparacion("La proporción de test debe estar entre 0 y 1.")
     if separacion.tipo == "temporal" and separacion.columna_fecha is None:
         raise ErrorPreparacion("La separación temporal necesita 'columna_fecha'.")
+    if separacion.tipo == "temporal" and separacion.columna_fecha not in columnas:
+        raise ErrorPreparacion(
+            f"La columna de fecha '{separacion.columna_fecha}' no existe en el dataset."
+        )
+    if (
+        separacion.tipo == "temporal"
+        and decisiones.columnas_fecha_disponibles
+        and separacion.columna_fecha not in decisiones.columnas_fecha_disponibles
+    ):
+        raise ErrorPreparacion(
+            f"'{separacion.columna_fecha}' no es una columna de fecha detectada; opciones: "
+            f"{', '.join(decisiones.columnas_fecha_disponibles)}."
+        )
 
 
 # --- Auxiliares -------------------------------------------------------------------------------
@@ -425,6 +492,7 @@ def _preprocesar(
     dataframe: pd.DataFrame,
     objetivo: str,
     decisiones: DecisionesUsuario,
+    fecha: str | None,
     configuracion: ConfiguracionValidacion,
     previos: dict[str, Any] | None,
 ) -> tuple[pd.DataFrame, dict[str, Any], _Registro]:
@@ -439,7 +507,6 @@ def _preprocesar(
     previos = copy.deepcopy(previos) if reproducir else {}
     datos = dataframe.reset_index(drop=True).copy()
     registro = _Registro(list(datos.columns))
-    fecha = decisiones.separacion.columna_fecha if decisiones.separacion.tipo == "temporal" else None
 
     if decisiones.eliminar_duplicados:
         antes = len(datos)
@@ -450,8 +517,10 @@ def _preprocesar(
         datos = datos[~duplicadas]
         previos["filas_duplicadas_eliminadas"] = antes - len(datos)
 
-    excluir = [c for c in decisiones.columnas_excluidas if c != fecha]
-    datos = datos.drop(columns=excluir)
+    # Las fechas nunca son variables: se quitan salvo la usada para separar (que se
+    # quita después de separar, en ``_ordenar_columnas``).
+    excluir = {*decisiones.columnas_excluidas, *decisiones.columnas_fecha_disponibles} - {fecha}
+    datos = datos.drop(columns=[c for c in datos.columns if c in excluir])
 
     for columna in list(datos.columns):
         if columna != fecha:
@@ -918,25 +987,34 @@ def _metadatos(
 # --- Funciones públicas ----------------------------------------------------------------------
 
 
+def _fecha_temporal(separacion: ConfiguracionSeparacion) -> str | None:
+    return separacion.columna_fecha if separacion.tipo == "temporal" else None
+
+
 def preparar(
     dataframe: pd.DataFrame,
     objetivo: str,
     decisiones: DecisionesUsuario,
     configuracion: ConfiguracionValidacion | None = None,
     origen: OrigenDatos | None = None,
+    separacion: ConfiguracionSeparacion | None = None,
 ) -> DatosPreparados:
-    """Aplica las decisiones en el orden documentado y devuelve los conjuntos.
+    """Aplica las decisiones en el orden documentado, separa según ``separacion``
+    (por defecto, estratificada) y devuelve los conjuntos. La separación queda en la receta.
 
     Raises:
-        ErrorPreparacion: si las decisiones no son aplicables a los datos.
+        ErrorPreparacion: si las decisiones o la separación no son aplicables a los datos.
     """
     configuracion = configuracion or ConfiguracionValidacion()
+    separacion = separacion or ConfiguracionSeparacion()
     _validar_decisiones(decisiones, list(dataframe.columns), objetivo)
-    datos, previos, registro = _preprocesar(dataframe, objetivo, decisiones, configuracion, None)
-    indices_train, indices_test, separacion = _separar(
-        datos, objetivo, decisiones.separacion, previos, configuracion
+    validar_separacion(separacion, list(dataframe.columns), decisiones)
+    fecha = _fecha_temporal(separacion)
+    datos, previos, registro = _preprocesar(dataframe, objetivo, decisiones, fecha, configuracion, None)
+    indices_train, indices_test, separacion_aplicada = _separar(
+        datos, objetivo, separacion, previos, configuracion
     )
-    datos = _ordenar_columnas(datos, objetivo, decisiones)
+    datos = _ordenar_columnas(datos, objetivo, fecha)
     parametros = _ajustar_parametros(
         datos.loc[indices_train], objetivo, decisiones, previos, configuracion
     )
@@ -953,7 +1031,8 @@ def preparar(
         objetivo=objetivo,
         tipo_objetivo=tipo_objetivo,
         decisiones=decisiones,
-        separacion_aplicada=separacion,
+        separacion=separacion,
+        separacion_aplicada=separacion_aplicada,
         indices_train=indices_train,
         indices_test=indices_test,
         parametros_previos=previos,
@@ -975,23 +1054,21 @@ def aplicar_receta(
     """
     configuracion = configuracion or ConfiguracionValidacion()
     _validar_decisiones(receta.decisiones, list(dataframe.columns), receta.objetivo)
+    fecha = _fecha_temporal(receta.separacion)
     datos, _, _ = _preprocesar(
-        dataframe, receta.objetivo, receta.decisiones, configuracion, receta.parametros_previos
+        dataframe, receta.objetivo, receta.decisiones, fecha, configuracion, receta.parametros_previos
     )
     faltan = set(receta.indices_train + receta.indices_test) - set(datos.index)
     if faltan:
         raise ErrorPreparacion(
             "La receta no corresponde a estos datos: faltan filas usadas en la preparación."
         )
-    datos = _ordenar_columnas(datos, receta.objetivo, receta.decisiones)
+    datos = _ordenar_columnas(datos, receta.objetivo, fecha)
     return _datos_preparados(datos, receta)
 
 
-def _ordenar_columnas(
-    datos: pd.DataFrame, objetivo: str, decisiones: DecisionesUsuario
-) -> pd.DataFrame:
+def _ordenar_columnas(datos: pd.DataFrame, objetivo: str, fecha: str | None) -> pd.DataFrame:
     """Quita la columna de fecha de la separación temporal y deja el objetivo al final."""
-    fecha = decisiones.separacion.columna_fecha if decisiones.separacion.tipo == "temporal" else None
     columnas = [c for c in datos.columns if c not in (objetivo, fecha)]
     return datos[[*columnas, objetivo]]
 
@@ -1006,3 +1083,84 @@ def _datos_preparados(datos: pd.DataFrame, receta: Receta) -> DatosPreparados:
         columnas=receta.columnas,
         receta=receta,
     )
+
+
+# --- Resumen para la interfaz ------------------------------------------------------------------
+
+# Con más columnas finales PC se vuelve lento; por encima del máximo no se ejecuta.
+COLUMNAS_PC_LENTO = 30
+COLUMNAS_PC_MAXIMO = 50
+
+
+@dataclass(frozen=True)
+class LimiteColumnas:
+    """Evaluación del número de columnas finales para PC.
+
+    ``estado``: ``"ok"``, ``"lento"`` (más de ``COLUMNAS_PC_LENTO``) o ``"bloqueado"``
+    (más de ``COLUMNAS_PC_MAXIMO``: la interfaz y el servidor no continúan; la
+    terminal solo advierte).
+    """
+
+    estado: str
+    columnas: int
+    mensaje: str | None = None
+    columnas_one_hot: dict[str, int] = field(default_factory=dict)
+
+
+def evaluar_columnas(columnas: list[MetadatosColumna]) -> LimiteColumnas:
+    """Evalúa las columnas finales (incluido el objetivo) de una preparación."""
+    total = len(columnas)
+    one_hot: dict[str, int] = {}
+    for metadatos in columnas:
+        if metadatos.tipo_final == ONE_HOT:
+            origen = metadatos.nombre.split("=", 1)[0]
+            one_hot[origen] = one_hot.get(origen, 0) + 1
+    if total <= COLUMNAS_PC_LENTO:
+        return LimiteColumnas("ok", total, None, one_hot)
+    detalle = ""
+    if one_hot:
+        detalle = " Las codificaciones one-hot aportan " + ", ".join(
+            f"{n} columnas ({origen})" for origen, n in sorted(one_hot.items(), key=lambda p: -p[1])
+        ) + "."
+    consejo = (
+        " Vuelva a Decisiones para agrupar o excluir variables categóricas: con one-hot, "
+        "cada categoría es una columna más."
+    )
+    if total > COLUMNAS_PC_MAXIMO:
+        mensaje = (
+            f"Hay {total} columnas finales y el máximo para PC es {COLUMNAS_PC_MAXIMO}: el análisis "
+            "no terminaría en un tiempo razonable." + detalle + consejo
+        )
+        return LimiteColumnas("bloqueado", total, mensaje, one_hot)
+    mensaje = (
+        f"Hay {total} columnas finales (más de {COLUMNAS_PC_LENTO}): PC será lento." + detalle + consejo
+    )
+    return LimiteColumnas("lento", total, mensaje, one_hot)
+
+
+def distribucion_objetivo(serie: pd.Series, tipo_objetivo: str | None) -> dict[str, Any]:
+    """Distribución del objetivo en un conjunto: conteos por clase o, si es
+    continuo, un resumen numérico."""
+    presentes = serie.dropna()
+    if tipo_objetivo == "continuo":
+        return {
+            "tipo": "continuo",
+            "filas": int(len(serie)),
+            "media": float(presentes.mean()) if len(presentes) else None,
+            "mediana": float(presentes.median()) if len(presentes) else None,
+            "minimo": float(presentes.min()) if len(presentes) else None,
+            "maximo": float(presentes.max()) if len(presentes) else None,
+        }
+    conteos = presentes.value_counts().sort_index()
+    return {
+        "tipo": "clases",
+        "filas": int(len(serie)),
+        "clases": [
+            {
+                "valor": _nativo(valor),
+                "conteo": int(n),
+                "porcentaje": round(100 * int(n) / max(len(presentes), 1), 2),
+            }
+            for valor, n in conteos.items()
+        ],
+    }

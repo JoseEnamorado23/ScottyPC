@@ -1,7 +1,7 @@
-import { Button, Center, Group, Loader, Modal, Stack, Table, Text, Title } from "@mantine/core";
+import { Badge, Button, Center, Group, Loader, Modal, Stack, Table, Text, Title } from "@mantine/core";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { IconFolderOpen, IconPlus, IconTrash } from "@tabler/icons-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 
 import { datos, type Esquemas } from "../api/cliente";
@@ -9,11 +9,39 @@ import { claves, useProyectos } from "../api/consultas";
 import { useApi } from "../api/contexto";
 import { MensajeError } from "../componentes/MensajeError";
 import { ETAPAS, rutaDeProyecto } from "../estado/etapas";
+import { useVigilancia } from "../estado/trabajos";
 
 type Proyecto = Esquemas["Proyecto"];
 
 const fecha = (iso: string) => new Date(iso).toLocaleString("es");
 const nombreEtapa = (clave: string | null) => ETAPAS.find((e) => e.clave === clave)?.nombre ?? "Sin empezar";
+
+const ESTADO_INTERRUPCION: Record<string, string> = {
+  interrumpido: "interrumpido",
+  cancelado: "cancelado",
+  fallido: "fallido",
+};
+
+/** Marca del trabajo de un proyecto: en curso o que se puede reanudar. */
+function MarcaTrabajo({ proyecto }: { proyecto: Proyecto }) {
+  const ultimo = proyecto.ultimo_trabajo;
+  const nombre = ultimo?.tipo === "recomendacion" ? "Recomendación" : "Análisis";
+  if (proyecto.trabajo_activo) {
+    return (
+      <Badge color="blue" variant="light">
+        {nombre} en curso
+      </Badge>
+    );
+  }
+  if (ultimo?.reanudable) {
+    return (
+      <Badge color="orange" variant="light">
+        {nombre} {ESTADO_INTERRUPCION[ultimo.estado] ?? ultimo.estado}: puede reanudarse
+      </Badge>
+    );
+  }
+  return null;
+}
 
 export function Inicio() {
   const { cliente } = useApi();
@@ -21,6 +49,13 @@ export function Inicio() {
   const navegar = useNavigate();
   const proyectos = useProyectos();
   const [aEliminar, setAEliminar] = useState<Proyecto | null>(null);
+  const { vigilar } = useVigilancia();
+
+  useEffect(() => {
+    for (const p of proyectos.data ?? []) {
+      if (p.trabajo_activo) vigilar({ id: p.trabajo_activo });
+    }
+  }, [proyectos.data, vigilar]);
 
   const eliminar = useMutation({
     mutationFn: (id: string) =>
@@ -62,7 +97,10 @@ export function Inicio() {
             {proyectos.data.map((p) => (
               <Table.Tr key={p.id}>
                 <Table.Td>
-                  <Text fw={500}>{p.nombre}</Text>
+                  <Group gap="xs">
+                    <Text fw={500}>{p.nombre}</Text>
+                    <MarcaTrabajo proyecto={p} />
+                  </Group>
                   <Text size="xs" c="dimmed">
                     {p.archivo_original}
                   </Text>

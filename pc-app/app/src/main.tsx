@@ -1,7 +1,10 @@
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
+import "@mantine/dates/styles.css";
+import "dayjs/locale/es";
 
 import { MantineProvider } from "@mantine/core";
+import { DatesProvider } from "@mantine/dates";
 import { Notifications } from "@mantine/notifications";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
@@ -12,6 +15,8 @@ import { App } from "./App";
 import { ErrorApi, ErrorSinRespuesta } from "./api/cliente";
 import { Arranque } from "./componentes/Arranque";
 import { ProveedorBorradores } from "./estado/borrador";
+import { ProveedorBorradoresAnalisis } from "./estado/borradorAnalisis";
+import { VigilanteTrabajos } from "./estado/trabajos";
 
 const consultas = new QueryClient({
   defaultOptions: {
@@ -26,16 +31,22 @@ const consultas = new QueryClient({
 createRoot(document.getElementById("raiz")!).render(
   <StrictMode>
     <MantineProvider>
-      <Notifications />
-      <QueryClientProvider client={consultas}>
-        <Arranque>
-          <ProveedorBorradores>
-            <HashRouter>
-              <App />
-            </HashRouter>
-          </ProveedorBorradores>
-        </Arranque>
-      </QueryClientProvider>
+      <DatesProvider settings={{ locale: "es", firstDayOfWeek: 1 }}>
+        <Notifications />
+        <QueryClientProvider client={consultas}>
+          <Arranque>
+            <ProveedorBorradores>
+              <ProveedorBorradoresAnalisis>
+                <VigilanteTrabajos>
+                  <HashRouter>
+                    <App />
+                  </HashRouter>
+                </VigilanteTrabajos>
+              </ProveedorBorradoresAnalisis>
+            </ProveedorBorradores>
+          </Arranque>
+        </QueryClientProvider>
+      </DatesProvider>
     </MantineProvider>
   </StrictMode>,
 );

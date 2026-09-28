@@ -20,26 +20,40 @@ from pcapp_nucleo.modelos import Hallazgo, InformeRevision, PerfilColumna, Sever
 from pcapp_nucleo.pc_bootstrap import ProgresoBootstrap, agregar, ejecutar_bootstrap
 from pcapp_nucleo.pc_config import (
     ErrorConfiguracionPC,
+    advertencias_configuracion,
     configuracion_desde_diccionario,
     configuracion_por_defecto,
-    validar_configuracion,
+    problemas_configuracion,
 )
 from pcapp_nucleo.plantilla import ErrorEleccion, aplicar_elecciones
 from pcapp_nucleo.preparacion import (
+    ConfiguracionSeparacion,
     DatosPreparados,
     ErrorPreparacion,
+    LimiteColumnas,
     OrigenDatos,
     aplicar_receta,
     calcular_sha256,
     decisiones_desde_diccionario,
+    distribucion_objetivo,
+    evaluar_columnas,
     preparar,
     receta_a_diccionario,
     receta_desde_diccionario,
+    separacion_desde_diccionario,
+    separacion_heredada,
+    separacion_sugerida,
 )
-from pcapp_nucleo.seleccion_prueba import recomendar_prueba
+from pcapp_nucleo.seleccion_prueba import (
+    AlternativaPrueba,
+    DiagnosticoVariable,
+    RecomendacionPrueba,
+    evaluar_eleccion,
+    recomendar_prueba,
+)
 from pcapp_nucleo.utilidades import a_diccionario_serializable
 
-from pcapp_servidor.almacenamiento.archivos import Archivos, dentro_de
+from pcapp_servidor.almacenamiento.archivos import ANTERIORES, Archivos, dentro_de
 from pcapp_servidor.almacenamiento.base_datos import BaseDatos, ahora
 from pcapp_servidor.almacenamiento.repositorio import (
     Proyecto,
@@ -49,11 +63,11 @@ from pcapp_servidor.almacenamiento.repositorio import (
     Trabajo,
 )
 from pcapp_servidor.configuracion import ConfiguracionServidor
-from pcapp_servidor.errores import invalido, no_encontrado
-from pcapp_servidor.etapas import GestorEtapas
+from pcapp_servidor.errores import conflicto, invalido, no_encontrado
+from pcapp_servidor.etapas import REQUISITOS, GestorEtapas
 from pcapp_servidor.procesos import GrupoProcesos
-from pcapp_servidor.trabajos import Contexto, FuncionTrabajo, GestorTrabajos
-from pcapp_servidor.validacion_campos import campo_de_configuracion, validar_decisiones
+from pcapp_servidor.trabajos import REANUDABLES, Contexto, FuncionTrabajo, GestorTrabajos
+from pcapp_servidor.validacion_campos import validar_decisiones, validar_separacion_campos
 
 FORMATOS = (".csv", ".xlsx")
 FILAS_VISTA_PREVIA = 20
@@ -68,6 +82,18 @@ ARCHIVOS_RESULTADO = {
 
 
 MAXIMO_CATEGORIAS = 20
+
+
+def _campo_de_separacion(mensaje: str) -> str | None:
+    """Campo de la separación al que se refiere un error de preparación, si es de la separación."""
+    texto = mensaje.lower()
+    if "corte" in texto:
+        return "separacion.corte"
+    if "proporción de test" in texto:
+        return "separacion.proporcion_test"
+    if "fecha" in texto:
+        return "separacion.columna_fecha"
+    return None
 INTERVALOS_HISTOGRAMA = 20
 
 
@@ -125,7 +151,19 @@ class Servicios:
         activo = self.trabajos.repositorio.activo_de(proyecto.id)
         datos["etapas"] = self.etapas.etapas.estados(proyecto.id)
         datos["trabajo_activo"] = activo.id if activo else None
+        ultimo = self.trabajos.repositorio.ultimo_de(proyecto.id)
+        datos["ultimo_trabajo"] = None if ultimo is None else {
+            "id": ultimo.id, "tipo": ultimo.tipo, "estado": ultimo.estado,
+            "completadas": ultimo.completadas, "total": ultimo.total, "mensaje": ultimo.mensaje,
+            "reanudable": self._reanudable(ultimo),
+        }
         return datos
+
+    def _reanudable(self, trabajo: Trabajo) -> bool:
+        if trabajo.estado not in REANUDABLES:
+            return False
+        requisito = REQUISITOS["analisis" if trabajo.tipo == "pc" else "recomendacion"]
+        return requisito in self.etapas.vigentes(trabajo.proyecto_id)
 
     def _ruta(self, proyecto: Proyecto, nombre: str) -> Path:
         return self.archivos.carpeta(proyecto.id) / nombre
@@ -307,30 +345,109 @@ class Servicios:
 
     # --- Preparación ------------------------------------------------------------------------
 
-    def preparar(self, proyecto_id: str) -> dict[str, Any]:
+    def _receta_mas_reciente(self, proyecto: Proyecto) -> dict[str, Any] | None:
+        """La receta vigente o, si se archivó (p. ej. al cambiar las decisiones), la última archivada."""
+        actual = self._ruta(proyecto, "receta.json")
+        if actual.is_file():
+            return self.archivos.leer_json(actual)
+        anteriores = self._ruta(proyecto, ANTERIORES)
+        archivadas = sorted(anteriores.glob("*/receta.json")) if anteriores.is_dir() else []
+        return self.archivos.leer_json(archivadas[-1]) if archivadas else None
+
+    def _separacion_inicial(self, proyecto: Proyecto, decisiones_json: dict[str, Any]) -> ConfiguracionSeparacion:
+        """La separación vive solo en la receta; sin receta, la sugerida por las decisiones
+        (o la de un archivo de decisiones antiguo que aún la tenga)."""
+        receta = self._receta_mas_reciente(proyecto)
+        if receta is not None:
+            try:
+                return receta_desde_diccionario(receta).separacion
+            except ErrorPreparacion:
+                pass
+        decisiones = decisiones_desde_diccionario(decisiones_json)
+        return separacion_sugerida(decisiones, separacion_heredada(decisiones_json))
+
+    @staticmethod
+    def _limite_columnas(receta: dict[str, Any]) -> LimiteColumnas:
+        return evaluar_columnas(receta_desde_diccionario(receta).columnas)
+
+    def _exigir_columnas_permitidas(self, proyecto: Proyecto) -> None:
+        """409 si hay demasiadas columnas para PC (la terminal solo advierte)."""
+        limite = self._limite_columnas(self._leer(proyecto, "receta.json"))
+        if limite.estado == "bloqueado":
+            raise conflicto("DEMASIADAS_COLUMNAS", limite.mensaje, {"columnas": limite.columnas})
+
+    @staticmethod
+    def _resumen_preparacion(datos: DatosPreparados) -> dict[str, Any]:
+        objetivo, tipo = datos.objetivo, datos.tipo_objetivo
+        faltantes = datos.train.drop(columns=[objetivo]).isna().sum()
+        return a_diccionario_serializable({
+            "filas_train": int(len(datos.train)),
+            "filas_test": int(len(datos.test)),
+            "tipo_objetivo": tipo,
+            "columnas": datos.columnas,
+            "faltantes_restantes": {str(c): int(n) for c, n in faltantes.items() if n},
+            "separacion": datos.receta.separacion_aplicada,
+            "separacion_configurada": datos.receta.separacion,
+            "distribucion_objetivo": {
+                "train": distribucion_objetivo(datos.train[objetivo], tipo),
+                "test": distribucion_objetivo(datos.test[objetivo], tipo),
+            },
+            "limite_columnas": evaluar_columnas(datos.columnas),
+            "advertencias": datos.receta.advertencias,
+        })
+
+    def preparar(self, proyecto_id: str, separacion: dict[str, Any] | None = None) -> dict[str, Any]:
         proyecto = self.proyecto(proyecto_id)
         self.trabajos.exigir_sin_activo(proyecto_id)
         self.etapas.exigir(proyecto_id, "preparacion")
-        decisiones = decisiones_desde_diccionario(self._leer(proyecto, "decisiones.json"))
+        decisiones_json = self._leer(proyecto, "decisiones.json")
+        decisiones = decisiones_desde_diccionario(decisiones_json)
+        if separacion is None:
+            elegida = self._separacion_inicial(proyecto, decisiones_json)
+        else:
+            errores = validar_separacion_campos(separacion, decisiones.columnas_fecha_disponibles)
+            if errores:
+                raise invalido("SEPARACION_NO_VALIDA", "La separación no es válida.", errores)
+            elegida = separacion_desde_diccionario(separacion)
         origen = OrigenDatos(archivo=proyecto.archivo, hoja=proyecto.hoja, sha256=proyecto.sha256)
         try:
-            datos = preparar(self._cargar(proyecto, proyecto.hoja), proyecto.objetivo, decisiones, origen=origen)
+            datos = preparar(
+                self._cargar(proyecto, proyecto.hoja), proyecto.objetivo, decisiones,
+                origen=origen, separacion=elegida,
+            )
         except ErrorPreparacion as error:
-            raise invalido("PREPARACION_NO_VALIDA", str(error)) from error
+            mensaje = str(error)
+            campo = _campo_de_separacion(mensaje)
+            raise invalido(
+                "PREPARACION_NO_VALIDA", mensaje, [{"campo": campo, "mensaje": mensaje}] if campo else None
+            ) from error
+        resumen = self._resumen_preparacion(datos)
         self.etapas.preparar_escritura(proyecto_id, "preparacion")
         self.archivos.escribir_json(self._ruta(proyecto, "receta.json"), receta_a_diccionario(datos.receta))
+        self.archivos.escribir_json(self._ruta(proyecto, "preparacion.json"), resumen)
         datos.train.to_csv(self._ruta(proyecto, "train.csv"), index=False)
         datos.test.to_csv(self._ruta(proyecto, "test.csv"), index=False)
         self.etapas.registrar(proyecto_id, "preparacion")
-        faltantes = datos.train.drop(columns=[datos.objetivo]).isna().sum()
+        return resumen
+
+    def estado_preparacion(self, proyecto_id: str) -> dict[str, Any]:
+        proyecto = self.proyecto(proyecto_id)
+        self.etapas.exigir(proyecto_id, "preparacion")
+        decisiones_json = self._leer(proyecto, "decisiones.json")
+        vigente = "preparacion" in self.etapas.vigentes(proyecto_id)
+        resumen = None
+        if vigente:
+            ruta = self._ruta(proyecto, "preparacion.json")
+            if ruta.is_file():
+                resumen = self.archivos.leer_json(ruta)
+            else:  # preparación hecha con una versión anterior: se reconstruye desde la receta
+                resumen = self._resumen_preparacion(self._datos_preparados(proyecto))
+                self.archivos.escribir_json(ruta, resumen)
         return {
-            "filas_train": int(len(datos.train)),
-            "filas_test": int(len(datos.test)),
-            "tipo_objetivo": datos.tipo_objetivo,
-            "columnas": a_diccionario_serializable(datos.columnas),
-            "faltantes_restantes": {str(c): int(n) for c, n in faltantes.items() if n},
-            "separacion": datos.receta.separacion_aplicada,
-            "advertencias": datos.receta.advertencias,
+            "vigente": vigente,
+            "resumen": resumen,
+            "separacion": a_diccionario_serializable(self._separacion_inicial(proyecto, decisiones_json)),
+            "columnas_fecha_disponibles": decisiones_desde_diccionario(decisiones_json).columnas_fecha_disponibles,
         }
 
     # --- Recomendación (trabajo) --------------------------------------------------------------
@@ -353,13 +470,27 @@ class Servicios:
         return ejecutar
 
     def lanzar_recomendacion(self, proyecto_id: str, estimar: bool) -> Trabajo:
-        self.proyecto(proyecto_id)
+        proyecto = self.proyecto(proyecto_id)
         self.trabajos.exigir_sin_activo(proyecto_id)
         self.etapas.exigir(proyecto_id, "recomendacion")
+        self._exigir_columnas_permitidas(proyecto)
         return self.trabajos.iniciar(
             proyecto_id, "recomendacion", self._funcion_recomendacion(proyecto_id, estimar),
             {"estimar_tiempo": estimar},
         )
+
+    def _recomendacion_guardada(self, proyecto: Proyecto) -> RecomendacionPrueba:
+        datos = dict(self._leer(proyecto, "recomendacion.json"))
+        datos["diagnosticos"] = [DiagnosticoVariable(**d) for d in datos["diagnosticos"]]
+        datos["alternativas"] = [AlternativaPrueba(**a) for a in datos["alternativas"]]
+        return RecomendacionPrueba(**datos)
+
+    def evaluar_prueba(self, proyecto_id: str, prueba: str, max_k: int | None) -> dict[str, Any]:
+        """Advertencias si la prueba o el max_k elegidos contradicen los datos (no guarda nada)."""
+        proyecto = self.proyecto(proyecto_id)
+        self.etapas.exigir_vigente(proyecto_id, "recomendacion")
+        evaluacion = evaluar_eleccion(self._recomendacion_guardada(proyecto), prueba, max_k)
+        return a_diccionario_serializable(evaluacion)
 
     # --- Configuración de PC -------------------------------------------------------------------
 
@@ -368,6 +499,12 @@ class Servicios:
         self.etapas.exigir(proyecto_id, "configuracion_pc")
         if "configuracion_pc" in self.etapas.vigentes(proyecto_id):
             return {"configuracion": self._leer(proyecto, "pc.json"), "guardada": True}
+        return {"configuracion": self.plantilla_configuracion_pc(proyecto_id), "guardada": False}
+
+    def plantilla_configuracion_pc(self, proyecto_id: str) -> dict[str, Any]:
+        """Todas las variables en un nivel y el objetivo al final, con la prueba recomendada."""
+        proyecto = self.proyecto(proyecto_id)
+        self.etapas.exigir(proyecto_id, "configuracion_pc")
         prueba, max_k = None, None
         if "recomendacion" in self.etapas.vigentes(proyecto_id):
             recomendacion = self._leer(proyecto, "recomendacion.json")
@@ -376,22 +513,39 @@ class Servicios:
         if prueba is None:
             prueba = recomendar_prueba(datos, estimar=False).prueba
         configuracion = configuracion_por_defecto(list(datos.train.columns), datos.objetivo, prueba, max_k)
-        return {"configuracion": a_diccionario_serializable(configuracion), "guardada": False}
+        return a_diccionario_serializable(configuracion)
+
+    def _problemas_configuracion(self, proyecto: Proyecto, datos: dict[str, Any]):
+        receta = self._leer(proyecto, "receta.json")
+        variables = [c["nombre"] for c in receta["columnas"]]
+        try:
+            configuracion = configuracion_desde_diccionario(datos)
+        except ErrorConfiguracionPC as error:
+            raise invalido("CONFIGURACION_NO_VALIDA", str(error)) from error
+        return (
+            configuracion,
+            problemas_configuracion(configuracion, variables, receta["objetivo"]),
+            advertencias_configuracion(configuracion, receta["objetivo"]),
+        )
+
+    def validar_configuracion_pc(self, proyecto_id: str, datos: dict[str, Any]) -> dict[str, Any]:
+        """Errores y advertencias de la configuración sin guardarla."""
+        proyecto = self.proyecto(proyecto_id)
+        self.etapas.exigir(proyecto_id, "configuracion_pc")
+        _, errores, advertencias = self._problemas_configuracion(proyecto, datos)
+        return a_diccionario_serializable(
+            {"valida": not errores, "errores": errores, "advertencias": advertencias}
+        )
 
     def guardar_configuracion_pc(self, proyecto_id: str, datos: dict[str, Any]) -> dict[str, Any]:
         proyecto = self.proyecto(proyecto_id)
         self.trabajos.exigir_sin_activo(proyecto_id)
         self.etapas.exigir(proyecto_id, "configuracion_pc")
-        receta = self._leer(proyecto, "receta.json")
-        variables = [c["nombre"] for c in receta["columnas"]]
-        try:
-            configuracion = configuracion_desde_diccionario(datos)
-            validar_configuracion(configuracion, variables, receta["objetivo"])
-        except ErrorConfiguracionPC as error:
+        configuracion, errores, _ = self._problemas_configuracion(proyecto, datos)
+        if errores:
             raise invalido(
-                "CONFIGURACION_NO_VALIDA", str(error),
-                [{"campo": campo_de_configuracion(str(error)), "mensaje": str(error)}],
-            ) from error
+                "CONFIGURACION_NO_VALIDA", errores[0].mensaje, a_diccionario_serializable(errores)
+            )
         contenido = a_diccionario_serializable(configuracion)
         self.etapas.preparar_escritura(proyecto_id, "configuracion_pc")
         self.archivos.escribir_json(self._ruta(proyecto, "pc.json"), contenido)
@@ -432,6 +586,7 @@ class Servicios:
                         datos, configuracion, cancelacion=contexto.cancelacion,
                         punto_control=carpeta / "punto_control.json", reanudar=contexto.reanudar,
                         progreso_detallado=progreso, ejecutor=ejecutor,
+                        al_decidir_modo=lambda modo, procesos: contexto.detallar(modo=modo, procesos=procesos),
                     )
                     if not resultado.completo and resultado.ejecucion and resultado.ejecucion.modo_usado == "paralelo":
                         self.grupo.reciclar_al_liberar()
@@ -450,15 +605,17 @@ class Servicios:
         return ejecutar
 
     def lanzar_pc(self, proyecto_id: str) -> Trabajo:
-        self.proyecto(proyecto_id)
+        proyecto = self.proyecto(proyecto_id)
         self.trabajos.exigir_sin_activo(proyecto_id)
         self.etapas.exigir(proyecto_id, "analisis")
+        self._exigir_columnas_permitidas(proyecto)
         self.etapas.preparar_escritura(proyecto_id, "analisis")
         return self.trabajos.iniciar(proyecto_id, "pc", self._funcion_pc(proyecto_id), {})
 
     def reanudar_trabajo(self, trabajo_id: str) -> Trabajo:
         trabajo, _ = self.trabajos.obtener(trabajo_id)
-        self.proyecto(trabajo.proyecto_id)
+        proyecto = self.proyecto(trabajo.proyecto_id)
+        self._exigir_columnas_permitidas(proyecto)
         if trabajo.tipo == "pc":
             self.etapas.exigir(trabajo.proyecto_id, "analisis")
             funcion = self._funcion_pc(trabajo.proyecto_id)
@@ -514,11 +671,14 @@ class Servicios:
 
     def estado_trabajo(self, trabajo_id: str) -> dict[str, Any]:
         trabajo, restantes = self.trabajos.obtener(trabajo_id)
-        return self.vista_trabajo(trabajo, restantes)
+        return self.vista_trabajo(trabajo, restantes, self.trabajos.detalles(trabajo_id))
 
     @staticmethod
-    def vista_trabajo(trabajo: Trabajo, restantes: float | None = None) -> dict[str, Any]:
+    def vista_trabajo(
+        trabajo: Trabajo, restantes: float | None = None, detalles: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         datos = asdict(trabajo)
+        datos["detalles"] = detalles if trabajo.estado == "en_curso" else None
         datos["segundos_transcurridos"] = datos.pop("segundos")
         datos["segundos_restantes_estimados"] = restantes if trabajo.estado == "en_curso" else None
         datos.pop("actualizado_en")

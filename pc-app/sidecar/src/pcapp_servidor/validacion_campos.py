@@ -8,6 +8,7 @@ que la interfaz lo muestre junto al control correspondiente.
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 
@@ -40,36 +41,31 @@ def validar_decisiones(datos: dict[str, Any], columnas: list[str], objetivo: str
         comprobar(f"conversiones.{i}.columna", conversion.get("columna", ""))
     for i, columna in enumerate(datos.get("logaritmos", [])):
         comprobar(f"logaritmos.{i}", columna)
-    separacion = datos.get("separacion", {})
-    fecha = separacion.get("columna_fecha")
-    if separacion.get("tipo") == "temporal" and not fecha:
-        error("separacion.columna_fecha", "La separación temporal necesita una columna de fecha.")
-    elif fecha:
-        comprobar("separacion.columna_fecha", fecha)
     return errores
 
 
-# Mensajes de ErrorConfiguracionPC → campo de la configuración.
-_CAMPOS_CONFIGURACION = (
-    ("Prueba no válida", "prueba"),
-    ("alpha", "alpha"),
-    ("corridas_bootstrap", "corridas_bootstrap"),
-    ("fraccion_submuestra", "fraccion_submuestra"),
-    ("umbral_frecuencia", "umbral_frecuencia"),
-    ("max_k", "max_k"),
-    ("procesos", "procesos"),
-    ("punto_control_cada", "punto_control_cada"),
-    ("Modo de ejecución", "modo_ejecucion"),
-    ("umbral_paralelo_s", "umbral_paralelo_s"),
-    ("modificables", "modificables"),
-    ("orientación manual", "orientaciones_manuales"),
-    ("nivel", "niveles"),
-    ("objetivo", "niveles"),
-)
-
-
-def campo_de_configuracion(mensaje: str) -> str:
-    for fragmento, campo in _CAMPOS_CONFIGURACION:
-        if fragmento.lower() in mensaje.lower():
-            return campo
-    return ""
+def validar_separacion_campos(
+    separacion: dict[str, Any], fechas_disponibles: list[str]
+) -> list[dict[str, str]]:
+    """Errores por campo de la separación elegida al preparar."""
+    errores: list[dict[str, str]] = []
+    if separacion.get("tipo") != "temporal":
+        return errores
+    fecha = separacion.get("columna_fecha")
+    if not fecha:
+        errores.append({"campo": "separacion.columna_fecha", "mensaje": "Elija la columna de fecha."})
+    elif fecha not in fechas_disponibles:
+        errores.append({
+            "campo": "separacion.columna_fecha",
+            "mensaje": "No es una columna de fecha detectada"
+            + (f"; opciones: {', '.join(fechas_disponibles)}." if fechas_disponibles else "."),
+        })
+    corte = separacion.get("corte")
+    if corte is not None and not str(corte).strip():
+        errores.append({"campo": "separacion.corte", "mensaje": "Elija la fecha de corte."})
+    elif corte is not None:
+        try:
+            date.fromisoformat(corte)
+        except (TypeError, ValueError):
+            errores.append({"campo": "separacion.corte", "mensaje": "Use una fecha con el formato AAAA-MM-DD."})
+    return errores
