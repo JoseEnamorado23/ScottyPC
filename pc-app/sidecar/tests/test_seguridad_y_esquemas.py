@@ -143,6 +143,8 @@ def test_openapi_completo(cliente):
     assert {
         "/salud", "/apagar", "/proyectos", "/proyectos/{proyecto_id}", "/proyectos/{proyecto_id}/revision",
         "/proyectos/{proyecto_id}/decisiones/plantilla", "/proyectos/{proyecto_id}/decisiones",
+        "/proyectos/{proyecto_id}/decisiones/previsualizar", "/proyectos/{proyecto_id}/datos",
+        "/proyectos/{proyecto_id}/distribucion",
         "/proyectos/{proyecto_id}/preparar", "/proyectos/{proyecto_id}/recomendacion",
         "/proyectos/{proyecto_id}/configuracion-pc", "/proyectos/{proyecto_id}/pc",
         "/proyectos/{proyecto_id}/resultado", "/proyectos/{proyecto_id}/archivos/{nombre}",
@@ -151,6 +153,6 @@ def test_openapi_completo(cliente):
     } <= rutas
     componentes = set(esquema["components"]["schemas"])
     assert {"Revision", "DecisionesUsuario", "ResumenPreparacion", "RecomendacionPrueba", "ConfiguracionPC",
-            "Trabajo", "ResultadoPC", "RespuestaError", "ProyectoCreado"} <= componentes
+            "Trabajo", "ResultadoPC", "RespuestaError", "ProyectoCreado", "DatosHoja", "Distribucion"} <= componentes
     respuestas = esquema["paths"]["/proyectos/{proyecto_id}/preparar"]["post"]["responses"]
     assert {"200", "404", "409", "422"} <= set(respuestas)

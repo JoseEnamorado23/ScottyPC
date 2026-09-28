@@ -6,7 +6,9 @@ from fastapi.responses import FileResponse
 from pcapp_servidor.esquemas import (
     RESPUESTAS_ERROR,
     ConfiguracionPC,
+    DatosHoja,
     DecisionesUsuario,
+    Distribucion,
     Proyecto,
     ProyectoCreado,
     RecomendacionPrueba,
@@ -16,6 +18,7 @@ from pcapp_servidor.esquemas import (
     ResumenPreparacion,
     Revision,
     SolicitudExportar,
+    SolicitudPrevisualizar,
     SolicitudProyecto,
     SolicitudRevision,
     Trabajo,
@@ -51,6 +54,42 @@ def eliminar(proyecto_id: str, s: Servicios = Depends(servicios)) -> Response:
 @router.post("/{proyecto_id}/revision", response_model=Revision, summary="Valida y revisa el dataset")
 def revision(proyecto_id: str, solicitud: SolicitudRevision, s: Servicios = Depends(servicios)) -> dict:
     return s.revisar(proyecto_id, solicitud.objetivo, solicitud.hoja)
+
+
+@router.get("/{proyecto_id}/datos", response_model=DatosHoja, summary="Vista previa de una hoja")
+def datos(
+    proyecto_id: str,
+    hoja: str | None = Query(None, description="Hoja (XLSX); por defecto, la del proyecto o la primera."),
+    s: Servicios = Depends(servicios),
+) -> dict:
+    return s.datos_hoja(proyecto_id, hoja)
+
+
+@router.get("/{proyecto_id}/distribucion", response_model=Distribucion, summary="Distribución de una columna")
+def distribucion(
+    proyecto_id: str,
+    columna: str = Query(..., description="Nombre de la columna."),
+    hoja: str | None = Query(None, description="Hoja (XLSX); por defecto, la del proyecto."),
+    s: Servicios = Depends(servicios),
+) -> dict:
+    """Sobre todas las filas: conteos por valor o histograma si es numérica con muchos valores."""
+    return s.distribucion(proyecto_id, columna, hoja)
+
+
+@router.get("/{proyecto_id}/revision", response_model=Revision, summary="Revisión guardada")
+def obtener_revision(proyecto_id: str, s: Servicios = Depends(servicios)) -> dict:
+    return s.revision(proyecto_id)
+
+
+@router.post(
+    "/{proyecto_id}/decisiones/previsualizar", response_model=DecisionesUsuario,
+    summary="Decisiones que resultan de las acciones elegidas",
+)
+def previsualizar_decisiones(
+    proyecto_id: str, solicitud: SolicitudPrevisualizar, s: Servicios = Depends(servicios)
+) -> dict:
+    """Las calcula el núcleo; no guarda nada. Los hallazgos sin elección usan la acción sugerida."""
+    return s.previsualizar_decisiones(proyecto_id, solicitud.elecciones)
 
 
 @router.get("/{proyecto_id}/decisiones/plantilla", response_model=DecisionesUsuario, summary="Decisiones sugeridas")

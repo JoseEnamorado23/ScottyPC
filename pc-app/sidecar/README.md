@@ -115,8 +115,12 @@ un mensaje que indica qué falta.
 | `POST /apagar` | Cierre ordenado. |
 | `POST /proyectos` `{ruta_archivo, nombre?}` | Copia el archivo; devuelve hojas, columnas y las 20 primeras filas. |
 | `GET /proyectos` · `GET/DELETE /proyectos/{id}` | Lista, detalle (con el estado de cada etapa) y borrado (409 si hay un trabajo activo). |
+| `GET /proyectos/{id}/datos?hoja=` | Hojas, filas, columnas y 20 primeras filas de una hoja. |
+| `GET /proyectos/{id}/distribucion?columna=&hoja=` | Conteos por valor (20 más frecuentes + `otros`) o histograma de 20 intervalos si es numérica con más de 20 valores. |
 | `POST /proyectos/{id}/revision` `{objetivo, hoja?}` | Validación + `InformeRevision` (422 si el dataset no es válido). |
+| `GET /proyectos/{id}/revision` | Revisión guardada (409 si no está vigente). |
 | `GET /proyectos/{id}/decisiones/plantilla` | Decisiones sugeridas. |
+| `POST /proyectos/{id}/decisiones/previsualizar` `{elecciones: {identificador: accion}}` | Decisiones que resultan de las acciones elegidas, calculadas por el núcleo (`aplicar_elecciones`); no guarda nada. Una elección no válida da 422 con `campo = elecciones.<identificador>`. |
 | `GET/PUT /proyectos/{id}/decisiones` | Decisiones guardadas; el PUT valida (422 por campo) e invalida lo posterior. |
 | `POST /proyectos/{id}/preparar` | Receta y resumen (filas, columnas finales, faltantes restantes). |
 | `POST /proyectos/{id}/recomendacion?estimar_tiempo=` | Recomendación de prueba como **trabajo** (202). |

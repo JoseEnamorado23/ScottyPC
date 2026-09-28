@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permisos mínimos de la ventana principal: el motor se lanza desde Rust (no hay permisos de shell para el frontend) y solo se permite el diálogo de abrir archivo.",
+  "windows": ["main"],
+  "permissions": ["core:default", "dialog:allow-open"]
+}

@@ -84,6 +84,35 @@ class ProyectoCreado(Proyecto):
     vista_previa: list[dict[str, Any]] = Field(description="Primeras 20 filas.")
 
 
+class DatosHoja(BaseModel):
+    hoja: str | None
+    hojas: list[str] | None
+    filas: int
+    columnas: list[str]
+    vista_previa: list[dict[str, Any]] = Field(description="Primeras 20 filas.")
+
+
+class Categoria(BaseModel):
+    valor: Any
+    conteo: int
+    porcentaje: float
+
+
+class Histograma(BaseModel):
+    limites: list[float] = Field(description="Bordes de los intervalos (uno más que los conteos).")
+    conteos: list[int]
+
+
+class Distribucion(BaseModel):
+    columna: str
+    tipo: Literal["categorias", "histograma"]
+    total: int
+    faltantes: int
+    valores_distintos: int
+    categorias: list[Categoria] = Field(description="Valores más frecuentes (hasta 20) y 'otros'.")
+    histograma: Histograma | None = None
+
+
 # --- Revisión -------------------------------------------------------------------------------
 
 
@@ -189,6 +218,12 @@ class DecisionesUsuario(_Entrada):
     separacion: ConfiguracionSeparacion = ConfiguracionSeparacion()
     columnas_fecha_disponibles: list[str] = []
     notas: list[str] = []
+
+
+class SolicitudPrevisualizar(_Entrada):
+    elecciones: dict[str, str] = Field(
+        default_factory=dict, description="Acción elegida por hallazgo: {identificador: acción}."
+    )
 
 
 # --- Preparación y recomendación ---------------------------------------------------------------

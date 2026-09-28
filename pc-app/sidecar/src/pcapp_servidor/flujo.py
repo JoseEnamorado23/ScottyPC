@@ -10,12 +10,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 from pcapp_nucleo.analisis import analizar_dataset, resultado_a_diccionario
 from pcapp_nucleo.caracterizacion import caracterizar
 from pcapp_nucleo.carga import ErrorCarga, cargar_dataset, obtener_hojas_excel
 from pcapp_nucleo.exportacion import exportar
-from pcapp_nucleo.modelos import TipoHallazgo
+from pcapp_nucleo.modelos import Hallazgo, InformeRevision, PerfilColumna, Severidad, TipoHallazgo
 from pcapp_nucleo.pc_bootstrap import ProgresoBootstrap, agregar, ejecutar_bootstrap
 from pcapp_nucleo.pc_config import (
     ErrorConfiguracionPC,
@@ -23,7 +24,7 @@ from pcapp_nucleo.pc_config import (
     configuracion_por_defecto,
     validar_configuracion,
 )
-from pcapp_nucleo.plantilla import generar_plantilla
+from pcapp_nucleo.plantilla import ErrorEleccion, aplicar_elecciones
 from pcapp_nucleo.preparacion import (
     DatosPreparados,
     ErrorPreparacion,
@@ -64,6 +65,37 @@ ARCHIVOS_RESULTADO = {
     "matriz_frecuencias.csv": "text/csv",
     "resultado.json": "application/json",
 }
+
+
+MAXIMO_CATEGORIAS = 20
+INTERVALOS_HISTOGRAMA = 20
+
+
+def describir_distribucion(serie: pd.Series, columna: str) -> dict[str, Any]:
+    """Conteos por valor (los más frecuentes y 'otros') o, si la columna es
+    numérica con muchos valores distintos, un histograma."""
+    presentes = serie.dropna()
+    total, distintos = int(len(serie)), int(presentes.nunique())
+    resultado: dict[str, Any] = {
+        "columna": columna, "total": total, "faltantes": total - int(len(presentes)),
+        "valores_distintos": distintos, "categorias": [], "histograma": None,
+    }
+    numerica = pd.api.types.is_numeric_dtype(serie.dtype) and not pd.api.types.is_bool_dtype(serie.dtype)
+    if numerica and distintos > MAXIMO_CATEGORIAS:
+        conteos, limites = np.histogram(presentes.to_numpy(dtype=float), bins=INTERVALOS_HISTOGRAMA)
+        resultado.update(tipo="histograma", histograma={"limites": limites.tolist(), "conteos": conteos.tolist()})
+        return resultado
+    frecuencias = presentes.value_counts()
+    principales = frecuencias.iloc[:MAXIMO_CATEGORIAS]
+    categorias = [
+        {"valor": valor, "conteo": int(n), "porcentaje": round(100 * n / max(len(presentes), 1), 2)}
+        for valor, n in principales.items()
+    ]
+    otros = int(frecuencias.iloc[MAXIMO_CATEGORIAS:].sum())
+    if otros:
+        categorias.append({"valor": "otros", "conteo": otros, "porcentaje": round(100 * otros / len(presentes), 2)})
+    resultado.update(tipo="categorias", categorias=a_diccionario_serializable(categorias))
+    return resultado
 
 
 class Servicios:
@@ -190,11 +222,65 @@ class Servicios:
         self.etapas.registrar(proyecto_id, "revision")
         return datos
 
+    def revision(self, proyecto_id: str) -> dict[str, Any]:
+        proyecto = self.proyecto(proyecto_id)
+        self.etapas.exigir_vigente(proyecto_id, "revision")
+        return self._leer(proyecto, "revision.json")
+
+    def _informe_guardado(self, proyecto: Proyecto) -> InformeRevision:
+        """``InformeRevision`` reconstruido desde revision.json (sin volver a analizar)."""
+        datos = self._leer(proyecto, "revision.json")
+        return InformeRevision(
+            resumen=datos["resumen"],
+            hallazgos=[Hallazgo(**{**h, "severidad": Severidad(h["severidad"])}) for h in datos["hallazgos"]],
+            perfiles_columnas=[PerfilColumna(**p) for p in datos["perfiles_columnas"]],
+            objetivo=datos["objetivo"],
+            informacion_objetivo=datos["informacion_objetivo"],
+        )
+
     def plantilla_decisiones(self, proyecto_id: str) -> dict[str, Any]:
+        return self.previsualizar_decisiones(proyecto_id, {})
+
+    def previsualizar_decisiones(self, proyecto_id: str, elecciones: dict[str, str]) -> dict[str, Any]:
+        """Decisiones que resultan de las acciones elegidas (calculadas por el núcleo)."""
         proyecto = self.proyecto(proyecto_id)
         self.etapas.exigir(proyecto_id, "decisiones")
-        informe = analizar_dataset(self._cargar(proyecto, proyecto.hoja), proyecto.objetivo).informe
-        return a_diccionario_serializable(generar_plantilla(informe))
+        try:
+            decisiones = aplicar_elecciones(self._informe_guardado(proyecto), elecciones)
+        except ErrorEleccion as error:
+            raise invalido(
+                "ELECCION_NO_VALIDA", str(error),
+                [{"campo": f"elecciones.{error.identificador}", "mensaje": str(error)}],
+            ) from error
+        return a_diccionario_serializable(decisiones)
+
+    def datos_hoja(self, proyecto_id: str, hoja: str | None) -> dict[str, Any]:
+        proyecto = self.proyecto(proyecto_id)
+        ruta = self._ruta(proyecto, proyecto.archivo)
+        hojas = obtener_hojas_excel(ruta) if ruta.suffix.lower() == ".xlsx" else None
+        if hoja is None and hojas:
+            hoja = proyecto.hoja or hojas[0]
+        dataframe = self._cargar(proyecto, hoja)
+        return {
+            "hoja": hoja,
+            "hojas": hojas,
+            "filas": int(len(dataframe)),
+            "columnas": [str(c) for c in dataframe.columns],
+            "vista_previa": a_diccionario_serializable(
+                dataframe.head(FILAS_VISTA_PREVIA).to_dict(orient="records")
+            ),
+        }
+
+    def distribucion(self, proyecto_id: str, columna: str, hoja: str | None) -> dict[str, Any]:
+        proyecto = self.proyecto(proyecto_id)
+        dataframe = self._cargar(proyecto, hoja if hoja is not None else proyecto.hoja)
+        columnas = [str(c) for c in dataframe.columns]
+        if columna not in columnas:
+            raise invalido(
+                "COLUMNA_NO_ENCONTRADA", f"La columna '{columna}' no existe.",
+                [{"campo": "columna", "mensaje": "La columna no existe."}],
+            )
+        return describir_distribucion(dataframe.iloc[:, columnas.index(columna)], columna)
 
     def decisiones(self, proyecto_id: str) -> dict[str, Any]:
         proyecto = self.proyecto(proyecto_id)

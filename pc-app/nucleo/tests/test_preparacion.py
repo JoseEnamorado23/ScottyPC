@@ -368,5 +368,5 @@ def test_plantilla_confirmaciones_y_agrupacion():
     assert plantilla.faltantes["ferritina"] == TratamientoColumna(indicador_medido=True, imputacion="mediana")
     distribucion = plantilla.acciones_hallazgos["distribucion_objetivo:clase"]
     assert "agrupar_clases" in distribucion.opciones
-    assert "agrupacion" in distribucion.descripcion
+    assert "Al agruparlas" in distribucion.descripcion
     assert "ferritina" in plantilla.logaritmos

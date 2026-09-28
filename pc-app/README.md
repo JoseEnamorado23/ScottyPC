@@ -27,7 +27,7 @@ pc-app/
 │   ├── src/nucleo/
 │   └── tests/
 ├── sidecar/           Servidor local FastAPI que expone el núcleo (funcional)
-├── app/               Vacío: futuro frontend Tauri v2 + React (sin implementar)
+├── app/               Aplicación de escritorio Tauri v2 + React (ver app/README.md)
 └── datasets_prueba/   Datasets reales y sintéticos para pruebas
 ```
 
@@ -86,6 +86,7 @@ archivo → carga → validación ─┬─ errores bloqueantes → se informan 
 | `revision.revisar_dataset(df, objetivo)` | DataFrame y objetivo | `InformeRevision` | Resumen, perfiles y hallazgos (cada uno con un `identificador` único). |
 | `analisis.analizar_dataset(df, objetivo)` | DataFrame y objetivo | `ResultadoAnalisis` | Valida y solo revisa si no hay errores bloqueantes. |
 | `plantilla.generar_plantilla(informe)` | `InformeRevision` | `DecisionesUsuario` | Acción sugerida por hallazgo, con `requiere_confirmacion`. |
+| `plantilla.aplicar_elecciones(informe, elecciones)` | `InformeRevision`, `{identificador: accion}` | `DecisionesUsuario` | Única implementación del paso acciones → decisiones; los hallazgos sin elección usan la sugerida. `ErrorEleccion` si el hallazgo o la acción no existen. |
 | `preparacion.preparar(df, objetivo, decisiones)` | DataFrame, objetivo, decisiones | `DatosPreparados` | Aplica las decisiones y registra la `Receta`. Lanza `ErrorPreparacion`. |
 | `preparacion.aplicar_receta(df, receta)` | DataFrame original y receta | `DatosPreparados` | Reproduce exactamente train y test sin volver a aprender nada. |
 | `seleccion_prueba.recomendar_prueba(datos)` | `DatosPreparados` | `RecomendacionPrueba` | Prueba sugerida, motivo, evidencia, alternativas y tiempo estimado. Usa solo train. |

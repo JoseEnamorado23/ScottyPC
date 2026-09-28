@@ -1,8 +1,11 @@
-"""Plantilla de decisiones a partir de un ``InformeRevision``.
+"""Decisiones a partir de un ``InformeRevision`` y de las acciones elegidas.
 
-``generar_plantilla`` traduce cada hallazgo en la acción sugerida para que
-el usuario (o la futura interfaz) solo tenga que revisarla y editarla.
-Criterios:
+Cada tipo de hallazgo define sus opciones (con la sugerida y su efecto sobre
+las decisiones). ``aplicar_elecciones`` construye las decisiones desde cero
+aplicando, para cada hallazgo, la acción elegida por el usuario o, si no eligió
+ninguna, la sugerida. ``generar_plantilla`` es el caso sin elecciones.
+
+Criterios de las acciones sugeridas:
 
 - Por defecto no se destruye información dudosa: se excluyen solo columnas
   que claramente no sirven como variables (identificadores, texto libre,
@@ -11,13 +14,17 @@ Criterios:
 - ``requiere_confirmacion`` es ``True`` en las decisiones importantes que el
   software no puede tomar solo: ceros sospechosos, mezclas de unidades,
   faltantes que dependen del objetivo, grupos redundantes y relaciones que
-  involucran al objetivo (posible fuga de información). La acción por
-  defecto de esas decisiones tampoco destruye nada.
+  involucran al objetivo (posible fuga de información). La acción sugerida de
+  esas decisiones tampoco destruye nada.
+- Las acciones que necesitan datos que la revisión no decide (orden ordinal,
+  agrupación de clases, fórmula de una conversión) crean un valor inicial que
+  el usuario edita después.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Callable
+from dataclasses import dataclass, field
 
 from pcapp_nucleo.configuracion import ConfiguracionValidacion
 from pcapp_nucleo.modelos import Hallazgo, InformeRevision, TipoColumna, TipoHallazgo
@@ -25,269 +32,396 @@ from pcapp_nucleo.preparacion import (
     AccionHallazgo,
     Codificacion,
     ConfiguracionSeparacion,
+    ConversionUnidades,
     DecisionesUsuario,
+    ErrorPreparacion,
     TratamientoColumna,
 )
 
-_OPCIONES_FALTANTES = [
-    "imputar_mediana", "imputar_multivariada", "eliminar_filas", "conservar_faltantes",
-    "excluir_columna",
-]
-_OPCIONES_EXCLUIR = ["excluir_columna", "conservar"]
+
+class ErrorEleccion(ErrorPreparacion):
+    """Elección no válida para un hallazgo (identificador desconocido o acción no ofrecida)."""
+
+    def __init__(self, identificador: str, mensaje: str) -> None:
+        super().__init__(mensaje)
+        self.identificador = identificador
 
 
-class _Plantilla:
+@dataclass
+class _Especificacion:
+    """Opciones de un hallazgo: la sugerida y el efecto de cada una."""
+
+    sugerida: str
+    efectos: dict[str, Callable[[], None]]
+    descripcion: str = ""
+    requiere_confirmacion: bool = False
+
+
+@dataclass
+class _Faltantes:
+    ceros_como_faltantes: bool = False
+    indicador_medido: bool = False
+    imputacion: str | None = None
+
+
+@dataclass
+class _Decisiones:
     """Acumula las decisiones mientras se recorren los hallazgos."""
 
-    def __init__(self, informe: InformeRevision, configuracion: ConfiguracionValidacion) -> None:
-        self.configuracion = configuracion
-        self.objetivo = informe.objetivo
-        self.acciones: dict[str, AccionHallazgo] = {}
-        self.excluidas: list[str] = []
-        self.faltantes: dict[str, TratamientoColumna] = {}
-        self.codificaciones: dict[str, Codificacion] = {}
-        self.logaritmos: list[str] = []
-        self.fechas: list[str] = []
-        self.notas: list[str] = []
-        self.eliminar_duplicados = False
-        self.ordinales = {
-            h.columnas_involucradas[0]: h.evidencia["orden_sugerido"]
-            for h in informe.hallazgos
-            if h.tipo == TipoHallazgo.POSIBLE_VARIABLE_ORDINAL
-        }
+    informe: InformeRevision
+    configuracion: ConfiguracionValidacion
+    acciones: dict[str, AccionHallazgo] = field(default_factory=dict)
+    excluidas: list[str] = field(default_factory=list)
+    faltantes: dict[str, _Faltantes] = field(default_factory=dict)
+    codificaciones: dict[str, Codificacion] = field(default_factory=dict)
+    conversiones: list[ConversionUnidades] = field(default_factory=list)
+    logaritmos: list[str] = field(default_factory=list)
+    fechas: list[str] = field(default_factory=list)
+    notas: list[str] = field(default_factory=list)
+    eliminar_duplicados: bool = False
+    separacion: ConfiguracionSeparacion = field(default_factory=ConfiguracionSeparacion)
 
-    def accion(
-        self, hallazgo: Hallazgo, accion: str, opciones: list[str], descripcion: str = "",
-        requiere_confirmacion: bool = False,
-    ) -> None:
-        self.acciones[hallazgo.identificador] = AccionHallazgo(
-            accion, opciones, descripcion, requiere_confirmacion
-        )
+    @property
+    def objetivo(self) -> str | None:
+        return self.informe.objetivo
 
     def excluir(self, *columnas: str) -> None:
         for columna in columnas:
             if columna != self.objetivo and columna not in self.excluidas:
                 self.excluidas.append(columna)
 
+    def faltante(self, columna: str) -> _Faltantes:
+        return self.faltantes.setdefault(columna, _Faltantes())
+
+    def ordinal_sugerido(self, columna: str) -> list | None:
+        for hallazgo in self.informe.hallazgos:
+            if hallazgo.tipo == TipoHallazgo.POSIBLE_VARIABLE_ORDINAL and hallazgo.columnas_involucradas[0] == columna:
+                return list(hallazgo.evidencia["orden_sugerido"])
+        return None
+
+
+def _nada() -> None:
+    return None
+
 
 def generar_plantilla(
     informe: InformeRevision, configuracion: ConfiguracionValidacion | None = None
 ) -> DecisionesUsuario:
-    """Decisiones prellenadas con la acción sugerida para cada hallazgo."""
-    plantilla = _Plantilla(informe, configuracion or ConfiguracionValidacion())
+    """Decisiones con la acción sugerida para cada hallazgo."""
+    return aplicar_elecciones(informe, {}, configuracion)
+
+
+def aplicar_elecciones(
+    informe: InformeRevision,
+    elecciones: dict[str, str],
+    configuracion: ConfiguracionValidacion | None = None,
+) -> DecisionesUsuario:
+    """Decisiones resultantes de aplicar ``elecciones`` ({identificador: acción}).
+
+    Los hallazgos sin elección usan su acción sugerida.
+
+    Raises:
+        ErrorEleccion: si un identificador no corresponde a ningún hallazgo o la
+            acción no está entre las opciones de ese hallazgo.
+    """
+    decisiones = _Decisiones(informe, configuracion or ConfiguracionValidacion())
+    identificadores = {h.identificador for h in informe.hallazgos}
+    for identificador in elecciones:
+        if identificador not in identificadores:
+            raise ErrorEleccion(identificador, f"No existe el hallazgo '{identificador}'.")
     for hallazgo in informe.hallazgos:
-        _TRADUCTORES.get(hallazgo.tipo, _informativo)(plantilla, hallazgo)
-    _excluir_no_numericas(plantilla, informe)
-    excluidas = set(plantilla.excluidas)
+        especificacion = _ESPECIFICADORES.get(hallazgo.tipo, _informativo)(decisiones, hallazgo)
+        accion = elecciones.get(hallazgo.identificador, especificacion.sugerida)
+        if accion not in especificacion.efectos:
+            raise ErrorEleccion(
+                hallazgo.identificador,
+                f"La acción '{accion}' no es válida para este hallazgo; opciones: "
+                f"{', '.join(especificacion.efectos)}.",
+            )
+        especificacion.efectos[accion]()
+        decisiones.acciones[hallazgo.identificador] = AccionHallazgo(
+            accion, list(especificacion.efectos), especificacion.descripcion,
+            especificacion.requiere_confirmacion,
+        )
+    _excluir_no_numericas(decisiones)
+    return _construir(decisiones)
+
+
+def _construir(decisiones: _Decisiones) -> DecisionesUsuario:
+    excluidas = set(decisiones.excluidas)
+    faltantes = {
+        columna: TratamientoColumna(f.ceros_como_faltantes, f.indicador_medido, f.imputacion)
+        for columna, f in decisiones.faltantes.items()
+        if columna not in excluidas and (f.ceros_como_faltantes or f.indicador_medido or f.imputacion)
+    }
     return DecisionesUsuario(
-        eliminar_duplicados=plantilla.eliminar_duplicados,
-        acciones_hallazgos=plantilla.acciones,
-        columnas_excluidas=plantilla.excluidas,
-        faltantes={c: t for c, t in plantilla.faltantes.items() if c not in excluidas},
-        codificaciones={c: k for c, k in plantilla.codificaciones.items() if c not in excluidas},
-        logaritmos=[c for c in plantilla.logaritmos if c not in excluidas],
-        separacion=ConfiguracionSeparacion(),
-        columnas_fecha_disponibles=plantilla.fechas,
-        notas=plantilla.notas,
+        eliminar_duplicados=decisiones.eliminar_duplicados,
+        acciones_hallazgos=decisiones.acciones,
+        columnas_excluidas=decisiones.excluidas,
+        faltantes=faltantes,
+        codificaciones={c: k for c, k in decisiones.codificaciones.items() if c not in excluidas},
+        conversiones=[c for c in decisiones.conversiones if c.columna not in excluidas],
+        logaritmos=[c for c in decisiones.logaritmos if c not in excluidas],
+        separacion=decisiones.separacion,
+        columnas_fecha_disponibles=decisiones.fechas,
+        notas=decisiones.notas,
     )
 
 
-# --- Traducción de cada tipo de hallazgo -----------------------------------------------
+# --- Especificación de cada tipo de hallazgo ---------------------------------------------
 
 
-def _informativo(plantilla: _Plantilla, hallazgo: Hallazgo) -> None:
-    plantilla.accion(hallazgo, "conservar", ["conservar"])
+def _informativo(d: _Decisiones, h: Hallazgo) -> _Especificacion:
+    return _Especificacion("conservar", {"conservar": _nada})
 
 
-def _duplicados(plantilla: _Plantilla, hallazgo: Hallazgo) -> None:
-    plantilla.eliminar_duplicados = True
-    plantilla.accion(
-        hallazgo, "eliminar_duplicados", ["eliminar_duplicados", "conservar"],
+def _duplicados(d: _Decisiones, h: Hallazgo) -> _Especificacion:
+    def eliminar() -> None:
+        d.eliminar_duplicados = True
+
+    return _Especificacion(
+        "eliminar_duplicados", {"eliminar_duplicados": eliminar, "conservar": _nada},
         "Las filas repetidas pueden quedar a la vez en entrenamiento y test e inflar la exactitud.",
     )
 
 
-def _faltantes(plantilla: _Plantilla, hallazgo: Hallazgo) -> None:
-    columna = hallazgo.columnas_involucradas[0]
-    if columna == plantilla.objetivo:
-        _informativo(plantilla, hallazgo)
-        return
-    plantilla.faltantes.setdefault(columna, TratamientoColumna(imputacion="mediana"))
-    plantilla.accion(hallazgo, "imputar_mediana", _OPCIONES_FALTANTES)
+def _efectos_faltantes(d: _Decisiones, columna: str) -> dict[str, Callable[[], None]]:
+    def imputar(metodo: str | None) -> Callable[[], None]:
+        def efecto() -> None:
+            d.faltante(columna).imputacion = metodo
+        return efecto
+
+    return {
+        "imputar_mediana": imputar("mediana"),
+        "imputar_multivariada": imputar("multivariada"),
+        "eliminar_filas": imputar("eliminar_filas"),
+        "conservar_faltantes": imputar(None),
+        "excluir_columna": lambda: d.excluir(columna),
+    }
 
 
-def _alta_proporcion(plantilla: _Plantilla, hallazgo: Hallazgo) -> None:
-    plantilla.excluir(hallazgo.columnas_involucradas[0])
-    plantilla.accion(hallazgo, "excluir_columna", _OPCIONES_FALTANTES)
+def _faltantes(d: _Decisiones, h: Hallazgo) -> _Especificacion:
+    columna = h.columnas_involucradas[0]
+    if columna == d.objetivo:
+        return _informativo(d, h)
+    return _Especificacion("imputar_mediana", _efectos_faltantes(d, columna))
 
 
-def _faltantes_objetivo(plantilla: _Plantilla, hallazgo: Hallazgo) -> None:
-    columna = hallazgo.columnas_involucradas[0]
-    plantilla.faltantes[columna] = TratamientoColumna(imputacion="mediana", indicador_medido=True)
-    plantilla.accion(
-        hallazgo, "imputar_con_indicador",
-        ["excluir_columna", "imputar_con_indicador", "solo_casos_completos", "conservar"],
+def _alta_proporcion(d: _Decisiones, h: Hallazgo) -> _Especificacion:
+    return _Especificacion("excluir_columna", _efectos_faltantes(d, h.columnas_involucradas[0]))
+
+
+def _faltantes_objetivo(d: _Decisiones, h: Hallazgo) -> _Especificacion:
+    columna = h.columnas_involucradas[0]
+
+    def tratamiento(imputacion: str | None, indicador: bool) -> Callable[[], None]:
+        def efecto() -> None:
+            f = d.faltante(columna)
+            f.imputacion, f.indicador_medido = imputacion, indicador
+        return efecto
+
+    return _Especificacion(
+        "imputar_con_indicador",
+        {
+            "excluir_columna": lambda: d.excluir(columna),
+            "imputar_con_indicador": tratamiento("mediana", True),
+            "solo_casos_completos": tratamiento("eliminar_filas", False),
+            "conservar": tratamiento(None, False),
+        },
         "Los faltantes dependen del objetivo: el indicador de 'dato medido' conserva esa "
         "información en lugar de ocultarla con la imputación.",
         requiere_confirmacion=True,
     )
 
 
-def _ceros(plantilla: _Plantilla, hallazgo: Hallazgo) -> None:
-    plantilla.accion(
-        hallazgo, "conservar", ["conservar", "ceros_como_faltantes"],
-        "Si el cero no es un valor posible, marque 'ceros_como_faltantes' en 'faltantes' "
-        "para esta columna.",
+def _ceros(d: _Decisiones, h: Hallazgo) -> _Especificacion:
+    columna = h.columnas_involucradas[0]
+
+    def como_faltantes(imputar: bool) -> Callable[[], None]:
+        def efecto() -> None:
+            f = d.faltante(columna)
+            f.ceros_como_faltantes = True
+            if imputar:
+                f.imputacion = "mediana"
+        return efecto
+
+    return _Especificacion(
+        "conservar",
+        {
+            "conservar": _nada,
+            "ceros_como_faltantes": como_faltantes(False),
+            "ceros_como_faltantes_imputar_mediana": como_faltantes(True),
+        },
+        "Si el cero no es un valor posible para esta variable, trátelo como faltante.",
         requiere_confirmacion=True,
     )
 
 
-def _excluir_columna(plantilla: _Plantilla, hallazgo: Hallazgo) -> None:
-    plantilla.excluir(hallazgo.columnas_involucradas[0])
-    plantilla.accion(hallazgo, "excluir_columna", _OPCIONES_EXCLUIR)
+def _excluir_columna(d: _Decisiones, h: Hallazgo) -> _Especificacion:
+    columna = h.columnas_involucradas[0]
+    return _Especificacion("excluir_columna", {"excluir_columna": lambda: d.excluir(columna), "conservar": _nada})
 
 
-def _fecha(plantilla: _Plantilla, hallazgo: Hallazgo) -> None:
-    columna = hallazgo.columnas_involucradas[0]
-    plantilla.excluir(columna)
-    plantilla.fechas.append(columna)
-    plantilla.accion(
-        hallazgo, "excluir_columna", ["excluir_columna", "separacion_temporal"],
-        f"Para separar por tiempo, use 'separacion': {{'tipo': 'temporal', "
-        f"'columna_fecha': '{columna}'}}.",
+def _fecha(d: _Decisiones, h: Hallazgo) -> _Especificacion:
+    columna = h.columnas_involucradas[0]
+    d.fechas.append(columna)
+
+    def temporal() -> None:
+        d.separacion = ConfiguracionSeparacion(tipo="temporal", columna_fecha=columna)
+
+    return _Especificacion(
+        "excluir_columna",
+        {"excluir_columna": lambda: d.excluir(columna), "separacion_temporal": temporal},
+        "La fecha no se usa como variable. Puede usarse para separar entrenamiento y test por "
+        "tiempo (lo anterior al corte para entrenar).",
     )
 
 
-def _categorica(plantilla: _Plantilla, hallazgo: Hallazgo) -> None:
-    columna = hallazgo.columnas_involucradas[0]
-    if columna == plantilla.objetivo:
-        _informativo(plantilla, hallazgo)
-        return
-    if hallazgo.evidencia["origen"] == "enteros":
-        plantilla.accion(
-            hallazgo, "conservar_numerica", ["conservar_numerica", "one_hot"],
+def _categorias_reales(d: _Decisiones, h: Hallazgo) -> list:
+    """Categorías sin los textos centinela (se tratarán como faltantes)."""
+    centinelas = d.configuracion.valores_centinela_faltantes
+    return [c["valor"] for c in h.evidencia["categorias"] if str(c["valor"]).strip() not in centinelas]
+
+
+def _categorica(d: _Decisiones, h: Hallazgo) -> _Especificacion:
+    columna = h.columnas_involucradas[0]
+    if columna == d.objetivo:
+        return _informativo(d, h)
+
+    def codificar(codificacion: Codificacion) -> Callable[[], None]:
+        def efecto() -> None:
+            d.codificaciones[columna] = codificacion
+        return efecto
+
+    if h.evidencia["origen"] == "enteros":
+        return _Especificacion(
+            "conservar_numerica",
+            {"conservar_numerica": _nada, "one_hot": codificar(Codificacion("one_hot"))},
             "Ya es numérica; se usa tal cual.",
         )
-        return
-    if columna in plantilla.ordinales:
-        plantilla.codificaciones[columna] = Codificacion("ordinal", orden=plantilla.ordinales[columna])
-        accion = "ordinal"
-    elif _categorias_reales(plantilla, hallazgo) == 2:
-        plantilla.codificaciones[columna] = Codificacion("binaria")
-        accion = "binaria"
-    else:
-        plantilla.codificaciones[columna] = Codificacion("one_hot")
-        accion = "one_hot"
-    descripcion = "La codificación one-hot añade variables a PC." if accion == "one_hot" else ""
-    plantilla.accion(hallazgo, accion, ["binaria", "ordinal", "one_hot", "excluir_columna"], descripcion)
+    categorias = _categorias_reales(d, h)
+    orden = d.ordinal_sugerido(columna)
+    efectos: dict[str, Callable[[], None]] = {}
+    if len(categorias) == 2:
+        efectos["binaria"] = codificar(Codificacion("binaria"))
+    efectos["ordinal"] = codificar(Codificacion("ordinal", orden=orden or sorted(categorias, key=str)))
+    efectos["one_hot"] = codificar(Codificacion("one_hot"))
+    efectos["excluir_columna"] = lambda: d.excluir(columna)
+    sugerida = "ordinal" if orden else ("binaria" if len(categorias) == 2 else "one_hot")
+    descripcion = "La codificación one-hot añade variables a PC." if sugerida == "one_hot" else ""
+    return _Especificacion(sugerida, efectos, descripcion)
 
 
-def _categorias_reales(plantilla: _Plantilla, hallazgo: Hallazgo) -> int:
-    """Categorías sin contar los textos centinela (se tratarán como faltantes)."""
-    centinelas = plantilla.configuracion.valores_centinela_faltantes
-    return sum(
-        1 for categoria in hallazgo.evidencia["categorias"]
-        if str(categoria["valor"]).strip() not in centinelas
+def _ordinal(d: _Decisiones, h: Hallazgo) -> _Especificacion:
+    columna = h.columnas_involucradas[0]
+
+    def sin_orden() -> None:
+        codificacion = d.codificaciones.get(columna)
+        if codificacion is not None and codificacion.tipo == "ordinal":
+            d.codificaciones[columna] = Codificacion("one_hot")
+
+    return _Especificacion(
+        "usar_orden_sugerido", {"usar_orden_sugerido": _nada, "sin_orden": sin_orden},
+        f"Orden sugerido: {h.evidencia['orden_sugerido']}.",
     )
 
 
-def _ordinal(plantilla: _Plantilla, hallazgo: Hallazgo) -> None:
-    plantilla.accion(
-        hallazgo, "usar_orden_sugerido", ["usar_orden_sugerido", "sin_orden"],
-        f"Orden sugerido: {hallazgo.evidencia['orden_sugerido']}.",
-    )
-
-
-def _distribucion(plantilla: _Plantilla, hallazgo: Hallazgo) -> None:
-    clases = [d["valor"] for d in hallazgo.evidencia["distribucion"]]
+def _distribucion(d: _Decisiones, h: Hallazgo) -> _Especificacion:
+    clases = [c["valor"] for c in h.evidencia["distribucion"]]
     if len(clases) <= 2:
-        _informativo(plantilla, hallazgo)
-        return
-    ejemplo = {str(valor): 0 if i == 0 else 1 for i, valor in enumerate(sorted(clases, key=str))}
-    plantilla.accion(
-        hallazgo, "conservar_clases", ["conservar_clases", "agrupar_clases"],
-        f"El objetivo tiene {len(clases)} clases. Para agruparlas, agregue en 'codificaciones' "
-        f"una entrada para '{plantilla.objetivo}' con tipo 'agrupacion' y 'grupos' "
-        f"{{valor_original: nuevo_valor}}; por ejemplo {ejemplo}.",
+        return _informativo(d, h)
+    grupos = {str(valor): 0 if i == 0 else 1 for i, valor in enumerate(sorted(clases, key=str))}
+
+    def agrupar() -> None:
+        d.codificaciones[d.objetivo] = Codificacion("agrupacion", grupos=grupos)
+
+    return _Especificacion(
+        "conservar_clases", {"conservar_clases": _nada, "agrupar_clases": agrupar},
+        f"El objetivo tiene {len(clases)} clases. Al agruparlas se parte de {grupos}; edite los "
+        "grupos en las decisiones.",
     )
 
 
-def _derivada(plantilla: _Plantilla, hallazgo: Hallazgo) -> None:
-    derivadas = hallazgo.evidencia.get("derivada_sugerida", [])
-    if plantilla.objetivo in hallazgo.columnas_involucradas:
-        plantilla.accion(
-            hallazgo, "conservar", ["conservar", "excluir_derivada"],
+def _derivada(d: _Decisiones, h: Hallazgo) -> _Especificacion:
+    if d.objetivo in h.columnas_involucradas:
+        otras = [c for c in h.columnas_involucradas if c != d.objetivo]
+        return _Especificacion(
+            "conservar", {"conservar": _nada, "excluir_derivada": lambda: d.excluir(*otras)},
             "La relación involucra al objetivo: posible fuga de información. Revise si alguna "
-            "variable se calculó a partir del objetivo (o al revés).",
+            "variable se calculó a partir del objetivo (o al revés); excluirla elimina "
+            f"{otras} del análisis.",
             requiere_confirmacion=True,
         )
-        return
-    plantilla.excluir(*derivadas)
-    plantilla.accion(
-        hallazgo, "excluir_derivada", ["excluir_derivada", "conservar"],
-        f"Se sugiere conservar {hallazgo.evidencia.get('original_sugerida')} y excluir {derivadas}.",
+    derivadas = h.evidencia.get("derivada_sugerida", [])
+    return _Especificacion(
+        "excluir_derivada", {"excluir_derivada": lambda: d.excluir(*derivadas), "conservar": _nada},
+        f"Se sugiere conservar {h.evidencia.get('original_sugerida')} y excluir {derivadas}.",
     )
 
 
-def _recodificacion(plantilla: _Plantilla, hallazgo: Hallazgo) -> None:
-    columna_a, columna_b = hallazgo.columnas_involucradas
-    if plantilla.objetivo in (columna_a, columna_b):
-        _derivada(plantilla, hallazgo)
-        return
-    plantilla.excluir(columna_b)
-    plantilla.accion(
-        hallazgo, "excluir_una", ["excluir_una", "conservar"],
+def _recodificacion(d: _Decisiones, h: Hallazgo) -> _Especificacion:
+    columna_a, columna_b = h.columnas_involucradas
+    if d.objetivo in (columna_a, columna_b):
+        return _derivada(d, h)
+    return _Especificacion(
+        "excluir_una", {"excluir_una": lambda: d.excluir(columna_b), "conservar": _nada},
         f"Ambas columnas contienen la misma información; se sugiere conservar '{columna_a}'.",
     )
 
 
-def _correlacion(plantilla: _Plantilla, hallazgo: Hallazgo) -> None:
-    columna_a, columna_b = hallazgo.columnas_involucradas
-    lineal = hallazgo.evidencia.get("tipo_relacion") == "transformacion_lineal"
-    if lineal and plantilla.objetivo not in (columna_a, columna_b):
-        plantilla.excluir(columna_b)
-        plantilla.accion(
-            hallazgo, "excluir_una", ["excluir_una", "conservar"],
-            f"'{columna_b}' es una transformación lineal exacta de '{columna_a}'.",
-        )
-    else:
-        plantilla.accion(hallazgo, "conservar", ["conservar", "excluir_una"])
+def _correlacion(d: _Decisiones, h: Hallazgo) -> _Especificacion:
+    columna_a, columna_b = h.columnas_involucradas
+    excluida = columna_a if columna_b == d.objetivo else columna_b
+    lineal = h.evidencia.get("tipo_relacion") == "transformacion_lineal"
+    sugerida = "excluir_una" if lineal and d.objetivo not in (columna_a, columna_b) else "conservar"
+    descripcion = f"'{columna_b}' es una transformación lineal exacta de '{columna_a}'." if lineal else ""
+    return _Especificacion(
+        sugerida, {"excluir_una": lambda: d.excluir(excluida), "conservar": _nada}, descripcion
+    )
 
 
-def _mezcla_unidades(plantilla: _Plantilla, hallazgo: Hallazgo) -> None:
-    columna = hallazgo.columnas_involucradas[0]
-    bajo, alto = hallazgo.evidencia["grupo_bajo"], hallazgo.evidencia["grupo_alto"]
+def _mezcla_unidades(d: _Decisiones, h: Hallazgo) -> _Especificacion:
+    columna = h.columnas_involucradas[0]
+    bajo, alto = h.evidencia["grupo_bajo"], h.evidencia["grupo_alto"]
     umbral = round((bajo["maximo"] + alto["minimo"]) / 2, 4)
-    ejemplo: dict[str, Any] = {
-        "columna": columna, "condicion": ">", "umbral": umbral, "restar": 32,
-        "multiplicar": round(5 / 9, 6), "descripcion": "°F → °C",
-    }
-    plantilla.accion(
-        hallazgo, "conservar", ["conservar", "convertir_unidades"],
-        "Si los grupos corresponden a unidades distintas, agregue una entrada en "
-        f"'conversiones'; por ejemplo {ejemplo}.",
+
+    def convertir() -> None:
+        d.conversiones.append(
+            ConversionUnidades(
+                columna, ">", umbral, 0.0, 1.0,
+                "Complete 'restar' y 'multiplicar' (p. ej. °F → °C: restar 32, multiplicar 5/9).",
+            )
+        )
+
+    return _Especificacion(
+        "conservar", {"conservar": _nada, "convertir_unidades": convertir},
+        f"Los valores forman dos grupos ({bajo['minimo']:g}–{bajo['maximo']:g} y "
+        f"{alto['minimo']:g}–{alto['maximo']:g}). Si corresponden a unidades distintas, conviértalos "
+        f"a una sola escala (se propone el umbral {umbral:g}).",
         requiere_confirmacion=True,
     )
 
 
-def _grupo_redundante(plantilla: _Plantilla, hallazgo: Hallazgo) -> None:
-    plantilla.accion(
-        hallazgo, "conservar", ["conservar", "excluir_variables"],
-        "PC tiende a conservar solo una variable del grupo como causa.",
+def _grupo_redundante(d: _Decisiones, h: Hallazgo) -> _Especificacion:
+    representante, *resto = h.columnas_involucradas
+    return _Especificacion(
+        "conservar", {"conservar": _nada, "excluir_variables": lambda: d.excluir(*resto)},
+        f"PC tiende a conservar solo una variable del grupo como causa. Excluir las demás deja "
+        f"solo '{representante}'.",
         requiere_confirmacion=True,
     )
 
 
-def _asimetria(plantilla: _Plantilla, hallazgo: Hallazgo) -> None:
-    columna = hallazgo.columnas_involucradas[0]
-    if columna == plantilla.objetivo:
-        _informativo(plantilla, hallazgo)
-        return
-    plantilla.logaritmos.append(columna)
-    plantilla.accion(hallazgo, "aplicar_logaritmo", ["aplicar_logaritmo", "conservar"])
+def _asimetria(d: _Decisiones, h: Hallazgo) -> _Especificacion:
+    columna = h.columnas_involucradas[0]
+    if columna == d.objetivo:
+        return _informativo(d, h)
+    return _Especificacion(
+        "aplicar_logaritmo", {"aplicar_logaritmo": lambda: d.logaritmos.append(columna), "conservar": _nada}
+    )
 
 
-_TRADUCTORES = {
+_ESPECIFICADORES = {
     TipoHallazgo.FILAS_DUPLICADAS: _duplicados,
     TipoHallazgo.VALORES_FALTANTES: _faltantes,
     TipoHallazgo.ALTA_PROPORCION_FALTANTES: _alta_proporcion,
@@ -311,16 +445,17 @@ _TRADUCTORES = {
 }
 
 
-def _excluir_no_numericas(plantilla: _Plantilla, informe: InformeRevision) -> None:
+def _excluir_no_numericas(d: _Decisiones) -> None:
     """Excluye columnas que no serían numéricas tras la preparación, con una nota."""
     no_numericas = (TipoColumna.CATEGORICA, TipoColumna.TEXTO, TipoColumna.FECHA, TipoColumna.VACIA)
-    for perfil in informe.perfiles_columnas:
+    temporal = d.separacion.columna_fecha if d.separacion.tipo == "temporal" else None
+    for perfil in d.informe.perfiles_columnas:
         columna = perfil.nombre
-        if columna == plantilla.objetivo or columna in plantilla.excluidas:
+        if columna in (d.objetivo, temporal) or columna in d.excluidas:
             continue
-        if perfil.tipo_detectado in no_numericas and columna not in plantilla.codificaciones:
-            plantilla.excluir(columna)
-            plantilla.notas.append(
+        if perfil.tipo_detectado in no_numericas and columna not in d.codificaciones:
+            d.excluir(columna)
+            d.notas.append(
                 f"La columna '{columna}' ({perfil.tipo_detectado}) no tiene una codificación "
-                "sugerida y se excluye; puede codificarla editando 'codificaciones'."
+                "elegida y se excluye; puede codificarla editando 'codificaciones'."
             )
