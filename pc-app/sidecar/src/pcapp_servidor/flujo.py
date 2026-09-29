@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import shutil
+import threading
 import uuid
 from dataclasses import asdict
 from datetime import datetime
@@ -15,9 +16,16 @@ import pandas as pd
 from pcapp_nucleo.analisis import analizar_dataset, resultado_a_diccionario
 from pcapp_nucleo.caracterizacion import caracterizar
 from pcapp_nucleo.carga import ErrorCarga, cargar_dataset, obtener_hojas_excel
-from pcapp_nucleo.exportacion import exportar
+from pcapp_nucleo.exportacion import disposicion_por_niveles, exportar
+from pcapp_nucleo.informe import (
+    etiqueta_version,
+    informe_html,
+    orientaciones_nuevas,
+    resumen_decisiones,
+    resumen_separacion,
+)
 from pcapp_nucleo.modelos import Hallazgo, InformeRevision, PerfilColumna, Severidad, TipoHallazgo
-from pcapp_nucleo.pc_bootstrap import ProgresoBootstrap, agregar, ejecutar_bootstrap
+from pcapp_nucleo.pc_bootstrap import ProgresoBootstrap, agregar, ejecutar_bootstrap, matriz_spearman
 from pcapp_nucleo.pc_config import (
     ErrorConfiguracionPC,
     advertencias_configuracion,
@@ -43,6 +51,15 @@ from pcapp_nucleo.preparacion import (
     separacion_desde_diccionario,
     separacion_heredada,
     separacion_sugerida,
+)
+from pcapp_nucleo.reagregacion import (
+    ErrorReagregacion,
+    Reagregacion,
+    avisos_resultado,
+    escribir_reagregacion,
+    migrar_resultado,
+    reagregar,
+    tiene_cuentas,
 )
 from pcapp_nucleo.seleccion_prueba import (
     AlternativaPrueba,
@@ -72,6 +89,9 @@ from pcapp_servidor.validacion_campos import validar_decisiones, validar_separac
 FORMATOS = (".csv", ".xlsx")
 FILAS_VISTA_PREVIA = 20
 CARPETA_PC = "pc"
+# Versiones del resultado: la 1 (original) vive en pc/; las ajustadas, en pc/versiones/<n>/.
+CARPETA_VERSIONES = "versiones"
+INDICE_VERSIONES = "versiones.json"
 ARCHIVOS_RESULTADO = {
     "grafo.png": "image/png",
     "aristas.csv": "text/csv",
@@ -131,6 +151,7 @@ class Servicios:
         self.etapas = GestorEtapas(RepositorioEtapas(base), self.proyectos, self.archivos)
         self.trabajos = GestorTrabajos(RepositorioTrabajos(base))
         self.grupo = GrupoProcesos(configuracion.procesos)
+        self._cerrojo_versiones = threading.RLock()
 
     def apagar(self) -> None:
         self.trabajos.detener_todos()
@@ -594,11 +615,13 @@ class Servicios:
                 raise invalido("CONFIGURACION_NO_VALIDA", str(error)) from error
             if not resultado.completo:
                 return f"Se completaron {resultado.corridas_completadas} de {resultado.corridas_totales} corridas."
-            grafo = agregar(resultado, datos, configuracion)
+            spearman = matriz_spearman(datos.train, resultado.variables)
+            grafo = agregar(resultado, datos, configuracion, spearman)
             caracterizacion = caracterizar(
                 grafo, resultado, configuracion.modificables, self._grupos_redundantes(proyecto)
             )
-            exportar(carpeta, configuracion, datos.receta, resultado, grafo, caracterizacion)
+            exportar(carpeta, configuracion, datos.receta, resultado, grafo, caracterizacion, spearman)
+            self._indice_versiones(proyecto)
             self.etapas.registrar(proyecto_id, "analisis")
             return caracterizacion.mensaje
 
@@ -624,25 +647,208 @@ class Servicios:
             funcion = self._funcion_recomendacion(trabajo.proyecto_id, trabajo.parametros.get("estimar_tiempo", True))
         return self.trabajos.reanudar(trabajo_id, funcion)
 
-    # --- Resultados --------------------------------------------------------------------------------
+    # --- Resultados y versiones --------------------------------------------------------------------
+    #
+    # pc/ guarda la versión 1 (la del análisis). Cada ajuste guardado (otro umbral u otras
+    # orientaciones manuales, sin volver a ejecutar PC) crea pc/versiones/<n>/ con sus propios
+    # resultado.json, grafo.png y CSV. pc/versiones.json es el índice: parámetros de cada versión
+    # y la versión actual. Ninguna versión se modifica ni se borra; pc.json no cambia. Al
+    # desactualizarse el análisis se archiva toda la carpeta pc/ (con sus versiones).
 
-    def resultado(self, proyecto_id: str) -> dict[str, Any]:
-        proyecto = self.proyecto(proyecto_id)
-        self.etapas.exigir_vigente(proyecto_id, "analisis")
+    def _carpeta_version(self, proyecto: Proyecto, version: int) -> Path:
+        carpeta = self._ruta(proyecto, CARPETA_PC)
+        return carpeta if version == 1 else carpeta / CARPETA_VERSIONES / str(version)
+
+    @staticmethod
+    def _entrada_version(
+        version: int, base: int | None, agregacion: dict[str, Any], migrada: bool
+    ) -> dict[str, Any]:
+        return {
+            "version": version,
+            "base": base,
+            "umbral_frecuencia": agregacion["umbral_frecuencia"],
+            "orientaciones_manuales": agregacion["orientaciones_manuales"],
+            "creada_en": ahora(),
+            "migrada": migrada,
+        }
+
+    def _indice_versiones(self, proyecto: Proyecto) -> dict[str, Any]:
+        """Índice de versiones. Si no existe lo crea con la versión 1; un resultado anterior a
+        las versiones (sin las cuentas del bootstrap) se migra y se marca ``migrada``."""
+        ruta = self._ruta(proyecto, f"{CARPETA_PC}/{INDICE_VERSIONES}")
+        with self._cerrojo_versiones:
+            if ruta.is_file():
+                return self.archivos.leer_json(ruta)
+            ruta_resultado = self._ruta(proyecto, f"{CARPETA_PC}/resultado.json")
+            contenido = self.archivos.leer_json(ruta_resultado)
+            migrada = not tiene_cuentas(contenido)
+            if migrada:
+                train = self._datos_preparados(proyecto).train
+                try:
+                    contenido = migrar_resultado(contenido, matriz_spearman(train, contenido["variables"]))
+                except ErrorReagregacion as error:
+                    raise conflicto("RESULTADO_NO_AJUSTABLE", str(error)) from error
+                self.archivos.escribir_json(ruta_resultado, contenido)
+            indice = {
+                "version_actual": 1,
+                "versiones": [self._entrada_version(1, None, contenido["agregacion"], migrada)],
+            }
+            self.archivos.escribir_json(ruta, indice)
+            return indice
+
+    def _version_pedida(self, proyecto: Proyecto, version: int | None) -> tuple[dict[str, Any], int]:
+        indice = self._indice_versiones(proyecto)
+        numero = indice["version_actual"] if version is None else version
+        if numero not in {v["version"] for v in indice["versiones"]}:
+            raise no_encontrado(f"No existe la versión {numero} del resultado.", "VERSION_NO_ENCONTRADA")
+        return indice, numero
+
+    def _contenido_original(self, proyecto: Proyecto) -> dict[str, Any]:
+        self._indice_versiones(proyecto)  # migra el resultado si hace falta
         return self._leer(proyecto, f"{CARPETA_PC}/resultado.json")
 
-    def archivo_resultado(self, proyecto_id: str, nombre: str) -> tuple[Path, str]:
+    def _avisos(self, proyecto: Proyecto, contenido: dict[str, Any]) -> list[Any]:
+        """Advertencias de interpretación: resultado, revisión y prueba recomendada."""
+        hallazgos = self._leer(proyecto, "revision.json").get("hallazgos", [])
+        prueba = None
+        if "recomendacion" in self.etapas.vigentes(proyecto.id):
+            prueba = self._leer(proyecto, "recomendacion.json").get("prueba")
+        return avisos_resultado(contenido, hallazgos, prueba)
+
+    def _vista_resultado(self, proyecto: Proyecto, contenido: dict[str, Any], version: int | None) -> dict[str, Any]:
+        configuracion, agregacion = contenido["configuracion"], contenido["agregacion"]
+        columnas = disposicion_por_niveles(
+            contenido["variables"], [(a["origen"], a["destino"]) for a in contenido["aristas"]],
+            configuracion["niveles"], configuracion.get("nombres_niveles"),
+        )
+        vista = {k: v for k, v in contenido.items() if k not in ("cuentas", "spearman")}
+        vista.update(
+            version=version,
+            etiqueta=etiqueta_version(
+                agregacion["umbral_frecuencia"], configuracion["umbral_frecuencia"],
+                orientaciones_nuevas(agregacion, configuracion),
+            ),
+            avisos=a_diccionario_serializable(self._avisos(proyecto, contenido)),
+            disposicion=[{"titulo": titulo, "variables": variables} for titulo, variables in columnas],
+        )
+        return vista
+
+    def _vista_versiones(self, proyecto: Proyecto, indice: dict[str, Any]) -> dict[str, Any]:
+        configuracion = self._leer(proyecto, f"{CARPETA_PC}/resultado.json")["configuracion"]
+        original = configuracion["umbral_frecuencia"]
+        return {
+            "version_actual": indice["version_actual"],
+            "umbral_original": original,
+            "versiones": [
+                {**v, "etiqueta": etiqueta_version(v["umbral_frecuencia"], original, orientaciones_nuevas(v, configuracion))}
+                for v in indice["versiones"]
+            ],
+        }
+
+    def resultado(self, proyecto_id: str, version: int | None = None) -> dict[str, Any]:
+        """Resultado de una versión (por defecto, la actual)."""
+        proyecto = self.proyecto(proyecto_id)
+        self.etapas.exigir_vigente(proyecto_id, "analisis")
+        _, numero = self._version_pedida(proyecto, version)
+        contenido = self.archivos.leer_json(self._carpeta_version(proyecto, numero) / "resultado.json")
+        return self._vista_resultado(proyecto, contenido, numero)
+
+    def versiones(self, proyecto_id: str) -> dict[str, Any]:
+        proyecto = self.proyecto(proyecto_id)
+        self.etapas.exigir_vigente(proyecto_id, "analisis")
+        return self._vista_versiones(proyecto, self._indice_versiones(proyecto))
+
+    def _reagregar(
+        self, proyecto: Proyecto, umbral: float, orientaciones: list[dict[str, Any]]
+    ) -> Reagregacion:
+        try:
+            return reagregar(self._contenido_original(proyecto), umbral, orientaciones)
+        except ErrorReagregacion as error:
+            raise invalido(
+                "AJUSTE_NO_VALIDO", str(error), a_diccionario_serializable(error.problemas)
+            ) from error
+
+    def previsualizar_reagregacion(
+        self, proyecto_id: str, umbral: float, orientaciones: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        """Resultado con otro umbral u otras orientaciones, sin guardar nada."""
+        proyecto = self.proyecto(proyecto_id)
+        self.etapas.exigir_vigente(proyecto_id, "analisis")
+        reagregado = self._reagregar(proyecto, umbral, orientaciones)
+        return self._vista_resultado(proyecto, reagregado.contenido, None)
+
+    def guardar_version(
+        self, proyecto_id: str, umbral: float, orientaciones: list[dict[str, Any]], base: int | None
+    ) -> dict[str, Any]:
+        """Guarda el ajuste como una versión nueva (sin tocar las anteriores) y la hace actual."""
+        proyecto = self.proyecto(proyecto_id)
+        self.trabajos.exigir_sin_activo(proyecto_id)
+        self.etapas.exigir_vigente(proyecto_id, "analisis")
+        if base is not None:
+            self._version_pedida(proyecto, base)
+        reagregado = self._reagregar(proyecto, umbral, orientaciones)
+        ruta = self._ruta(proyecto, f"{CARPETA_PC}/{INDICE_VERSIONES}")
+        with self._cerrojo_versiones:
+            indice = self.archivos.leer_json(ruta)
+            numero = max(v["version"] for v in indice["versiones"]) + 1
+            carpeta = self._carpeta_version(proyecto, numero)
+            carpeta.mkdir(parents=True, exist_ok=True)
+            escribir_reagregacion(carpeta, reagregado)
+            indice["versiones"].append(
+                self._entrada_version(numero, base, reagregado.contenido["agregacion"], False)
+            )
+            indice["version_actual"] = numero
+            self.archivos.escribir_json(ruta, indice)
+        return self._vista_versiones(proyecto, indice)
+
+    def cambiar_version_actual(self, proyecto_id: str, version: int) -> dict[str, Any]:
+        proyecto = self.proyecto(proyecto_id)
+        self.etapas.exigir_vigente(proyecto_id, "analisis")
+        with self._cerrojo_versiones:
+            indice, numero = self._version_pedida(proyecto, version)
+            indice["version_actual"] = numero
+            self.archivos.escribir_json(self._ruta(proyecto, f"{CARPETA_PC}/{INDICE_VERSIONES}"), indice)
+        return self._vista_versiones(proyecto, indice)
+
+    def procedencia(self, proyecto_id: str) -> dict[str, Any]:
+        """Con qué datos, decisiones y configuración se obtuvo el resultado."""
+        proyecto = self.proyecto(proyecto_id)
+        self.etapas.exigir_vigente(proyecto_id, "analisis")
+        receta = self._leer(proyecto, "receta.json")
+        configuracion = self._leer(proyecto, f"{CARPETA_PC}/resultado.json")["configuracion"]
+        recomendacion = None
+        if "recomendacion" in self.etapas.vigentes(proyecto_id):
+            recomendacion = self._leer(proyecto, "recomendacion.json")
+        origen = receta.get("origen") or {}
+        aplicada = receta.get("separacion_aplicada") or {}
+        return {
+            "archivo": Path(proyecto.archivo_original).name,
+            "hoja": origen.get("hoja"),
+            "sha256": origen.get("sha256"),
+            "objetivo": receta["objetivo"],
+            "tipo_objetivo": receta.get("tipo_objetivo"),
+            "filas_train": aplicada.get("filas_train"),
+            "filas_test": aplicada.get("filas_test"),
+            "decisiones": a_diccionario_serializable(resumen_decisiones(receta.get("decisiones") or {})),
+            "separacion": a_diccionario_serializable(resumen_separacion(receta)),
+            "configuracion": configuracion,
+            "prueba_recomendada": recomendacion["prueba"] if recomendacion else None,
+        }
+
+    def archivo_resultado(self, proyecto_id: str, nombre: str, version: int | None = None) -> tuple[Path, str]:
         proyecto = self.proyecto(proyecto_id)
         if nombre not in ARCHIVOS_RESULTADO:
             raise no_encontrado(f"No existe el archivo de resultados '{nombre}'.", "ARCHIVO_NO_ENCONTRADO")
         self.etapas.exigir_vigente(proyecto_id, "analisis")
-        carpeta = self._ruta(proyecto, CARPETA_PC)
-        ruta = carpeta / nombre
-        if not dentro_de(ruta, carpeta) or not ruta.is_file():
+        _, numero = self._version_pedida(proyecto, version)
+        ruta = self._carpeta_version(proyecto, numero) / nombre
+        if not dentro_de(ruta, self._ruta(proyecto, CARPETA_PC)) or not ruta.is_file():
             raise no_encontrado(f"No existe el archivo de resultados '{nombre}'.", "ARCHIVO_NO_ENCONTRADO")
         return ruta, ARCHIVOS_RESULTADO[nombre]
 
-    def exportar(self, proyecto_id: str, carpeta_destino: str) -> dict[str, Any]:
+    def exportar(self, proyecto_id: str, carpeta_destino: str, version: int | None = None) -> dict[str, Any]:
+        """Copia los archivos de una versión (por defecto, la actual) y la receta, y escribe
+        ``informe.html`` (autocontenido) con el historial de versiones."""
         proyecto = self.proyecto(proyecto_id)
         self.etapas.exigir_vigente(proyecto_id, "analisis")
         destino = Path(carpeta_destino).expanduser()
@@ -651,21 +857,34 @@ class Servicios:
                 "CARPETA_NO_ENCONTRADA", f"La carpeta '{destino}' no existe.",
                 [{"campo": "carpeta_destino", "mensaje": "La carpeta no existe."}],
             )
+        indice, numero = self._version_pedida(proyecto, version)
+        origen = self._carpeta_version(proyecto, numero)
         base = re.sub(r"[^\w\-]+", "_", proyecto.nombre).strip("_") or "proyecto"
         marca = datetime.now().strftime("%Y%m%d-%H%M%S")
-        salida = destino / f"{base}_{marca}"
-        numero = 2
+        salida = destino / f"{base}_v{numero}_{marca}"
+        sufijo = 2
         while salida.exists():
-            salida = destino / f"{base}_{marca}_{numero}"
-            numero += 1
+            salida = destino / f"{base}_v{numero}_{marca}_{sufijo}"
+            sufijo += 1
         salida.mkdir()
         copiados = []
         for nombre in ARCHIVOS_RESULTADO:
-            shutil.copy2(self._ruta(proyecto, f"{CARPETA_PC}/{nombre}"), salida / nombre)
+            shutil.copy2(origen / nombre, salida / nombre)
             copiados.append(nombre)
         shutil.copy2(self._ruta(proyecto, "receta.json"), salida / "receta.json")
         copiados.append("receta.json")
-        return {"carpeta": str(salida), "archivos": copiados}
+        contenido = self.archivos.leer_json(origen / "resultado.json")
+        receta = self._leer(proyecto, "receta.json")
+        # La receta nombra la copia del proyecto; el informe muestra el archivo del usuario.
+        receta["origen"] = {**(receta.get("origen") or {}), "archivo": Path(proyecto.archivo_original).name}
+        informe = informe_html(
+            contenido, receta, self._avisos(proyecto, contenido),
+            (origen / "grafo.png").read_bytes(), indice["versiones"], numero, proyecto.nombre,
+            datetime.now().strftime("%Y-%m-%d %H:%M"),
+        )
+        (salida / "informe.html").write_text(informe, encoding="utf-8")
+        copiados.append("informe.html")
+        return {"carpeta": str(salida), "archivos": copiados, "version": numero}
 
     # --- Trabajos -------------------------------------------------------------------------------------
 

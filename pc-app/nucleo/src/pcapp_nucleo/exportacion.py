@@ -10,6 +10,12 @@ origen, columna = destino.
   manuales); una arista sin orientar pone 1 en las dos direcciones.
 - ``matriz_frecuencias.csv``: frecuencia de origen→destino más la frecuencia
   sin orientar, sobre las corridas válidas.
+
+``resultado.json`` guarda además las cuentas exactas del bootstrap
+(``cuentas``), el ρ de Spearman de todos los pares (``spearman``) y los
+parámetros de la agregación (``agregacion``): con ellos
+``reagregacion.reagregar`` rehace el grafo con otro umbral u otras
+orientaciones manuales sin volver a ejecutar PC ni leer los datos.
 """
 
 from __future__ import annotations
@@ -85,8 +91,14 @@ def resultado_a_diccionario(
     resultado: ResultadoBootstrap,
     grafo: GrafoAgregado,
     caracterizacion: Caracterizacion,
+    spearman: list[list[float | None]],
 ) -> dict[str, Any]:
-    """Contenido de ``resultado.json`` (base para la visualización del frontend)."""
+    """Contenido de ``resultado.json`` (base para la visualización del frontend).
+
+    ``configuracion`` es la de la ejecución; ``agregacion`` guarda el umbral y las
+    orientaciones manuales con que se agregó (en una versión reagregada difieren
+    de los de ``configuracion``).
+    """
     validas = max(resultado.corridas_validas, 1)
     return {
         "configuracion": a_diccionario_serializable(configuracion),
@@ -116,6 +128,16 @@ def resultado_a_diccionario(
             "frecuencia_sin_orientar": (np.asarray(resultado.sin_orientar) / validas).round(4).tolist(),
         },
         "advertencias": grafo.advertencias,
+        "agregacion": {
+            "umbral_frecuencia": grafo.umbral_frecuencia,
+            "orientaciones_manuales": a_diccionario_serializable(configuracion.orientaciones_manuales),
+        },
+        "cuentas": {
+            "dirigidas": np.asarray(resultado.dirigidas, dtype=int).tolist(),
+            "sin_orientar": np.asarray(resultado.sin_orientar, dtype=int).tolist(),
+            "bidireccionales": resultado.bidireccionales,
+        },
+        "spearman": spearman,
     }
 
 
@@ -156,13 +178,38 @@ def _orden_por_baricentro(
     return orden
 
 
+def disposicion_por_niveles(
+    variables: list[str],
+    aristas: list[tuple[str, str]],
+    niveles: list[list[str]],
+    nombres: list[str] | None = None,
+) -> list[tuple[str, list[str]]]:
+    """Columnas del dibujo del grafo: (título, variables) por nivel no vacío, con las
+    variables de cada nivel ordenadas para reducir cruces de ``aristas``."""
+    if nombres is None or len(nombres) != len(niveles):
+        nombres = [f"Nivel {i + 1}" for i in range(len(niveles))]
+    con_nombre = [(nombre, [v for v in nivel if v in variables]) for nombre, nivel in zip(nombres, niveles)]
+    con_nombre = [(nombre, nivel) for nombre, nivel in con_nombre if nivel]
+    vecinos: dict[str, set[str]] = {v: set() for v in variables}
+    for origen, destino in aristas:
+        vecinos[origen].add(destino)
+        vecinos[destino].add(origen)
+    ordenados = _orden_por_baricentro([nivel for _, nivel in con_nombre], vecinos)
+    return [(nombre, nivel) for (nombre, _), nivel in zip(con_nombre, ordenados)]
+
+
 def dibujar_grafo(
     grafo: GrafoAgregado,
     caracterizacion: Caracterizacion,
     niveles: list[list[str]],
     nombres: list[str] | None = None,
+    umbral_original: float | None = None,
 ):
-    """Figura de matplotlib con las variables en columnas por nivel."""
+    """Figura de matplotlib con las variables en columnas por nivel.
+
+    ``umbral_original``: si difiere del umbral del grafo (versión ajustada), el título
+    lo indica.
+    """
     import matplotlib
 
     matplotlib.use("Agg")
@@ -170,19 +217,11 @@ def dibujar_grafo(
     from matplotlib.lines import Line2D
     from matplotlib.patches import FancyArrowPatch, Patch
 
-    if nombres is None or len(nombres) != len(niveles):
-        nombres = [f"Nivel {i + 1}" for i in range(len(niveles))]
-    con_nombre = [
-        (nombre, [v for v in nivel if v in grafo.variables]) for nombre, nivel in zip(nombres, niveles)
-    ]
-    con_nombre = [(nombre, nivel) for nombre, nivel in con_nombre if nivel]
-    titulos = [nombre for nombre, _ in con_nombre]
-    niveles = [nivel for _, nivel in con_nombre]
-    vecinos: dict[str, set[str]] = {v: set() for v in grafo.variables}
-    for arista in grafo.aristas:
-        vecinos[arista.origen].add(arista.destino)
-        vecinos[arista.destino].add(arista.origen)
-    niveles = _orden_por_baricentro(niveles, vecinos)
+    columnas = disposicion_por_niveles(
+        grafo.variables, [(a.origen, a.destino) for a in grafo.aristas], niveles, nombres
+    )
+    titulos = [nombre for nombre, _ in columnas]
+    niveles = [nivel for _, nivel in columnas]
     causas = {c.variable for c in caracterizacion.variables if c.categoria == CAUSA_DIRECTA}
 
     mas_poblado = max(len(nivel) for nivel in niveles)
@@ -245,11 +284,14 @@ def dibujar_grafo(
         ],
         loc="upper center", bbox_to_anchor=(0.5, -0.02), ncol=5, fontsize=7.5, frameon=False,
     )
-    ejes.set_title(
+    titulo = (
         f"Grafo causal (aristas en al menos el {100 * grafo.umbral_frecuencia:.0f} % de "
-        f"{grafo.corridas_validas} corridas; grosor = frecuencia)",
-        fontsize=9.5,
+        f"{grafo.corridas_validas} corridas; grosor = frecuencia)"
     )
+    if umbral_original is not None and abs(umbral_original - grafo.umbral_frecuencia) > 1e-9:
+        ajustado, original = (f"{u:g}".replace(".", ",") for u in (grafo.umbral_frecuencia, umbral_original))
+        titulo += f"\nVersión ajustada: umbral {ajustado}, original {original}"
+    ejes.set_title(titulo, fontsize=9.5)
     margen_arcos = 0.2 * (mas_poblado - 1) * separacion_y
     ejes.set_xlim(
         -separacion_x * 0.5 - margen_arcos, (len(niveles) - 1) * separacion_x + separacion_x * 0.5
@@ -270,20 +312,40 @@ def exportar(
     resultado: ResultadoBootstrap,
     grafo: GrafoAgregado,
     caracterizacion: Caracterizacion,
+    spearman: list[list[float | None]],
 ) -> dict[str, Path]:
-    """Escribe los archivos de resultados en ``carpeta`` (debe existir) y devuelve sus rutas."""
+    """Escribe los archivos de resultados en ``carpeta`` (debe existir) y devuelve sus rutas.
+
+    ``spearman``: matriz de ``pc_bootstrap.matriz_spearman`` (la misma que usó ``agregar``).
+    """
+    contenido = resultado_a_diccionario(configuracion, receta, resultado, grafo, caracterizacion, spearman)
+    return escribir_resultados(carpeta, contenido, resultado, grafo, caracterizacion, configuracion)
+
+
+def escribir_resultados(
+    carpeta: str | Path,
+    contenido: dict[str, Any],
+    resultado: ResultadoBootstrap,
+    grafo: GrafoAgregado,
+    caracterizacion: Caracterizacion,
+    configuracion: ConfiguracionPC,
+) -> dict[str, Path]:
+    """Escribe ``contenido`` como ``resultado.json`` y el resto de archivos a partir del grafo
+    (``configuracion`` es la de la ejecución: niveles, títulos y umbral original)."""
     import json
 
     import matplotlib.pyplot as plt
 
     carpeta = Path(carpeta)
     rutas = {nombre: carpeta / nombre for nombre in ARCHIVOS}
-    contenido = resultado_a_diccionario(configuracion, receta, resultado, grafo, caracterizacion)
     rutas["resultado.json"].write_text(json.dumps(contenido, ensure_ascii=False, indent=2), encoding="utf-8")
     tabla_aristas(grafo).to_csv(rutas["aristas.csv"], index=False)
     matriz_mascara(grafo).to_csv(rutas["mascara.csv"])
     matriz_frecuencias(resultado).to_csv(rutas["matriz_frecuencias.csv"])
-    figura = dibujar_grafo(grafo, caracterizacion, configuracion.niveles, configuracion.nombres_niveles)
+    figura = dibujar_grafo(
+        grafo, caracterizacion, configuracion.niveles, configuracion.nombres_niveles,
+        umbral_original=configuracion.umbral_frecuencia,
+    )
     figura.savefig(rutas["grafo.png"], bbox_inches="tight")
     plt.close(figura)
     return rutas

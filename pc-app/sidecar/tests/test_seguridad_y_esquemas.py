@@ -7,7 +7,16 @@ from fastapi.testclient import TestClient
 
 from conftest import TOKEN, crear_cliente, esperar_trabajo, hasta_configuracion, ok
 
-from pcapp_nucleo import caracterizacion, modelos, pc_bootstrap, pc_config, preparacion, seleccion_prueba
+from pcapp_nucleo import (
+    caracterizacion,
+    informe,
+    modelos,
+    pc_bootstrap,
+    pc_config,
+    preparacion,
+    reagregacion,
+    seleccion_prueba,
+)
 from pcapp_servidor import esquemas
 
 
@@ -132,6 +141,9 @@ PARES = [
     (esquemas.AristaAgregada, pc_bootstrap.AristaAgregada),
     (esquemas.CaracterizacionVariable, caracterizacion.CaracterizacionVariable),
     (esquemas.Caracterizacion, caracterizacion.Caracterizacion),
+    (esquemas.ParVariables, reagregacion.ParVariables),
+    (esquemas.AvisoResultado, reagregacion.AvisoResultado),
+    (esquemas.LineaResumen, informe.LineaResumen),
 ]
 
 
@@ -154,7 +166,9 @@ def test_openapi_completo(cliente):
         "/proyectos/{proyecto_id}/preparar", "/proyectos/{proyecto_id}/recomendacion",
         "/proyectos/{proyecto_id}/configuracion-pc", "/proyectos/{proyecto_id}/pc",
         "/proyectos/{proyecto_id}/resultado", "/proyectos/{proyecto_id}/archivos/{nombre}",
-        "/proyectos/{proyecto_id}/exportar", "/trabajos/{trabajo_id}", "/trabajos/{trabajo_id}/cancelar",
+        "/proyectos/{proyecto_id}/exportar", "/proyectos/{proyecto_id}/resultado/versiones",
+        "/proyectos/{proyecto_id}/resultado/reagregar", "/proyectos/{proyecto_id}/resultado/version-actual",
+        "/proyectos/{proyecto_id}/resultado/procedencia", "/trabajos/{trabajo_id}", "/trabajos/{trabajo_id}/cancelar",
         "/trabajos/{trabajo_id}/reanudar",
     } <= rutas
     componentes = set(esquema["components"]["schemas"])

@@ -60,6 +60,8 @@ El núcleo no depende de ningún componente de presentación.
 | `pc_bootstrap.py` | PC con bootstrap (paralelo, progreso, cancelación, puntos de control) y agregación del grafo. |
 | `caracterizacion.py` | Categoría de cada variable respecto al objetivo y candidatas prescriptivas. |
 | `exportacion.py` | `resultado.json`, `aristas.csv`, `mascara.csv`, `matriz_frecuencias.csv` y `grafo.png`. |
+| `reagregacion.py` | Reagregar el resultado con otro umbral u otras orientaciones manuales sin volver a ejecutar PC; migración de resultados antiguos; advertencias de interpretación. |
+| `informe.py` | Informe HTML autocontenido (se abre sin conexión) y resúmenes de decisiones y separación. |
 | `cli.py`, `cli_preparacion.py`, `cli_pc.py`, `cli_comun.py` | Interfaz de línea de comandos (`python -m pcapp_nucleo`). |
 | `modelos.py`, `configuracion.py`, `utilidades.py` | Dataclasses de resultados, umbrales centralizados y serialización a JSON. |
 
@@ -95,7 +97,11 @@ archivo → carga → validación ─┬─ errores bloqueantes → se informan 
 | `seleccion_prueba.evaluar_eleccion(recomendacion, prueba, max_k)` | Recomendación y elección del usuario | `EvaluacionEleccion` | Advertencias (con su campo) si la elección contradice los datos y el tiempo estimado con ella. |
 | `pc_config.problemas_configuracion(config, variables, objetivo)` | `ConfiguracionPC` | `list[ProblemaConfiguracion]` | Todos los errores con la ruta de su campo; `advertencias_configuracion` avisa si el objetivo no está en el último nivel. |
 | `pc_bootstrap.ejecutar_bootstrap(datos, config, progreso, cancelacion, punto_control, reanudar, al_decidir_modo)` | `DatosPreparados`, `ConfiguracionPC` | `ResultadoBootstrap` | Cuentas de aristas por corrida. Usa solo train. |
-| `pc_bootstrap.agregar(resultado, datos, config)` | `ResultadoBootstrap` | `GrafoAgregado` | Aristas aceptadas, orientación, orientaciones manuales, signo y ciclos. |
+| `pc_bootstrap.agregar(resultado, datos, config, spearman=None)` | `ResultadoBootstrap` | `GrafoAgregado` | Aristas aceptadas, orientación, orientaciones manuales, signo y ciclos. `spearman`: matriz de `matriz_spearman(train, variables)` (ρ de todos los pares). |
+| `reagregacion.reagregar(contenido, umbral, orientaciones)` | `resultado.json` (con cuentas) | `Reagregacion` | Mismas reglas que `agregar` y `caracterizar`, sin datos ni PC. Con el umbral y las orientaciones originales reproduce el resultado exacto. Lanza `ErrorReagregacion` (subclase de `ErrorConfiguracionPC`) con cada problema y su campo, p. ej. una orientación contraria a los niveles o sin justificación. |
+| `reagregacion.migrar_resultado(contenido, spearman)` | `resultado.json` antiguo | `resultado.json` con cuentas | Reconstruye las cuentas desde las frecuencias guardadas (exacto con menos de 10 000 corridas válidas). |
+| `reagregacion.avisos_resultado(contenido, hallazgos, prueba_recomendada)` | `resultado.json` | `list[AvisoResultado]` | Corridas fallidas, ciclos, aristas débiles (del 40 % al umbral, destacando las del objetivo), aristas que solo aparecen por bajar el umbral, grupos redundantes, tamaño efectivo y prueba distinta de la recomendada. |
+| `informe.informe_html(contenido, receta, avisos, png, versiones, version, nombre, fecha)` | Una versión del resultado | HTML | Datos y hash, decisiones, separación, configuración original y ajustes de la versión, grafo, caracterización, aristas, advertencias e historial de versiones. |
 | `caracterizacion.caracterizar(grafo, resultado, modificables, grupos)` | `GrafoAgregado` | `Caracterizacion` | Categoría de cada variable y candidatas prescriptivas. |
 | `exportacion.exportar(carpeta, ...)` | Resultados | Archivos | Escribe los resultados en una carpeta. |
 
@@ -224,7 +230,7 @@ Archivos en `<nombre>_pc/`:
 
 | Archivo | Contenido |
 |---|---|
-| `resultado.json` | Configuración, receta de origen (hash), corridas válidas y fallidas, tiempo, aristas, matrices de frecuencia, ciclos, caracterización y advertencias (base para el frontend). |
+| `resultado.json` | Configuración, receta de origen (hash), corridas válidas y fallidas, tiempo, aristas, matrices de frecuencia, ciclos, caracterización y advertencias (base para el frontend). Además, `cuentas` (cuentas exactas del bootstrap), `spearman` (ρ de todos los pares con train) y `agregacion` (umbral y orientaciones manuales usados): con ellos se reagrega sin volver a ejecutar PC. |
 | `aristas.csv` | Origen, destino, tipo (dirigida / sin_orientar / manual), frecuencia total y por dirección, signo. |
 | `mascara.csv` | 1 si se acepta la arista origen→destino (una sin orientar pone 1 en ambas direcciones). |
 | `matriz_frecuencias.csv` | Frecuencia de origen→destino más la frecuencia sin orientar. |
@@ -232,6 +238,14 @@ Archivos en `<nombre>_pc/`:
 
 Las matrices usan el formato de pandas: primera columna con los nombres, fila = origen,
 columna = destino.
+
+**Reagregación.** `reagregacion.reagregar` rehace el grafo con otro umbral u otras
+orientaciones manuales a partir de `cuentas` y `spearman`, con las mismas funciones que el
+análisis (`agregar_cuentas` y `caracterizar`): con los parámetros originales el resultado es
+idéntico y subir el umbral nunca agrega aristas. Una orientación manual debe respetar los
+niveles y llevar justificación. La configuración de la ejecución no cambia: el umbral y las
+orientaciones de cada versión quedan en `agregacion`. Los resultados anteriores (sin
+`cuentas`) se completan con `migrar_resultado`.
 
 ## Uso desde la terminal
 

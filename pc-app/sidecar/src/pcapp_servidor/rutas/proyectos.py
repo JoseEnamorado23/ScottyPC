@@ -10,6 +10,7 @@ from pcapp_servidor.esquemas import (
     Distribucion,
     EstadoPreparacion,
     EvaluacionEleccion,
+    Procedencia,
     Proyecto,
     ProyectoCreado,
     RESPUESTAS_ERROR,
@@ -24,9 +25,13 @@ from pcapp_servidor.esquemas import (
     SolicitudPreparar,
     SolicitudPrevisualizar,
     SolicitudProyecto,
+    SolicitudReagregar,
     SolicitudRevision,
+    SolicitudVersion,
+    SolicitudVersionActual,
     Trabajo,
     ValidacionConfiguracionPC,
+    VersionesResultado,
 )
 from pcapp_servidor.flujo import Servicios
 from pcapp_servidor.rutas import servicios
@@ -207,8 +212,63 @@ def pc(proyecto_id: str, s: Servicios = Depends(servicios)) -> dict:
 
 
 @router.get("/{proyecto_id}/resultado", response_model=ResultadoPC, summary="Resultado del análisis")
-def resultado(proyecto_id: str, s: Servicios = Depends(servicios)) -> dict:
-    return s.resultado(proyecto_id)
+def resultado(
+    proyecto_id: str,
+    version: int | None = Query(None, description="Versión (por defecto, la actual)."),
+    s: Servicios = Depends(servicios),
+) -> dict:
+    return s.resultado(proyecto_id, version)
+
+
+@router.get(
+    "/{proyecto_id}/resultado/versiones", response_model=VersionesResultado,
+    summary="Versiones del resultado (original y ajustadas)",
+)
+def versiones(proyecto_id: str, s: Servicios = Depends(servicios)) -> dict:
+    """La primera consulta de un resultado anterior a las versiones lo migra (``migrada``)."""
+    return s.versiones(proyecto_id)
+
+
+@router.post(
+    "/{proyecto_id}/resultado/reagregar", response_model=ResultadoPC,
+    summary="Previsualiza el resultado con otro umbral u otras orientaciones (no guarda nada)",
+)
+def reagregar(proyecto_id: str, solicitud: SolicitudReagregar, s: Servicios = Depends(servicios)) -> dict:
+    """Sin volver a ejecutar PC: parte de las cuentas del bootstrap. 422 con el campo de cada
+    problema (p. ej. ``orientaciones_manuales.0`` si contradice los niveles)."""
+    return s.previsualizar_reagregacion(
+        proyecto_id, solicitud.umbral_frecuencia, [o.model_dump() for o in solicitud.orientaciones_manuales]
+    )
+
+
+@router.post(
+    "/{proyecto_id}/resultado/versiones", response_model=VersionesResultado, status_code=201,
+    summary="Guarda el ajuste como una versión nueva y la hace actual",
+)
+def guardar_version(proyecto_id: str, solicitud: SolicitudVersion, s: Servicios = Depends(servicios)) -> dict:
+    """Las versiones anteriores (y pc.json) no se modifican."""
+    return s.guardar_version(
+        proyecto_id, solicitud.umbral_frecuencia,
+        [o.model_dump() for o in solicitud.orientaciones_manuales], solicitud.version_base,
+    )
+
+
+@router.put(
+    "/{proyecto_id}/resultado/version-actual", response_model=VersionesResultado,
+    summary="Cambia la versión actual del resultado",
+)
+def cambiar_version_actual(
+    proyecto_id: str, solicitud: SolicitudVersionActual, s: Servicios = Depends(servicios)
+) -> dict:
+    return s.cambiar_version_actual(proyecto_id, solicitud.version)
+
+
+@router.get(
+    "/{proyecto_id}/resultado/procedencia", response_model=Procedencia,
+    summary="Datos, decisiones, separación y configuración que produjeron el resultado",
+)
+def procedencia(proyecto_id: str, s: Servicios = Depends(servicios)) -> dict:
+    return s.procedencia(proyecto_id)
 
 
 @router.get(
@@ -217,16 +277,22 @@ def resultado(proyecto_id: str, s: Servicios = Depends(servicios)) -> dict:
     response_class=FileResponse,
     responses={200: {"content": {"image/png": {}, "text/csv": {}, "application/json": {}}}},
 )
-def archivo(proyecto_id: str, nombre: str, s: Servicios = Depends(servicios)) -> FileResponse:
+def archivo(
+    proyecto_id: str,
+    nombre: str,
+    version: int | None = Query(None, description="Versión (por defecto, la actual)."),
+    s: Servicios = Depends(servicios),
+) -> FileResponse:
     """Solo grafo.png, aristas.csv, mascara.csv, matriz_frecuencias.csv y resultado.json.
 
     Requiere el encabezado X-Token: desde el navegador, descárguelo con fetch y
     muéstrelo con URL.createObjectURL (una etiqueta <img> no envía el encabezado).
     """
-    ruta, tipo = s.archivo_resultado(proyecto_id, nombre)
+    ruta, tipo = s.archivo_resultado(proyecto_id, nombre, version)
     return FileResponse(ruta, media_type=tipo, filename=nombre)
 
 
 @router.post("/{proyecto_id}/exportar", response_model=ResultadoExportar, summary="Exporta los resultados")
 def exportar(proyecto_id: str, solicitud: SolicitudExportar, s: Servicios = Depends(servicios)) -> dict:
-    return s.exportar(proyecto_id, solicitud.carpeta_destino)
+    """Archivos de una versión, la receta e ``informe.html`` (autocontenido, se abre sin conexión)."""
+    return s.exportar(proyecto_id, solicitud.carpeta_destino, solicitud.version)

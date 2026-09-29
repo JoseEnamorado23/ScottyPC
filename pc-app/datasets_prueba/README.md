@@ -16,6 +16,10 @@ sintéticos. No forman parte del código del paquete.
   `_receta.json`, `_train.csv`, `_test.csv`, `_recomendacion.json`, `_pc.json` y la
   carpeta `_pc/`). Nunca sobrescribe un archivo existente: añade `_2`, `_3`, etc. Estos
   archivos están excluidos de git.
+- `nucleo/tests/test_reagregacion.py` usa, si existen, `diabetes_pc/resultado.json` (un
+  resultado de PC de la terminal anterior a las cuentas del bootstrap) y `diabetes_train.csv`
+  para comprobar que un resultado migrado, reagregado con su umbral original, reproduce el
+  original. Como están excluidos de git, la prueba se omite si faltan.
 
 ## Ejecución
 

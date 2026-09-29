@@ -32,7 +32,13 @@ from pcapp_nucleo.cli_comun import (
 from pcapp_nucleo.cli_preparacion import cargar_desde_receta
 from pcapp_nucleo.exportacion import exportar
 from pcapp_nucleo.modelos import TipoHallazgo
-from pcapp_nucleo.pc_bootstrap import GrafoAgregado, ResultadoBootstrap, agregar, ejecutar_bootstrap
+from pcapp_nucleo.pc_bootstrap import (
+    GrafoAgregado,
+    ResultadoBootstrap,
+    agregar,
+    ejecutar_bootstrap,
+    matriz_spearman,
+)
 from pcapp_nucleo.pc_config import (
     ConfiguracionPC,
     ErrorConfiguracionPC,
@@ -188,11 +194,12 @@ def ejecutar_pc(
         )
         return SALIDA_ERROR
 
-    grafo = agregar(resultado, datos, configuracion)
+    spearman = matriz_spearman(datos.train, resultado.variables)
+    grafo = agregar(resultado, datos, configuracion, spearman)
     caracterizacion = caracterizar(
         grafo, resultado, configuracion.modificables, _grupos_redundantes(original, datos.objetivo)
     )
-    exportar(carpeta, configuracion, datos.receta, resultado, grafo, caracterizacion)
+    exportar(carpeta, configuracion, datos.receta, resultado, grafo, caracterizacion, spearman)
     _imprimir_resultado(configuracion, resultado, grafo, caracterizacion, carpeta)
     return SALIDA_CORRECTA
 

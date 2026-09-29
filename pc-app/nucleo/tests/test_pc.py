@@ -25,6 +25,7 @@ from pcapp_nucleo.pc_bootstrap import (
     agregar,
     ejecutar_bootstrap,
     frecuencia_par,
+    matriz_spearman,
 )
 from pcapp_nucleo.pc_config import (
     ErrorConfiguracionPC,
@@ -503,10 +504,11 @@ def test_exportacion(tmp_path):
     datos = preparados(colisionador(), "D")
     conf = replace(configuracion(datos), modificables=["A"])
     resultado = ejecutar_bootstrap(datos, conf)
-    grafo = agregar(resultado, datos, conf)
+    spearman = matriz_spearman(datos.train, resultado.variables)
+    grafo = agregar(resultado, datos, conf, spearman)
     caracterizacion = caracterizar(grafo, resultado, conf.modificables)
 
-    rutas = exportar(tmp_path, conf, datos.receta, resultado, grafo, caracterizacion)
+    rutas = exportar(tmp_path, conf, datos.receta, resultado, grafo, caracterizacion, spearman)
 
     mascara = pd.read_csv(rutas["mascara.csv"], index_col=0)
     assert list(mascara.index) == list(mascara.columns) == ["A", "B", "C", "D"]
@@ -521,6 +523,9 @@ def test_exportacion(tmp_path):
     assert contenido["ejecucion"]["modo_usado"] == "secuencial"
     assert contenido["caracterizacion"]["candidatas_prescriptivas"] == ["A"]
     assert contenido["receta"]["sha256"] == datos.receta.origen.sha256
+    assert contenido["cuentas"]["dirigidas"] == resultado.dirigidas
+    assert contenido["agregacion"] == {"umbral_frecuencia": conf.umbral_frecuencia, "orientaciones_manuales": []}
+    assert len(contenido["spearman"]) == 4 and contenido["spearman"][0][0] is None
     assert rutas["grafo.png"].stat().st_size > 10_000
 
 

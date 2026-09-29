@@ -40,6 +40,7 @@ from scipy import stats
 from pcapp_nucleo.pc_config import (
     ConfiguracionPC,
     ErrorConfiguracionPC,
+    OrientacionManual,
     nivel_por_variable,
     validar_configuracion,
 )
@@ -655,8 +656,21 @@ def _spearman(train: pd.DataFrame, a: str, b: str) -> float | None:
     return None if math.isnan(rho) else round(rho, 4)
 
 
+def matriz_spearman(train: pd.DataFrame, variables: list[str]) -> list[list[float | None]]:
+    """ρ de Spearman de todos los pares (con los datos de entrenamiento; ``None`` si no se
+    puede calcular). Se guarda en ``resultado.json`` para reagregar sin los datos."""
+    matriz: list[list[float | None]] = [[None] * len(variables) for _ in variables]
+    for i in range(len(variables)):
+        for j in range(i + 1, len(variables)):
+            matriz[i][j] = matriz[j][i] = _spearman(train, variables[i], variables[j])
+    return matriz
+
+
 def agregar(
-    resultado: ResultadoBootstrap, datos: DatosPreparados, configuracion: ConfiguracionPC
+    resultado: ResultadoBootstrap,
+    datos: DatosPreparados,
+    configuracion: ConfiguracionPC,
+    spearman: list[list[float | None]] | None = None,
 ) -> GrafoAgregado:
     """Aristas aceptadas, orientación mayoritaria, orientaciones manuales, signo y ciclos.
 
@@ -664,7 +678,24 @@ def agregar(
     ``umbral_frecuencia`` de las corridas válidas. Su orientación es la más
     frecuente de las tres; ante un empate queda sin orientar. Las
     orientaciones manuales solo se aplican a aristas aceptadas sin orientar.
+
+    ``spearman``: matriz de ``matriz_spearman`` si ya se calculó.
     """
+    if spearman is None:
+        spearman = matriz_spearman(datos.train, resultado.variables)
+    return agregar_cuentas(
+        resultado, configuracion.umbral_frecuencia, configuracion.orientaciones_manuales, spearman
+    )
+
+
+def agregar_cuentas(
+    resultado: ResultadoBootstrap,
+    umbral_frecuencia: float,
+    orientaciones_manuales: list[OrientacionManual],
+    spearman: list[list[float | None]],
+) -> GrafoAgregado:
+    """``agregar`` a partir de las cuentas y de la matriz de Spearman, sin los datos
+    (lo usa también la reagregación con otro umbral u otras orientaciones)."""
     variables = resultado.variables
     validas = resultado.corridas_validas
     advertencias = []
@@ -685,11 +716,11 @@ def agregar(
         )
     if validas == 0:
         advertencias.append("No hubo corridas válidas: no se puede construir el grafo.")
-        return GrafoAgregado(variables, resultado.objetivo, configuracion.umbral_frecuencia, 0, [], [], advertencias)
+        return GrafoAgregado(variables, resultado.objetivo, umbral_frecuencia, 0, [], [], advertencias)
 
     dirigidas = np.asarray(resultado.dirigidas)
     sin_orientar = np.asarray(resultado.sin_orientar)
-    minimo = configuracion.umbral_frecuencia * validas - 1e-9
+    minimo = umbral_frecuencia * validas - 1e-9
     aristas: dict[frozenset[str], AristaAgregada] = {}
     for i in range(len(variables)):
         for j in range(i + 1, len(variables)):
@@ -702,7 +733,7 @@ def agregar(
                 origen, destino, tipo, directa, inversa = j, i, "dirigida", ji, ij
             else:
                 origen, destino, tipo, directa, inversa = i, j, "sin_orientar", ij, ji
-            rho = _spearman(datos.train, variables[origen], variables[destino])
+            rho = spearman[origen][destino]
             aristas[frozenset((variables[i], variables[j]))] = AristaAgregada(
                 origen=variables[origen],
                 destino=variables[destino],
@@ -715,7 +746,7 @@ def agregar(
                 signo=0 if rho is None else int(np.sign(rho)),
             )
 
-    for manual in configuracion.orientaciones_manuales:
+    for manual in orientaciones_manuales:
         clave = frozenset((manual.origen, manual.destino))
         arista = aristas.get(clave)
         if arista is None:
@@ -751,9 +782,7 @@ def agregar(
             f"El grafo dirigido tiene {len(ciclos)} ciclo(s); revise las orientaciones "
             "(no se corrigen automáticamente)."
         )
-    return GrafoAgregado(
-        variables, resultado.objetivo, configuracion.umbral_frecuencia, validas, lista, ciclos, advertencias
-    )
+    return GrafoAgregado(variables, resultado.objetivo, umbral_frecuencia, validas, lista, ciclos, advertencias)
 
 
 def ciclos_dirigidos(aristas: list[AristaAgregada], maximo: int = 20) -> list[list[str]]:

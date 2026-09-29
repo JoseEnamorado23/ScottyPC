@@ -506,8 +506,34 @@ class Matrices(BaseModel):
     frecuencia_sin_orientar: list[list[float]]
 
 
+class Agregacion(BaseModel):
+    umbral_frecuencia: float
+    orientaciones_manuales: list[OrientacionManual]
+
+
+class ParVariables(BaseModel):
+    variable_a: str
+    variable_b: str
+    frecuencia: float
+    con_objetivo: bool
+
+
+class AvisoResultado(BaseModel):
+    codigo: str
+    nivel: Literal["advertencia", "info"]
+    titulo: str
+    mensaje: str
+    variables: list[str]
+    pares: list[ParVariables]
+
+
+class ColumnaDisposicion(BaseModel):
+    titulo: str
+    variables: list[str]
+
+
 class ResultadoPC(BaseModel):
-    configuracion: ConfiguracionPC
+    configuracion: ConfiguracionPC = Field(description="Configuración de la ejecución (pc.json); no cambia entre versiones.")
     receta: RecetaOrigen
     corridas: Corridas
     tiempo_s: float
@@ -519,6 +545,64 @@ class ResultadoPC(BaseModel):
     caracterizacion: Caracterizacion
     matrices: Matrices
     advertencias: list[str]
+    agregacion: Agregacion = Field(description="Umbral y orientaciones manuales con que se agregó esta versión.")
+    version: int | None = Field(description="Versión guardada; null en una previsualización.")
+    etiqueta: str = Field(description="«Original» o «Ajustada: umbral X, original Y».")
+    avisos: list[AvisoResultado] = Field(description="Advertencias de interpretación, calculadas por el núcleo.")
+    disposicion: list[ColumnaDisposicion] = Field(
+        description="Columnas del grafo: una por nivel, con su título y las variables ordenadas para reducir cruces."
+    )
+
+
+# --- Versiones del resultado -----------------------------------------------------------------
+
+
+class SolicitudReagregar(_Entrada):
+    umbral_frecuencia: float = Field(description="Fracción mínima de corridas (0 < umbral <= 1; lo valida el núcleo).")
+    orientaciones_manuales: list[OrientacionManual] = []
+
+
+class SolicitudVersion(SolicitudReagregar):
+    version_base: int | None = Field(None, description="Versión que se estaba viendo al ajustar (informativo).")
+
+
+class VersionResultado(BaseModel):
+    version: int
+    base: int | None
+    umbral_frecuencia: float
+    orientaciones_manuales: list[OrientacionManual]
+    creada_en: str
+    migrada: bool = Field(description="Resultado anterior a las versiones, completado al abrirlo por primera vez.")
+    etiqueta: str
+
+
+class VersionesResultado(BaseModel):
+    version_actual: int
+    umbral_original: float
+    versiones: list[VersionResultado]
+
+
+class SolicitudVersionActual(_Entrada):
+    version: int
+
+
+class LineaResumen(BaseModel):
+    concepto: str
+    detalle: str
+
+
+class Procedencia(BaseModel):
+    archivo: str | None
+    hoja: str | None
+    sha256: str | None
+    objetivo: str
+    tipo_objetivo: str | None
+    filas_train: int | None
+    filas_test: int | None
+    decisiones: list[LineaResumen]
+    separacion: list[LineaResumen]
+    configuracion: ConfiguracionPC = Field(description="Configuración original de PC (pc.json de la ejecución).")
+    prueba_recomendada: str | None
 
 
 # --- Exportación ------------------------------------------------------------------------------
@@ -526,11 +610,13 @@ class ResultadoPC(BaseModel):
 
 class SolicitudExportar(_Entrada):
     carpeta_destino: str
+    version: int | None = Field(None, description="Versión que se exporta (por defecto, la actual).")
 
 
 class ResultadoExportar(BaseModel):
     carpeta: str
     archivos: list[str]
+    version: int
 
 
 class Apagado(BaseModel):

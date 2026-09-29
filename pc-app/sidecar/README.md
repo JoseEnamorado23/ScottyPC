@@ -52,7 +52,7 @@ python -m pcapp_servidor --datos <carpeta> [--puerto N] [--pid-padre N] [--proce
   porque quedaría en registros e historiales.
 - **CORS:** solo `tauri://localhost`, `http://tauri.localhost`, `https://tauri.localhost`
   y el servidor de desarrollo de Vite (`http://localhost:5173`, `http://127.0.0.1:5173`).
-- **Archivos:** `GET /proyectos/{id}/archivos/{nombre}` solo sirve `grafo.png`,
+- **Archivos:** `GET /proyectos/{id}/archivos/{nombre}?version=` solo sirve `grafo.png`,
   `aristas.csv`, `mascara.csv`, `matriz_frecuencias.csv` y `resultado.json`, y comprueba con
   `resolve()` que la ruta quede dentro de la carpeta de resultados.
 - **Errores técnicos:** van al registro (`<datos>/logs/servidor.log`, rotativo); el
@@ -85,7 +85,9 @@ El servidor devuelve el `Content-Type` correcto (`image/png`, `text/csv`,
     ├── original.csv|xlsx       copia del archivo (el original del usuario no se toca)
     ├── revision.json  decisiones.json  receta.json  train.csv  test.csv
     ├── recomendacion.json  pc.json
-    ├── pc/                     resultados de PC (y punto_control.json mientras corre)
+    ├── pc/                     resultados de PC = versión 1 (y punto_control.json mientras corre)
+    │   ├── versiones.json      índice: parámetros de cada versión y la versión actual
+    │   └── versiones/<n>/      versiones ajustadas (resultado.json, grafo.png, CSV)
     └── anteriores/<fecha-hora>/   archivos de etapas invalidadas
 ```
 
@@ -136,9 +138,14 @@ la configuración de PC y el análisis, pero no las decisiones.
 | `POST /proyectos/{id}/pc` | Lanza el análisis como **trabajo** (202). 409 `DEMASIADAS_COLUMNAS` como la recomendación. |
 | `GET /trabajos/{id}` | Estado, completadas, total, fallidas, tiempo transcurrido y restante estimado; `detalles` = modo del análisis en curso (`midiendo`, `secuencial` o `paralelo` con N procesos). |
 | `POST /trabajos/{id}/cancelar` · `POST /trabajos/{id}/reanudar` | Cancelar; reanudar (PC continúa desde su punto de control; la recomendación se repite). |
-| `GET /proyectos/{id}/resultado` | `resultado.json`. |
-| `GET /proyectos/{id}/archivos/{nombre}` | Archivos de resultados (ver *Seguridad*). |
-| `POST /proyectos/{id}/exportar` `{carpeta_destino}` | Copia resultados y receta a `<destino>/<nombre>_<fecha-hora>/`. |
+| `GET /proyectos/{id}/resultado?version=` | Resultado de una versión (por defecto la actual), con `agregacion`, `etiqueta` («Original» o «Ajustada: umbral X, original Y»), `avisos` (advertencias de interpretación) y `disposicion` (columnas del grafo por nivel). |
+| `GET /proyectos/{id}/resultado/versiones` | Versiones (número, base, umbral, orientaciones manuales, fecha, `migrada`, etiqueta), versión actual y umbral original. La primera consulta de un resultado anterior a las versiones lo migra. |
+| `POST /proyectos/{id}/resultado/reagregar` `{umbral_frecuencia, orientaciones_manuales}` | Vista previa con otro umbral u otras orientaciones, **sin escribir nada**. 422 `AJUSTE_NO_VALIDO` con el campo de cada problema (`orientaciones_manuales.0` si contradice los niveles, `.justificacion` si falta). |
+| `POST /proyectos/{id}/resultado/versiones` `{umbral_frecuencia, orientaciones_manuales, version_base}` | Guarda el ajuste como versión nueva (201) y la hace actual. Las anteriores y `pc.json` no cambian. |
+| `PUT /proyectos/{id}/resultado/version-actual` `{version}` | Vuelve a cualquier versión. |
+| `GET /proyectos/{id}/resultado/procedencia` | Archivo, hash, filas, decisiones y separación resumidas por el núcleo, configuración original de PC y prueba recomendada. |
+| `GET /proyectos/{id}/archivos/{nombre}?version=` | Archivos de resultados de una versión (ver *Seguridad*). |
+| `POST /proyectos/{id}/exportar` `{carpeta_destino, version?}` | Copia los archivos de **una** versión (por defecto la actual) y la receta a `<destino>/<nombre>_v<n>_<fecha-hora>/`, con `informe.html`: informe autocontenido que se abre sin conexión, con el umbral original junto al usado y el historial de versiones (marcando la exportada). |
 
 El esquema completo está en `/openapi.json` (con token) y `/docs`. Formato de error
 uniforme:
