@@ -69,6 +69,39 @@ export async function elegirArchivo(): Promise<string | null> {
   return typeof ruta === "string" ? ruta : null;
 }
 
+/** Diálogo nativo para elegir la carpeta donde exportar los resultados. */
+export async function elegirCarpeta(): Promise<string | null> {
+  if (!enTauri()) {
+    const ruta = window.prompt("Ruta completa de la carpeta de destino:");
+    return ruta?.trim() || null;
+  }
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const ruta = await open({ multiple: false, directory: true, title: "Carpeta de destino de la exportación" });
+  return typeof ruta === "string" ? ruta : null;
+}
+
+/**
+ * Guarda una imagen PNG donde elija el usuario. En Tauri, el diálogo lo abre Rust
+ * (comando `guardar_imagen`) y escribe solo en la ruta elegida: el frontend no tiene
+ * permisos de escritura. En el navegador, la descarga. Devuelve la ruta o `null` si se cancela.
+ */
+export async function guardarImagen(imagen: Blob, nombreSugerido: string): Promise<string | null> {
+  if (!enTauri()) {
+    const url = URL.createObjectURL(imagen);
+    const enlace = document.createElement("a");
+    enlace.href = url;
+    enlace.download = nombreSugerido;
+    enlace.click();
+    URL.revokeObjectURL(url);
+    return nombreSugerido;
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  const bytes = new Uint8Array(await imagen.arrayBuffer());
+  // Los encabezados solo admiten ASCII; Rust vuelve a limpiar el nombre.
+  const nombre = nombreSugerido.normalize("NFD").replace(/[^\w.-]+/g, "_");
+  return invoke<string | null>("guardar_imagen", bytes, { headers: { "nombre-sugerido": nombre } });
+}
+
 /**
  * Notificación del sistema operativo, solo si la ventana de la app no está en primer
  * plano (dentro de la app ya se muestra la notificación de siempre).

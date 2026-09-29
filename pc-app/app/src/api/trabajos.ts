@@ -16,6 +16,8 @@ export function useAccionesTrabajo(proyectoId: string) {
   const alIniciar = async (trabajo: Trabajo) => {
     consultas.setQueryData(claves.trabajo(trabajo.id), trabajo);
     vigilar(trabajo);
+    // Un análisis nuevo reemplaza el resultado y sus versiones.
+    if (trabajo.tipo === "pc") consultas.removeQueries({ queryKey: claves.resultados(proyectoId) });
     await consultas.invalidateQueries({ queryKey: claves.proyecto(proyectoId), exact: true });
     await consultas.invalidateQueries({ queryKey: claves.proyectos, exact: true });
   };

@@ -353,6 +353,85 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/proyectos/{proyecto_id}/resultado/versiones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Versiones del resultado (original y ajustadas)
+         * @description La primera consulta de un resultado anterior a las versiones lo migra (``migrada``).
+         */
+        get: operations["versiones_proyectos__proyecto_id__resultado_versiones_get"];
+        put?: never;
+        /**
+         * Guarda el ajuste como una versión nueva y la hace actual
+         * @description Las versiones anteriores (y pc.json) no se modifican.
+         */
+        post: operations["guardar_version_proyectos__proyecto_id__resultado_versiones_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/resultado/reagregar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Previsualiza el resultado con otro umbral u otras orientaciones (no guarda nada)
+         * @description Sin volver a ejecutar PC: parte de las cuentas del bootstrap. 422 con el campo de cada
+         *     problema (p. ej. ``orientaciones_manuales.0`` si contradice los niveles).
+         */
+        post: operations["reagregar_proyectos__proyecto_id__resultado_reagregar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/resultado/version-actual": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Cambia la versión actual del resultado */
+        put: operations["cambiar_version_actual_proyectos__proyecto_id__resultado_version_actual_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/resultado/procedencia": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Datos, decisiones, separación y configuración que produjeron el resultado */
+        get: operations["procedencia_proyectos__proyecto_id__resultado_procedencia_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/proyectos/{proyecto_id}/archivos/{nombre}": {
         parameters: {
             query?: never;
@@ -385,7 +464,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Exporta los resultados */
+        /**
+         * Exporta los resultados
+         * @description Archivos de una versión, la receta e ``informe.html`` (autocontenido, se abre sin conexión).
+         */
         post: operations["exportar_proyectos__proyecto_id__exportar_post"];
         delete?: never;
         options?: never;
@@ -485,6 +567,13 @@ export interface components {
              */
             nivel: "advertencia" | "info";
         };
+        /** Agregacion */
+        Agregacion: {
+            /** Umbral Frecuencia */
+            umbral_frecuencia: number;
+            /** Orientaciones Manuales */
+            orientaciones_manuales: components["schemas"]["OrientacionManual"][];
+        };
         /** AlternativaPrueba */
         AlternativaPrueba: {
             /** Prueba */
@@ -524,6 +613,24 @@ export interface components {
             signo: number;
             /** Justificacion */
             justificacion: string | null;
+        };
+        /** AvisoResultado */
+        AvisoResultado: {
+            /** Codigo */
+            codigo: string;
+            /**
+             * Nivel
+             * @enum {string}
+             */
+            nivel: "advertencia" | "info";
+            /** Titulo */
+            titulo: string;
+            /** Mensaje */
+            mensaje: string;
+            /** Variables */
+            variables: string[];
+            /** Pares */
+            pares: components["schemas"]["ParVariables"][];
         };
         /** Caracterizacion */
         Caracterizacion: {
@@ -587,6 +694,13 @@ export interface components {
             grupos?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** ColumnaDisposicion */
+        ColumnaDisposicion: {
+            /** Titulo */
+            titulo: string;
+            /** Variables */
+            variables: string[];
         };
         /** ConfiguracionPC */
         ConfiguracionPC: {
@@ -1006,6 +1120,13 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /** LineaResumen */
+        LineaResumen: {
+            /** Concepto */
+            concepto: string;
+            /** Detalle */
+            detalle: string;
+        };
         /** Matrices */
         Matrices: {
             /** Frecuencia Dirigida */
@@ -1037,6 +1158,17 @@ export interface components {
              * @default
              */
             justificacion: string;
+        };
+        /** ParVariables */
+        ParVariables: {
+            /** Variable A */
+            variable_a: string;
+            /** Variable B */
+            variable_b: string;
+            /** Frecuencia */
+            frecuencia: number;
+            /** Con Objetivo */
+            con_objetivo: boolean;
         };
         /** PerfilColumna */
         PerfilColumna: {
@@ -1079,6 +1211,31 @@ export interface components {
             evidencia: {
                 [key: string]: unknown;
             };
+        };
+        /** Procedencia */
+        Procedencia: {
+            /** Archivo */
+            archivo: string | null;
+            /** Hoja */
+            hoja: string | null;
+            /** Sha256 */
+            sha256: string | null;
+            /** Objetivo */
+            objetivo: string;
+            /** Tipo Objetivo */
+            tipo_objetivo: string | null;
+            /** Filas Train */
+            filas_train: number | null;
+            /** Filas Test */
+            filas_test: number | null;
+            /** Decisiones */
+            decisiones: components["schemas"]["LineaResumen"][];
+            /** Separacion */
+            separacion: components["schemas"]["LineaResumen"][];
+            /** @description Configuración original de PC (pc.json de la ejecución). */
+            configuracion: components["schemas"]["ConfiguracionPC"];
+            /** Prueba Recomendada */
+            prueba_recomendada: string | null;
         };
         /** Proyecto */
         Proyecto: {
@@ -1244,9 +1401,12 @@ export interface components {
             carpeta: string;
             /** Archivos */
             archivos: string[];
+            /** Version */
+            version: number;
         };
         /** ResultadoPC */
         ResultadoPC: {
+            /** @description Configuración de la ejecución (pc.json); no cambia entre versiones. */
             configuracion: components["schemas"]["ConfiguracionPC"];
             receta: components["schemas"]["RecetaOrigen"];
             corridas: components["schemas"]["Corridas"];
@@ -1267,6 +1427,28 @@ export interface components {
             matrices: components["schemas"]["Matrices"];
             /** Advertencias */
             advertencias: string[];
+            /** @description Umbral y orientaciones manuales con que se agregó esta versión. */
+            agregacion: components["schemas"]["Agregacion"];
+            /**
+             * Version
+             * @description Versión guardada; null en una previsualización.
+             */
+            version: number | null;
+            /**
+             * Etiqueta
+             * @description «Original» o «Ajustada: umbral X, original Y».
+             */
+            etiqueta: string;
+            /**
+             * Avisos
+             * @description Advertencias de interpretación, calculadas por el núcleo.
+             */
+            avisos: components["schemas"]["AvisoResultado"][];
+            /**
+             * Disposicion
+             * @description Columnas del grafo: una por nivel, con su título y las variables ordenadas para reducir cruces.
+             */
+            disposicion: components["schemas"]["ColumnaDisposicion"][];
         };
         /** ResultadoValidacion */
         ResultadoValidacion: {
@@ -1381,6 +1563,11 @@ export interface components {
         SolicitudExportar: {
             /** Carpeta Destino */
             carpeta_destino: string;
+            /**
+             * Version
+             * @description Versión que se exporta (por defecto, la actual).
+             */
+            version?: number | null;
         };
         /** SolicitudPreparar */
         SolicitudPreparar: {
@@ -1407,12 +1594,48 @@ export interface components {
             /** Nombre */
             nombre?: string | null;
         };
+        /** SolicitudReagregar */
+        SolicitudReagregar: {
+            /**
+             * Umbral Frecuencia
+             * @description Fracción mínima de corridas (0 < umbral <= 1; lo valida el núcleo).
+             */
+            umbral_frecuencia: number;
+            /**
+             * Orientaciones Manuales
+             * @default []
+             */
+            orientaciones_manuales: components["schemas"]["OrientacionManual"][];
+        };
         /** SolicitudRevision */
         SolicitudRevision: {
             /** Objetivo */
             objetivo: string;
             /** Hoja */
             hoja?: string | null;
+        };
+        /** SolicitudVersion */
+        SolicitudVersion: {
+            /**
+             * Umbral Frecuencia
+             * @description Fracción mínima de corridas (0 < umbral <= 1; lo valida el núcleo).
+             */
+            umbral_frecuencia: number;
+            /**
+             * Orientaciones Manuales
+             * @default []
+             */
+            orientaciones_manuales: components["schemas"]["OrientacionManual"][];
+            /**
+             * Version Base
+             * @description Versión que se estaba viendo al ajustar (informativo).
+             */
+            version_base?: number | null;
+        };
+        /** SolicitudVersionActual */
+        SolicitudVersionActual: {
+            /** Version */
+            version: number;
         };
         /** Trabajo */
         Trabajo: {
@@ -1478,6 +1701,35 @@ export interface components {
             errores: components["schemas"]["ProblemaConfiguracion"][];
             /** Advertencias */
             advertencias: components["schemas"]["ProblemaConfiguracion"][];
+        };
+        /** VersionResultado */
+        VersionResultado: {
+            /** Version */
+            version: number;
+            /** Base */
+            base: number | null;
+            /** Umbral Frecuencia */
+            umbral_frecuencia: number;
+            /** Orientaciones Manuales */
+            orientaciones_manuales: components["schemas"]["OrientacionManual"][];
+            /** Creada En */
+            creada_en: string;
+            /**
+             * Migrada
+             * @description Resultado anterior a las versiones, completado al abrirlo por primera vez.
+             */
+            migrada: boolean;
+            /** Etiqueta */
+            etiqueta: string;
+        };
+        /** VersionesResultado */
+        VersionesResultado: {
+            /** Version Actual */
+            version_actual: number;
+            /** Umbral Original */
+            umbral_original: number;
+            /** Versiones */
+            versiones: components["schemas"]["VersionResultado"][];
         };
     };
     responses: never;
@@ -2645,7 +2897,10 @@ export interface operations {
     };
     resultado_proyectos__proyecto_id__resultado_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Versión (por defecto, la actual). */
+                version?: number | null;
+            };
             header?: never;
             path: {
                 proyecto_id: string;
@@ -2692,9 +2947,269 @@ export interface operations {
             };
         };
     };
-    archivo_proyectos__proyecto_id__archivos__nombre__get: {
+    versiones_proyectos__proyecto_id__resultado_versiones_get: {
         parameters: {
             query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionesResultado"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    guardar_version_proyectos__proyecto_id__resultado_versiones_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SolicitudVersion"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionesResultado"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    reagregar_proyectos__proyecto_id__resultado_reagregar_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SolicitudReagregar"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultadoPC"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    cambiar_version_actual_proyectos__proyecto_id__resultado_version_actual_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SolicitudVersionActual"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionesResultado"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    procedencia_proyectos__proyecto_id__resultado_procedencia_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Procedencia"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    archivo_proyectos__proyecto_id__archivos__nombre__get: {
+        parameters: {
+            query?: {
+                /** @description Versión (por defecto, la actual). */
+                version?: number | null;
+            };
             header?: never;
             path: {
                 proyecto_id: string;

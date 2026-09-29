@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 
-import { cleanup } from "@testing-library/react";
-import { afterEach } from "vitest";
+import { cleanup, configure } from "@testing-library/react";
+import { afterEach, vi } from "vitest";
 
 afterEach(() => cleanup());
 
@@ -26,3 +26,15 @@ class ResizeObserverFalso {
 }
 window.ResizeObserver ??= ResizeObserverFalso as unknown as typeof ResizeObserver;
 window.HTMLElement.prototype.scrollIntoView ??= () => {};
+// Textarea con autosize escucha la carga de fuentes.
+if (!("fonts" in document)) {
+  Object.defineProperty(document, "fonts", { value: { addEventListener: () => {}, removeEventListener: () => {} } });
+}
+
+// Esperas más holgadas: con todas las pruebas en paralelo el primer renderizado puede tardar.
+configure({ asyncUtilTimeout: 3000 });
+
+// Cytoscape necesita canvas, que jsdom no tiene: el grafo se sustituye por un doble.
+vi.mock("../componentes/resultados/GrafoCausal", async () => ({
+  GrafoCausal: (await import("./GrafoFalso")).GrafoFalso,
+}));

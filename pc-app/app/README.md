@@ -5,9 +5,9 @@ interfaz está en español. Toda la lógica de datos vive en Python: la aplicaci
 sidecar (`pcapp_servidor`) como proceso hijo y le habla por HTTP en `127.0.0.1`.
 
 Pantallas: arranque del motor, Inicio, Nuevo proyecto, Revisión, Decisiones, Preparación,
-Recomendación de prueba, Configuración de PC, Análisis (progreso) y una pantalla provisional
-de Resultados. La vista completa de resultados llega en la fase 7; el motor empaquetado
-(`externalBin`), en la fase 8.
+Recomendación de prueba, Configuración de PC, Análisis (progreso) y Resultados (grafo
+interactivo, ajuste del umbral y de las orientaciones, versiones y exportación). El motor
+empaquetado (`externalBin`) llega en la fase 8.
 
 ## Requisitos
 
@@ -57,7 +57,15 @@ Si `cargo` no está en el PATH (instalación de rustup sin reiniciar la terminal
 
 **Permisos mínimos** (`capabilities/default.json`): `core:default`, `dialog:allow-open`,
 `core:window:allow-is-focused` y `notification:default`. El proceso se lanza desde Rust, así
-que el frontend no tiene permisos de shell. La CSP solo
+que el frontend no tiene permisos de shell.
+
+**Guardar la imagen del grafo sin permisos de escritura.** Se descartó `tauri-plugin-fs` con
+`fs:allow-write-file`: el plugin de diálogo añade al alcance de `fs` *cualquier* ruta que
+devuelva un diálogo durante la sesión (también el dataset elegido al abrirlo y la carpeta de
+exportación), así que el permiso no quedaba limitado al archivo elegido al guardar. En su
+lugar, el comando de Rust `guardar_imagen` (`src-tauri/src/imagen.rs`) recibe los bytes del
+PNG, comprueba que lo sean, abre él mismo el diálogo «Guardar» y escribe solo en la ruta
+elegida allí. El frontend no tiene permisos de `fs` ni `dialog:allow-save`. La CSP solo
 permite conexiones a `http://127.0.0.1:*`. El token viaja siempre en el encabezado
 `X-Token`, nunca en la URL.
 
@@ -69,6 +77,7 @@ permite conexiones a `http://127.0.0.1:*`. El token viaja siempre en el encabeza
   - `consultas.ts`: consultas de TanStack Query.
   - `motor.ts`: comandos de Tauri, diálogo de archivos y notificación del sistema.
   - `trabajos.ts`: lanzar la recomendación o el análisis, cancelar y reanudar.
+  - `resultados.ts`: guardar un ajuste como versión, cambiar de versión, validar una orientación y exportar.
 - **`src/estado/`**
   - `etapas.ts`: las seis etapas y cuáles se desactualizan.
   - `borrador.tsx`: elecciones y ediciones por proyecto.
@@ -76,15 +85,20 @@ permite conexiones a `http://127.0.0.1:*`. El token viaja siempre en el encabeza
   - `niveles.ts`: reductor del editor de niveles (mover fichas, agregar, eliminar, renombrar, reordenar, restablecer).
   - `borradorAnalisis.tsx`: prueba elegida y configuración de PC en edición, por proyecto.
   - `trabajos.tsx`: vigilancia de los trabajos en curso y aviso al terminar.
+  - `ajustes.ts`: borrador del ajuste (umbral y orientaciones manuales) y su comparación con la versión vista.
+  - `grafo.ts`: datos de Cytoscape (colores por categoría y signo, id estable por par), disposición por niveles y camino al objetivo.
 - **`src/componentes/`**
   - `Arranque`: pantalla de arranque, «Reintentar» y aviso «Reiniciar el motor».
   - `Etapas`: el stepper.
   - `ConfirmarInvalidacion`, `MensajeError` y los editores de decisiones.
   - `EditorNiveles`: arrastrar y soltar con dnd-kit (también con el teclado o con el menú «Mover a» de cada ficha).
   - `ProgresoTrabajo`: progreso, modo, cancelación con confirmación y reanudación.
+  - `resultados/GrafoCausal`: grafo con Cytoscape.js.
+  - `resultados/DialogoOrientacion`: orientación manual con dirección y justificación obligatoria.
+  - `resultados/Tablas` y `resultados/Paneles`: caracterización, aristas, ajuste, historial de versiones, detalle de la variable, advertencias, configuración y leyenda.
 - **`src/pantallas/`**
   - `Inicio`, `NuevoProyecto`, `DatosProyecto` (hoja, vista previa, objetivo y distribución), `Revision` y `Decisiones`.
-  - `Preparacion`, `Recomendacion`, `ConfiguracionPc`, `Analisis` y `Resultados` (provisional).
+  - `Preparacion`, `Recomendacion`, `ConfiguracionPc`, `Analisis` y `Resultados`.
 
 **No hay lógica de mapeo en TypeScript.** Las decisiones que resultan de las acciones
 elegidas las calcula el núcleo (`POST /proyectos/{id}/decisiones/previsualizar`, que usa
@@ -105,6 +119,29 @@ Lo mismo en las etapas de análisis:
   advertencias (p. ej. el objetivo fuera del último nivel) vienen de
   `POST .../configuracion-pc/validar`, con un retardo de 300 ms.
 
+- **Resultados:** qué aristas quedan con otro umbral u otras orientaciones, su categoría,
+  las advertencias y la validación de una orientación contra los niveles los calcula el núcleo
+  (`POST .../resultado/reagregar`, con un retardo de 300 ms). El frontend solo guarda el
+  borrador del ajuste.
+
+**Grafo (Cytoscape.js).** Una sola instancia por proyecto, que nunca se vuelve a crear:
+- **Disposición:** posiciones por nivel (una columna por nivel con su nombre; un nivel de más
+  de 8 variables se reparte en subcolumnas) calculadas y encuadradas solo la primera vez.
+- **Al cambiar de versión o llegar una vista previa:** un diff dentro de `cy.batch()` quita y
+  agrega las aristas que cambian (id = par de variables), actualiza sus datos, cambia la
+  dirección con `edge.move()` y actualiza la categoría de cada nodo. No se quitan nodos, ni se
+  recalcula la disposición, ni se encuadra: se conservan las posiciones arrastradas, el zoom
+  y el desplazamiento.
+- **«Mostrar solo lo relacionado con el objetivo»** oculta con una clase (`display: none`).
+- **Aristas dentro de un nivel** que saltan un nodo se curvan hacia un lado.
+- **«Guardar la vista en PNG»** exporta la vista actual (`cy.png({ full: false })`).
+
+**Versiones.** Un ajuste sin guardar se marca con «Cambios sin guardar» (Guardar como
+versión nueva / Descartar). Cada versión ajustada lleva la etiqueta «Ajustada: umbral X,
+original Y» en el historial y en el encabezado del grafo; con un umbral menor que 0,5 aparece
+«Umbrales bajos incluyen más aristas espurias». Cambiar de versión con cambios sin guardar
+pide confirmación. «Exportar» exporta la versión vista (sin los cambios sin guardar).
+
 **Sondeo del progreso:** `GET /trabajos/{id}` cada segundo mientras el trabajo está pendiente
 o en curso. Se detiene en un estado final, si la consulta falla (aparece el aviso del motor)
 y mientras la ventana no está visible. Un vigilante global sigue los trabajos en curso aunque
@@ -123,7 +160,13 @@ con una notificación del sistema si la ventana no está en primer plano.
 - el reductor del editor de niveles: mover fichas, agregar y eliminar niveles (las fichas pasan al vecino), renombrar, reordenar y restablecer;
 - la validación en vivo de la configuración: errores por nivel, advertencia del objetivo, guardado bloqueado y «Restablecer»;
 - las advertencias de la prueba elegida, junto a su campo, y la forma en U por sextiles;
-- los estados de la pantalla de progreso (en curso, cancelado, interrumpido y completado), la confirmación al cancelar y el paso a Resultados.
+- los estados de la pantalla de progreso (en curso, cancelado, interrumpido y completado), la confirmación al cancelar y el paso a Resultados;
+- Resultados: la vista previa con retardo (una sola petición al mover el deslizante varios pasos), «Cambios sin guardar» con Descartar y Guardar, el aviso de umbral bajo, el historial de versiones y la confirmación al cambiar de versión con cambios sin guardar;
+- el diálogo de orientación manual: dirección y justificación obligatorias, el rechazo del núcleo (contra los niveles) junto a la dirección, la orientación aplicada y quitarla desde la tabla de aristas;
+- los filtros por categoría de la caracterización, el recuadro de candidatas prescriptivas y el mensaje cuando no las hay; advertencias, configuración (original y ajustes de la versión) y el panel de una variable.
+
+En jsdom no hay canvas: `src/pruebas/GrafoFalso.tsx` sustituye al grafo de Cytoscape por
+botones con los mismos avisos (clic en un nodo o en una arista).
 
 ## Prueba manual
 
@@ -183,3 +226,28 @@ Con `npm run tauri dev`:
     - Al volver a abrir, Inicio marca el proyecto con «Análisis interrumpido: puede reanudarse».
     - En la pantalla Análisis, «Reanudar» continúa desde la última corrida guardada.
 13. **Notificación del sistema.** Con un análisis en curso, pase a otra ventana: al terminar llega una notificación de Windows. Con la app en primer plano, solo la de la app.
+14. **Resultados de diabetes** (sigue al paso 10).
+    - **Grafo:** una columna por nivel con sus nombres, colores por categoría con la leyenda, y las modificables con borde doble.
+    - **Categorías:** Glucose, BMI y Pregnancies son causas directas, Age es indirecta y BloodPressure no tiene camino. El recuadro de candidatas prescriptivas (pestaña Caracterización) muestra Glucose y BMI.
+    - **Interacción:**
+      - pase el cursor por una arista: frecuencia total, por dirección y ρ de Spearman;
+      - haga clic en un nodo: panel con categoría, camino, frecuencia con el objetivo y grupo redundante;
+      - «Mostrar solo lo relacionado con el objetivo» oculta BloodPressure, Insulin y DiabetesPedigreeFunction.
+15. **Posición del usuario al ajustar.**
+    - Arrastre un nodo a otro lugar y cambie el zoom con la rueda.
+    - Mueva el deslizante del umbral: el nodo conserva su posición, el zoom no cambia y la vista no se desplaza. Solo aparecen o desaparecen aristas.
+    - Por debajo de 50 % aparece «Umbrales bajos incluyen más aristas espurias».
+16. **Orientación manual y versiones.**
+    - Haga clic en la arista discontinua SkinThickness — BMI.
+    - Elija BMI → SkinThickness, escriba una justificación y pulse «Aplicar»: la arista pasa a punteada con flecha y aparece «Cambios sin guardar».
+    - «Guardar como versión nueva»: el historial muestra la versión 2 con su etiqueta.
+    - Pase a la versión 1 y vuelva a la 2: la orientación, la justificación y las posiciones se conservan.
+    - En Configuración se ven la configuración original y los ajustes de la versión vista.
+17. **Dengue pediátrico** (`MASTER_CHART_F1000Research.xlsx`, FERRITIN excluida, prueba chisq, umbral 0,6).
+    - Advertencias lista STEROIDS — objetivo (58,5 %) como arista débil con el objetivo.
+    - Con el deslizante en 40 %, esa arista entra en el grafo y Advertencias la muestra en «Aristas añadidas al bajar el umbral».
+    - Con estos datos, PLATELET COUNT — objetivo aparece en el 28,7 % de las corridas (chisq), por debajo del 40 %: no aparece ni siquiera con 0,4.
+18. **Exportar.**
+    - «Exportar» abre el diálogo de carpeta y crea `<nombre>_v<n>_<fecha-hora>/` con los archivos de la versión vista, la receta e `informe.html`.
+    - Abra `informe.html` sin conexión: datos y hash, decisiones, separación, configuración original, ajustes de la versión (umbral usado y original), grafo, caracterización, aristas, advertencias e historial de versiones, con la exportada marcada.
+19. **Imagen del grafo.** «Guardar la vista en PNG» abre el diálogo «Guardar» de Windows y guarda lo que se ve (con el zoom actual).

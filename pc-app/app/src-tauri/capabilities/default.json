@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Permisos mínimos de la ventana principal: el motor se lanza desde Rust (no hay permisos de shell para el frontend); diálogo de abrir archivo; saber si la ventana está en primer plano y notificar al terminar un trabajo.",
+  "description": "Permisos mínimos de la ventana principal: el motor se lanza desde Rust (no hay permisos de shell para el frontend); diálogo de abrir archivo o carpeta (dataset y carpeta de exportación); saber si la ventana está en primer plano y notificar al terminar un trabajo. La imagen del grafo la guarda el comando guardar_imagen (Rust abre el diálogo y escribe solo en la ruta elegida), sin permisos de fs para el frontend.",
   "windows": ["main"],
   "permissions": ["core:default", "core:window:allow-is-focused", "dialog:allow-open", "notification:default"]
 }

@@ -1,3 +1,4 @@
+mod imagen;
 mod motor;
 
 use std::sync::Arc;
@@ -34,7 +35,7 @@ pub fn run() {
             app.manage(gestor);
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![obtener_conexion, reiniciar_motor])
+        .invoke_handler(tauri::generate_handler![obtener_conexion, reiniciar_motor, imagen::guardar_imagen])
         .build(tauri::generate_context!())
         .expect("no se pudo construir la aplicación");
 

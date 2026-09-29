@@ -21,8 +21,12 @@ export const claves = {
   configuracionPc: (id: string) => ["proyectos", id, "configuracion-pc"] as const,
   plantillaPc: (id: string) => ["proyectos", id, "configuracion-pc", "plantilla"] as const,
   validacionPc: (id: string, configuracion: unknown) => ["proyectos", id, "configuracion-pc", "validacion", configuracion] as const,
-  resultado: (id: string) => ["proyectos", id, "resultado"] as const,
-  grafo: (id: string) => ["proyectos", id, "grafo"] as const,
+  /** Prefijo de todo lo que depende del resultado (versiones, vista previa, procedencia). */
+  resultados: (id: string) => ["proyectos", id, "resultado"] as const,
+  resultado: (id: string, version: number | null) => ["proyectos", id, "resultado", "version", version] as const,
+  versiones: (id: string) => ["proyectos", id, "resultado", "versiones"] as const,
+  vistaPrevia: (id: string, ajuste: unknown) => ["proyectos", id, "resultado", "vista-previa", ajuste] as const,
+  procedencia: (id: string) => ["proyectos", id, "resultado", "procedencia"] as const,
   trabajo: (id: string) => ["trabajos", id] as const,
 };
 
@@ -178,11 +182,54 @@ export function useValidacionConfiguracion(id: string, configuracion: Esquemas["
   });
 }
 
-export function useResultado(id: string) {
+/** Resultado de una versión (`null` = la actual); `null` si no hay un análisis vigente. */
+export function useResultado(id: string, version: number | null = null, habilitado = true) {
   const { cliente } = useApi();
   return useQuery({
-    queryKey: claves.resultado(id),
-    queryFn: () => opcional(datos(cliente.GET("/proyectos/{proyecto_id}/resultado", ruta(id)))),
+    queryKey: claves.resultado(id, version),
+    enabled: habilitado,
+    // Al cambiar de versión se conserva la anterior mientras llega la nueva: el grafo no se desmonta.
+    placeholderData: (anterior) => anterior,
+    queryFn: () =>
+      opcional(
+        datos(
+          cliente.GET("/proyectos/{proyecto_id}/resultado", {
+            params: { path: { proyecto_id: id }, query: version === null ? {} : { version } },
+          }),
+        ),
+      ),
+  });
+}
+
+export function useVersiones(id: string) {
+  const { cliente } = useApi();
+  return useQuery({
+    queryKey: claves.versiones(id),
+    queryFn: () => opcional(datos(cliente.GET("/proyectos/{proyecto_id}/resultado/versiones", ruta(id)))),
+  });
+}
+
+export function useProcedencia(id: string) {
+  const { cliente } = useApi();
+  return useQuery({
+    queryKey: claves.procedencia(id),
+    queryFn: () => datos(cliente.GET("/proyectos/{proyecto_id}/resultado/procedencia", ruta(id))),
+  });
+}
+
+/**
+ * Resultado reagregado con otro umbral u otras orientaciones, sin guardar (`null` = no hay
+ * cambios que previsualizar). Mientras llega la nueva vista se conserva la anterior.
+ */
+export function useVistaPrevia(id: string, ajuste: Esquemas["SolicitudReagregar"] | null) {
+  const { cliente } = useApi();
+  return useQuery({
+    queryKey: claves.vistaPrevia(id, ajuste),
+    enabled: ajuste !== null,
+    placeholderData: (anterior) => anterior,
+    // El mismo ajuste da siempre el mismo resultado (hasta que cambia el análisis, que invalida todo).
+    staleTime: Infinity,
+    queryFn: () => datos(cliente.POST("/proyectos/{proyecto_id}/resultado/reagregar", { ...ruta(id), body: ajuste! })),
   });
 }
 

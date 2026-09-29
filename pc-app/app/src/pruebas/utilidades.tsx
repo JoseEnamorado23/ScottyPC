@@ -19,6 +19,8 @@ export interface Peticion {
   ruta: string;
   token: string | null;
   cuerpo: unknown;
+  /** Parámetros de la URL (`?version=2` → `{version: "2"}`). */
+  consulta: Record<string, string>;
 }
 
 type Manejador = (peticion: Peticion) => { estado?: number; cuerpo?: unknown } | unknown;
@@ -39,6 +41,7 @@ export function sidecarFalso(simulacion: Simulacion) {
       ruta: url.pathname,
       token: request.headers.get("X-Token"),
       cuerpo: texto ? JSON.parse(texto) : null,
+      consulta: Object.fromEntries(url.searchParams),
     };
     peticiones.push(peticion);
     const manejador = simulacion[`${peticion.metodo} ${peticion.ruta}`];

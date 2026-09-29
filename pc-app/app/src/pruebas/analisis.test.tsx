@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import type { Esquemas } from "../api/cliente";
+import { simulacion } from "./datosResultados";
 import { proyecto as proyectoBase, renderizar, respuesta, type Peticion } from "./utilidades";
 
 type Trabajo = Esquemas["Trabajo"];
@@ -150,32 +151,24 @@ describe("Progreso del análisis", () => {
     await waitFor(() => expect(sidecar.peticiones.some((p) => p.ruta === "/trabajos/t1/reanudar")).toBe(true));
   });
 
-  it("completado: al terminar mientras se mira, pasa a los resultados provisionales", async () => {
+  it("completado: al terminar mientras se mira, pasa a los resultados", async () => {
     let consultas = 0;
     const final = trabajo("completado", { completadas: 100, mensaje: "Glucose y BMI son candidatas prescriptivas." });
+    const resultados = simulacion();
     renderizar("/proyectos/p1/analisis", {
+      ...resultados,
       "GET /proyectos/p1": () => proyecto(consultas > 1 ? final : trabajo("en_curso"), consultas > 1
         ? { ...ETAPAS_HASTA_CONFIGURACION, analisis: "vigente" } : ETAPAS_HASTA_CONFIGURACION),
       "GET /trabajos/t1": () => (++consultas > 1 ? final : trabajo("en_curso")),
-      "GET /proyectos/p1/resultado": {
-        corridas: { totales: 100, completadas: 100, validas: 100, fallidas: [], completo: true },
-        caracterizacion: {
-          objetivo: "Outcome",
-          variables: [
-            { variable: "Glucose", categoria: "causa_directa", a_traves_de: [], frecuencia_con_objetivo: 1, grupo_redundante: null, modificable: true },
-            { variable: "Age", categoria: "causa_indirecta", a_traves_de: ["Glucose"], frecuencia_con_objetivo: 0.9, grupo_redundante: null, modificable: false },
-          ],
-          candidatas_prescriptivas: ["Glucose"],
-          mensaje: "Glucose es candidata prescriptiva.",
-        },
-      },
     });
 
     expect(await screen.findByText("12 de 100")).toBeInTheDocument();
-    const causas = await screen.findByTestId("causas-directas", {}, { timeout: 4000 });
-    expect(within(causas).getByText("Glucose")).toBeInTheDocument();
-    expect(within(causas).queryByText("Age")).toBeNull();
-    expect(within(screen.getByTestId("candidatas-prescriptivas")).getByText("Glucose")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Resultados" }, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.getByText("nodo Glucose")).toBeInTheDocument(); // el grafo
+    await userEvent.setup().click(screen.getByRole("tab", { name: "Caracterización" }));
+    const candidatas = screen.getByTestId("candidatas-prescriptivas");
+    expect(within(candidatas).getByText("Glucose")).toBeInTheDocument();
+    expect(within(candidatas).queryByText("Age")).toBeNull();
   });
 });
 
