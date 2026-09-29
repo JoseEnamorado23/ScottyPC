@@ -3,7 +3,7 @@ import "@mantine/notifications/styles.css";
 import "@mantine/dates/styles.css";
 import "dayjs/locale/es";
 
-import { MantineProvider } from "@mantine/core";
+import { MantineProvider, createTheme } from "@mantine/core";
 import { DatesProvider } from "@mantine/dates";
 import { Notifications } from "@mantine/notifications";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -28,9 +28,15 @@ const consultas = new QueryClient({
   },
 });
 
+const theme = createTheme({
+  fontFamily: "'Fira Code', monospace",
+  fontFamilyMonospace: "'Fira Code', monospace",
+  headings: { fontFamily: "'Fira Code', monospace" },
+});
+
 createRoot(document.getElementById("raiz")!).render(
   <StrictMode>
-    <MantineProvider>
+    <MantineProvider theme={theme}>
       <DatesProvider settings={{ locale: "es", firstDayOfWeek: 1 }}>
         <Notifications />
         <QueryClientProvider client={consultas}>

@@ -475,6 +475,85 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/proyectos/{proyecto_id}/modelo-causal/aplicabilidad": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Comprueba si se puede construir el modelo causal (no construye nada)
+         * @description Bloqueantes y advertencias, cada uno con la acción que lo resuelve y la pantalla donde se hace.
+         */
+        post: operations["aplicabilidad_modelo_proyectos__proyecto_id__modelo_causal_aplicabilidad_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/modelo-causal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Modelo causal y su evaluación */
+        get: operations["modelo_causal_proyectos__proyecto_id__modelo_causal_get"];
+        put?: never;
+        /**
+         * Construye el modelo causal (trabajo)
+         * @description 409 con ``detalles.problemas`` si hay bloqueantes. Usa la versión actual del resultado de PC.
+         */
+        post: operations["construir_modelo_causal_proyectos__proyecto_id__modelo_causal_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/modelo-causal/casos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Filas de test en unidades originales (para elegir un caso) */
+        get: operations["casos_modelo_proyectos__proyecto_id__modelo_causal_casos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/modelo-causal/contrafactual": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Escenario «¿qué pasa si…?» sobre un caso
+         * @description El caso es una fila de test (``indice_test``) o valores propios (``valores``, unidades originales).
+         *     422 si una intervención no es válida (p. ej. sobre el objetivo o una consecuencia suya).
+         */
+        post: operations["contrafactual_modelo_proyectos__proyecto_id__modelo_causal_contrafactual_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/trabajos/{trabajo_id}": {
         parameters: {
             query?: never;
@@ -588,6 +667,16 @@ export interface components {
             /** Mensaje */
             mensaje: string;
         };
+        /** Aplicabilidad */
+        Aplicabilidad: {
+            /** Problemas */
+            problemas: components["schemas"]["ProblemaAplicabilidad"][];
+            /** Bloqueado */
+            bloqueado: boolean;
+            /** Version Resultado */
+            version_resultado: number | null;
+            subgrafo: components["schemas"]["SubgrafoObjetivo"] | null;
+        };
         /** AristaAgregada */
         AristaAgregada: {
             /** Origen */
@@ -614,6 +703,15 @@ export interface components {
             /** Justificacion */
             justificacion: string | null;
         };
+        /** AvisoContrafactual */
+        AvisoContrafactual: {
+            /** Codigo */
+            codigo: string;
+            /** Mensaje */
+            mensaje: string;
+            /** Variables */
+            variables: string[];
+        };
         /** AvisoResultado */
         AvisoResultado: {
             /** Codigo */
@@ -631,6 +729,33 @@ export interface components {
             variables: string[];
             /** Pares */
             pares: components["schemas"]["ParVariables"][];
+        };
+        /** Calibracion */
+        Calibracion: {
+            /** Cv */
+            cv: components["schemas"]["PuntoCalibracion"][];
+            /** Test */
+            test: components["schemas"]["PuntoCalibracion"][];
+        };
+        /** CandidatoMecanismo */
+        CandidatoMecanismo: {
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "simple" | "complejo";
+            /** Familia */
+            familia: string;
+            /** Puntuacion Cv */
+            puntuacion_cv: number | null;
+            /** Umbral Cv */
+            umbral_cv: number | null;
+            /** Error */
+            error: string | null;
+            /** Rescate */
+            rescate: string[];
+            /** Nombre Familia */
+            nombre_familia: string;
         };
         /** Caracterizacion */
         Caracterizacion: {
@@ -660,6 +785,49 @@ export interface components {
             grupo_redundante: string[] | null;
             /** Modificable */
             modificable: boolean;
+        };
+        /** CasoEntrada */
+        CasoEntrada: {
+            /**
+             * Indice Test
+             * @description Fila de test (índice de «casos»).
+             */
+            indice_test?: number | null;
+            /**
+             * Valores
+             * @description Valores propios en unidades originales.
+             */
+            valores?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** CasoTest */
+        CasoTest: {
+            /**
+             * Indice
+             * @description Posición de la fila en los datos originales.
+             */
+            indice: number;
+            /**
+             * Valores
+             * @description Por control, en unidades originales.
+             */
+            valores: {
+                [key: string]: unknown;
+            };
+            /** Objetivo */
+            objetivo: unknown;
+        };
+        /** CasosModelo */
+        CasosModelo: {
+            /** Total */
+            total: number;
+            /** Pagina */
+            pagina: number;
+            /** Por Pagina */
+            por_pagina: number;
+            /** Filas */
+            filas: components["schemas"]["CasoTest"][];
         };
         /** Categoria */
         Categoria: {
@@ -701,6 +869,17 @@ export interface components {
             titulo: string;
             /** Variables */
             variables: string[];
+        };
+        /** ComparacionReferencia */
+        ComparacionReferencia: {
+            /** Metrica */
+            metrica: string;
+            /** Modelo Causal */
+            modelo_causal: number;
+            /** Referencia */
+            referencia: number;
+            /** Diferencia */
+            diferencia: number;
         };
         /** ConfiguracionPC */
         ConfiguracionPC: {
@@ -802,6 +981,41 @@ export interface components {
              */
             corte?: string | null;
         };
+        /** ContribucionPadre */
+        ContribucionPadre: {
+            /** Padre */
+            padre: string;
+            /** Contribucion */
+            contribucion: number;
+        };
+        /** ControlVariable */
+        ControlVariable: {
+            /** Nombre */
+            nombre: string;
+            /**
+             * Control
+             * @enum {string}
+             */
+            control: "numerica" | "ordinal" | "categorica" | "grupo_one_hot";
+            /** Columnas */
+            columnas: string[];
+            /** Categorias */
+            categorias: unknown[];
+            /**
+             * Minimo
+             * @description Mínimo de entrenamiento en unidades originales (numéricas).
+             */
+            minimo: number | null;
+            /** Maximo */
+            maximo: number | null;
+            /**
+             * Rol
+             * @enum {string}
+             */
+            rol: "raiz" | "intermedia";
+            /** Columnas En Modelo */
+            columnas_en_modelo: string[];
+        };
         /** ConversionUnidades */
         ConversionUnidades: {
             /** Columna */
@@ -875,6 +1089,20 @@ export interface components {
             vista_previa: {
                 [key: string]: unknown;
             }[];
+        };
+        /** DecisionMonotonia */
+        DecisionMonotonia: {
+            /** Padre */
+            padre: string;
+            /** Restriccion */
+            restriccion: ("creciente" | "decreciente") | null;
+            /**
+             * Origen
+             * @enum {string}
+             */
+            origen: "automatico" | "manual" | "no_aplica";
+            /** Motivo */
+            motivo: string;
         };
         /** DecisionesUsuario */
         DecisionesUsuario: {
@@ -1020,6 +1248,32 @@ export interface components {
             train: components["schemas"]["DistribucionObjetivo"];
             test: components["schemas"]["DistribucionObjetivo"];
         };
+        /** EfectoParcial */
+        EfectoParcial: {
+            /** Padre */
+            padre: string;
+            /**
+             * Coeficiente
+             * @description Solo en mecanismos lineales (unidades preparadas).
+             */
+            coeficiente: number | null;
+            /**
+             * Signo
+             * @description 1 creciente, -1 decreciente, 0 sube y baja (o plano).
+             */
+            signo: number;
+            /**
+             * X
+             * @description Valores del padre en unidades originales.
+             */
+            x: number[];
+            /**
+             * Y
+             * @description Efecto parcial (probabilidad o valor esperado).
+             */
+            y: number[];
+            histograma?: components["schemas"]["HistogramaEfecto"] | null;
+        };
         /** EjecucionBootstrap */
         EjecucionBootstrap: {
             /** Modo Solicitado */
@@ -1067,6 +1321,85 @@ export interface components {
              */
             tiempo_estimado_s: number | null;
         };
+        /** EvaluacionMecanismo */
+        EvaluacionMecanismo: {
+            /** Variable */
+            variable: string;
+            /**
+             * Rol
+             * @enum {string}
+             */
+            rol: "intermedia" | "objetivo";
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "continua" | "binaria";
+            /** Padres */
+            padres: string[];
+            /** Familia */
+            familia: string;
+            /** Nombre Familia */
+            nombre_familia: string;
+            /**
+             * Elegido
+             * @enum {string}
+             */
+            elegido: "simple" | "complejo";
+            /**
+             * Origen
+             * @enum {string}
+             */
+            origen: "automatico" | "manual";
+            /** Motivo */
+            motivo: string;
+            /**
+             * Metrica
+             * @enum {string}
+             */
+            metrica: "r2" | "exactitud_balanceada";
+            /** Candidatos */
+            candidatos: components["schemas"]["CandidatoMecanismo"][];
+            /** Puntuacion Cv */
+            puntuacion_cv: number;
+            /** Puntuacion Test */
+            puntuacion_test: number | null;
+            /** Filas Train */
+            filas_train: number;
+            /** Filas Test */
+            filas_test: number;
+            /** Rescate */
+            rescate: string[];
+            /** Efectos */
+            efectos: components["schemas"]["EfectoParcial"][];
+        };
+        /** EvaluacionModeloCausal */
+        EvaluacionModeloCausal: {
+            /** Objetivo */
+            objetivo: string;
+            /** Mecanismos */
+            mecanismos: components["schemas"]["EvaluacionMecanismo"][];
+            evaluacion_objetivo: components["schemas"]["EvaluacionObjetivo"];
+            referencia: components["schemas"]["ModeloReferencia"];
+        };
+        /** EvaluacionObjetivo */
+        EvaluacionObjetivo: {
+            /** Umbral Decision */
+            umbral_decision: number | null;
+            /** Pesos Clase */
+            pesos_clase: boolean;
+            /** Cv */
+            cv: {
+                [key: string]: number | null;
+            };
+            /** Test */
+            test: {
+                [key: string]: number | null;
+            };
+            calibracion: components["schemas"]["Calibracion"] | null;
+            /** Prevalencia Train */
+            prevalencia_train: number | null;
+        };
         /** Hallazgo */
         Hallazgo: {
             /** Tipo */
@@ -1100,6 +1433,59 @@ export interface components {
             limites: number[];
             /** Conteos */
             conteos: number[];
+        };
+        /** HistogramaEfecto */
+        HistogramaEfecto: {
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "valores" | "histograma";
+            /** Valores */
+            valores?: number[] | null;
+            /** Limites */
+            limites?: number[] | null;
+            /** Conteos */
+            conteos: number[];
+        };
+        /** InfoVariableModelo */
+        InfoVariableModelo: {
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "continua" | "binaria";
+            /**
+             * Rol
+             * @enum {string}
+             */
+            rol: "raiz" | "intermedia" | "objetivo";
+            /** Mediana */
+            mediana: number | null;
+            /** Minimo */
+            minimo: number | null;
+            /** Maximo */
+            maximo: number | null;
+            /** Faltantes Train */
+            faltantes_train: number;
+        };
+        /** IntervencionEntrada */
+        IntervencionEntrada: {
+            /**
+             * Variable
+             * @description Ancestro del objetivo, o el nombre de una categoría one-hot.
+             */
+            variable: string;
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "desplazar" | "fijar";
+            /**
+             * Valor
+             * @description Cantidad a sumar (desplazar) o valor/categoría (fijar), en unidades originales.
+             */
+            valor: unknown;
         };
         /** LimiteColumnas */
         LimiteColumnas: {
@@ -1147,6 +1533,48 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** ModeloCausal */
+        ModeloCausal: {
+            modelo: components["schemas"]["ResumenModeloCausal"];
+            evaluacion: components["schemas"]["EvaluacionModeloCausal"];
+            /**
+             * Controles
+             * @description Ancestros del objetivo intervenibles (dummies agrupadas).
+             */
+            controles: components["schemas"]["ControlVariable"][];
+            /**
+             * Vigente
+             * @description False si la versión actual del resultado de PC no es la del modelo.
+             */
+            vigente: boolean;
+            /** Motivo Desactualizado */
+            motivo_desactualizado: string | null;
+            /** Filas Test */
+            filas_test: number;
+        };
+        /** ModeloReferencia */
+        ModeloReferencia: {
+            /** Familia */
+            familia: string;
+            /** Variables */
+            variables: string[];
+            /** Umbral */
+            umbral: number | null;
+            /** Cv */
+            cv: {
+                [key: string]: number | null;
+            };
+            /** Test */
+            test: {
+                [key: string]: number | null;
+            };
+            /** Comparacion */
+            comparacion: components["schemas"]["ComparacionReferencia"][];
+            /** Principal */
+            principal: string;
+            /** Advertencia */
+            advertencia: string | null;
+        };
         /** OrientacionManual */
         OrientacionManual: {
             /** Origen */
@@ -1170,6 +1598,24 @@ export interface components {
             /** Con Objetivo */
             con_objetivo: boolean;
         };
+        /** PasoTraza */
+        PasoTraza: {
+            /** Variable */
+            variable: string;
+            /**
+             * Causa
+             * @enum {string}
+             */
+            causa: "intervencion" | "propagacion";
+            /** Antes */
+            antes: number | null;
+            /** Despues */
+            despues: number | null;
+            /** Cambio */
+            cambio: number;
+            /** Por Padre */
+            por_padre: components["schemas"]["ContribucionPadre"][];
+        };
         /** PerfilColumna */
         PerfilColumna: {
             /** Nombre */
@@ -1186,6 +1632,30 @@ export interface components {
             minimo: number | null;
             /** Maximo */
             maximo: number | null;
+        };
+        /** ProblemaAplicabilidad */
+        ProblemaAplicabilidad: {
+            /** Codigo */
+            codigo: string;
+            /**
+             * Severidad
+             * @enum {string}
+             */
+            severidad: "bloqueante" | "advertencia";
+            /** Mensaje */
+            mensaje: string;
+            /**
+             * Accion
+             * @description Qué hacer para resolverlo.
+             */
+            accion: string;
+            /**
+             * Destino
+             * @description Pantalla donde se resuelve (la interfaz lleva a ella).
+             */
+            destino: ("resultados" | "decisiones" | "preparacion" | "analisis" | "modelo_causal") | null;
+            /** Variables */
+            variables: string[];
         };
         /** ProblemaConfiguracion */
         ProblemaConfiguracion: {
@@ -1328,6 +1798,15 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        /** PuntoCalibracion */
+        PuntoCalibracion: {
+            /** Probabilidad Media */
+            probabilidad_media: number;
+            /** Frecuencia Observada */
+            frecuencia_observada: number;
+            /** Filas */
+            filas: number;
+        };
         /** RecetaOrigen */
         RecetaOrigen: {
             /** Archivo */
@@ -1395,6 +1874,44 @@ export interface components {
         RespuestaError: {
             error: components["schemas"]["CuerpoError"];
         };
+        /** ResultadoContrafactual */
+        ResultadoContrafactual: {
+            /** Objetivo */
+            objetivo: string;
+            /**
+             * Medida
+             * @enum {string}
+             */
+            medida: "probabilidad" | "valor";
+            /** Antes */
+            antes: number;
+            /** Despues */
+            despues: number;
+            /** Cambio */
+            cambio: number;
+            /** Umbral Decision */
+            umbral_decision: number | null;
+            /** Clase Antes */
+            clase_antes: number | null;
+            /** Clase Despues */
+            clase_despues: number | null;
+            /** Valores */
+            valores: components["schemas"]["ValorContrafactual"][];
+            /** Traza */
+            traza: components["schemas"]["PasoTraza"][];
+            /** Avisos */
+            avisos: components["schemas"]["AvisoContrafactual"][];
+            /** Aproximado */
+            aproximado: boolean;
+            /** Muestras */
+            muestras: number;
+            /** Extrapolacion */
+            extrapolacion: boolean;
+            /** Caso */
+            caso: {
+                [key: string]: unknown;
+            };
+        };
         /** ResultadoExportar */
         ResultadoExportar: {
             /** Carpeta */
@@ -1403,6 +1920,13 @@ export interface components {
             archivos: string[];
             /** Version */
             version: number;
+        };
+        /** ResultadoLigado */
+        ResultadoLigado: {
+            /** Version */
+            version: number | null;
+            /** Sha256 */
+            sha256: string | null;
         };
         /** ResultadoPC */
         ResultadoPC: {
@@ -1459,6 +1983,70 @@ export interface components {
             /** Advertencias */
             advertencias: components["schemas"]["ProblemaValidacion"][];
         };
+        /** ResumenMecanismo */
+        ResumenMecanismo: {
+            /** Familia */
+            familia: string;
+            /** Padres */
+            padres: string[];
+            /** Binaria */
+            binaria: boolean;
+            /** Seleccion */
+            seleccion: {
+                [key: string]: unknown;
+            };
+        };
+        /** ResumenModeloCausal */
+        ResumenModeloCausal: {
+            /** Version Formato */
+            version_formato: number;
+            /** Objetivo */
+            objetivo: string;
+            /** Tipo Objetivo */
+            tipo_objetivo: string | null;
+            /**
+             * Clase Positiva
+             * @description Valores originales del objetivo que cuentan como 1.
+             */
+            clase_positiva: unknown[] | null;
+            resultado_pc: components["schemas"]["ResultadoLigado"];
+            /** Train Sha256 */
+            train_sha256: string;
+            /** Semilla */
+            semilla: number;
+            /** Configuracion */
+            configuracion: {
+                [key: string]: unknown;
+            };
+            subgrafo: components["schemas"]["SubgrafoModelo"];
+            /**
+             * Variables
+             * @description Unidades preparadas.
+             */
+            variables: {
+                [key: string]: components["schemas"]["InfoVariableModelo"];
+            };
+            /** Monotonia */
+            monotonia: components["schemas"]["DecisionMonotonia"][];
+            /** Umbral Decision */
+            umbral_decision: number | null;
+            /** Pesos Clase */
+            pesos_clase: boolean;
+            /** Imputadas En Modelo */
+            imputadas_en_modelo: string[];
+            /** Advertencias */
+            advertencias: components["schemas"]["ProblemaAplicabilidad"][];
+            /** Versiones */
+            versiones: {
+                [key: string]: string;
+            };
+            /** Huella */
+            huella: string;
+            /** Mecanismos */
+            mecanismos: {
+                [key: string]: components["schemas"]["ResumenMecanismo"];
+            };
+        };
         /** ResumenPreparacion */
         ResumenPreparacion: {
             /** Filas Train */
@@ -1497,7 +2085,7 @@ export interface components {
              * Tipo
              * @enum {string}
              */
-            tipo: "recomendacion" | "pc";
+            tipo: "recomendacion" | "pc" | "modelo_causal";
             /**
              * Estado
              * @enum {string}
@@ -1549,6 +2137,15 @@ export interface components {
             /** Grupo Procesos Creado */
             grupo_procesos_creado: boolean;
         };
+        /** SolicitudContrafactual */
+        SolicitudContrafactual: {
+            caso: components["schemas"]["CasoEntrada"];
+            /**
+             * Intervenciones
+             * @default []
+             */
+            intervenciones: components["schemas"]["IntervencionEntrada"][];
+        };
         /** SolicitudEvaluarPrueba */
         SolicitudEvaluarPrueba: {
             /**
@@ -1568,6 +2165,36 @@ export interface components {
              * @description Versión que se exporta (por defecto, la actual).
              */
             version?: number | null;
+        };
+        /** SolicitudModeloCausal */
+        SolicitudModeloCausal: {
+            /**
+             * Monotonia
+             * @description Override por padre del objetivo; los demás se deciden con la recomendación de prueba.
+             * @default {}
+             */
+            monotonia: {
+                [key: string]: "creciente" | "decreciente" | "ninguna";
+            };
+            /**
+             * Mecanismos
+             * @description Override del tipo de mecanismo.
+             * @default {}
+             */
+            mecanismos: {
+                [key: string]: "simple" | "complejo";
+            };
+            /**
+             * Pesos Clase
+             * @description Pesos de clase en el objetivo (las probabilidades dejan de estar calibradas).
+             * @default false
+             */
+            pesos_clase: boolean;
+            /**
+             * Umbral Parsimonia
+             * @description Mejora mínima para preferir el modelo complejo.
+             */
+            umbral_parsimonia?: number | null;
         };
         /** SolicitudPreparar */
         SolicitudPreparar: {
@@ -1637,6 +2264,41 @@ export interface components {
             /** Version */
             version: number;
         };
+        /** SubgrafoModelo */
+        SubgrafoModelo: {
+            /** Variables */
+            variables: string[];
+            /** Padres */
+            padres: {
+                [key: string]: string[];
+            };
+            /** Aristas */
+            aristas: string[][];
+            /** Fuera */
+            fuera: string[];
+            /** Descendientes Objetivo */
+            descendientes_objetivo: string[];
+        };
+        /** SubgrafoObjetivo */
+        SubgrafoObjetivo: {
+            /** Objetivo */
+            objetivo: string;
+            /**
+             * Variables
+             * @description Objetivo y ancestros, en orden topológico si no hay ciclos.
+             */
+            variables: string[];
+            /** Padres */
+            padres: {
+                [key: string]: string[];
+            };
+            /** Aristas */
+            aristas: string[][];
+            /** Sin Orientar */
+            sin_orientar: string[][];
+            /** Fuera */
+            fuera: string[];
+        };
         /** Trabajo */
         Trabajo: {
             /** Id */
@@ -1647,7 +2309,7 @@ export interface components {
              * Tipo
              * @enum {string}
              */
-            tipo: "recomendacion" | "pc";
+            tipo: "recomendacion" | "pc" | "modelo_causal";
             /**
              * Estado
              * @enum {string}
@@ -1701,6 +2363,39 @@ export interface components {
             errores: components["schemas"]["ProblemaConfiguracion"][];
             /** Advertencias */
             advertencias: components["schemas"]["ProblemaConfiguracion"][];
+        };
+        /** ValorContrafactual */
+        ValorContrafactual: {
+            /** Variable */
+            variable: string;
+            /**
+             * Rol
+             * @enum {string}
+             */
+            rol: "raiz" | "intermedia" | "objetivo";
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "continua" | "binaria";
+            /** Grupo */
+            grupo: string | null;
+            /** Antes */
+            antes: unknown;
+            /** Despues */
+            despues: unknown;
+            /** Antes Numerico */
+            antes_numerico: number | null;
+            /** Despues Numerico */
+            despues_numerico: number | null;
+            /** Cambio */
+            cambio: number;
+            /** Intervenida */
+            intervenida: boolean;
+            /** Extrapolacion */
+            extrapolacion: boolean;
+            /** Observado */
+            observado: boolean;
         };
         /** VersionResultado */
         VersionResultado: {
@@ -3281,6 +3976,266 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResultadoExportar"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    aplicabilidad_modelo_proyectos__proyecto_id__modelo_causal_aplicabilidad_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SolicitudModeloCausal"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Aplicabilidad"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    modelo_causal_proyectos__proyecto_id__modelo_causal_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModeloCausal"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    construir_modelo_causal_proyectos__proyecto_id__modelo_causal_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SolicitudModeloCausal"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trabajo"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    casos_modelo_proyectos__proyecto_id__modelo_causal_casos_get: {
+        parameters: {
+            query?: {
+                /** @description Página (50 filas por página). */
+                pagina?: number;
+            };
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CasosModelo"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    contrafactual_modelo_proyectos__proyecto_id__modelo_causal_contrafactual_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SolicitudContrafactual"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultadoContrafactual"];
                 };
             };
             /** @description No encontrado. */

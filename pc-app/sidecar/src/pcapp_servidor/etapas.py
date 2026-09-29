@@ -2,7 +2,8 @@
 
 Al registrar (o rehacer) una etapa, sus archivos anteriores y los de todas las
 etapas posteriores se mueven a ``anteriores/<fecha-hora>/`` y esas etapas
-quedan desactualizadas. Una etapa solo puede ejecutarse si su requisito está
+quedan desactualizadas. El modelo causal, además, queda desactualizado cuando cambia
+la versión actual del resultado de PC (ver ``flujo``). Una etapa solo puede ejecutarse si su requisito está
 vigente; si no, la API responde 409.
 """
 
@@ -12,7 +13,9 @@ from pcapp_servidor.almacenamiento.archivos import Archivos
 from pcapp_servidor.almacenamiento.repositorio import RepositorioEtapas, RepositorioProyectos
 from pcapp_servidor.errores import conflicto
 
-ETAPAS = ("revision", "decisiones", "preparacion", "recomendacion", "configuracion_pc", "analisis")
+ETAPAS = (
+    "revision", "decisiones", "preparacion", "recomendacion", "configuracion_pc", "analisis", "modelo_causal",
+)
 
 REQUISITOS: dict[str, str | None] = {
     "revision": None,
@@ -21,6 +24,7 @@ REQUISITOS: dict[str, str | None] = {
     "recomendacion": "preparacion",
     "configuracion_pc": "preparacion",
     "analisis": "configuracion_pc",
+    "modelo_causal": "analisis",
 }
 
 ARCHIVOS = {
@@ -30,6 +34,7 @@ ARCHIVOS = {
     "recomendacion": ["recomendacion.json"],
     "configuracion_pc": ["pc.json"],
     "analisis": ["pc"],
+    "modelo_causal": ["modelo_causal"],
 }
 
 _NOMBRES = {
@@ -39,6 +44,7 @@ _NOMBRES = {
     "recomendacion": "la recomendación de prueba",
     "configuracion_pc": "la configuración de PC",
     "analisis": "el análisis",
+    "modelo_causal": "el modelo causal",
 }
 
 _COMO_HACERLA = {
@@ -48,6 +54,7 @@ _COMO_HACERLA = {
     "recomendacion": "POST /proyectos/{id}/recomendacion",
     "configuracion_pc": "PUT /proyectos/{id}/configuracion-pc",
     "analisis": "POST /proyectos/{id}/pc",
+    "modelo_causal": "POST /proyectos/{id}/modelo-causal",
 }
 
 

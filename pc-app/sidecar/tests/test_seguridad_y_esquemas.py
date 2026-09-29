@@ -7,6 +7,9 @@ from fastapi.testclient import TestClient
 
 from conftest import TOKEN, crear_cliente, esperar_trabajo, hasta_configuracion, ok
 
+from pcapp_nucleo.causal import aplicabilidad as causal_aplicabilidad
+from pcapp_nucleo.causal import contrafactuales as causal_contrafactual
+from pcapp_nucleo.causal import mecanismos as causal_mecanismos
 from pcapp_nucleo import (
     caracterizacion,
     informe,
@@ -144,6 +147,12 @@ PARES = [
     (esquemas.ParVariables, reagregacion.ParVariables),
     (esquemas.AvisoResultado, reagregacion.AvisoResultado),
     (esquemas.LineaResumen, informe.LineaResumen),
+    (esquemas.ProblemaAplicabilidad, causal_aplicabilidad.ProblemaAplicabilidad),
+    (esquemas.AvisoContrafactual, causal_contrafactual.AvisoContrafactual),
+    (esquemas.ValorContrafactual, causal_contrafactual.ValorContrafactual),
+    (esquemas.ContribucionPadre, causal_contrafactual.ContribucionPadre),
+    (esquemas.PasoTraza, causal_contrafactual.PasoTraza),
+    (esquemas.ResultadoContrafactual, causal_contrafactual.ResultadoContrafactual),
 ]
 
 
@@ -169,7 +178,9 @@ def test_openapi_completo(cliente):
         "/proyectos/{proyecto_id}/exportar", "/proyectos/{proyecto_id}/resultado/versiones",
         "/proyectos/{proyecto_id}/resultado/reagregar", "/proyectos/{proyecto_id}/resultado/version-actual",
         "/proyectos/{proyecto_id}/resultado/procedencia", "/trabajos/{trabajo_id}", "/trabajos/{trabajo_id}/cancelar",
-        "/trabajos/{trabajo_id}/reanudar",
+        "/trabajos/{trabajo_id}/reanudar", "/proyectos/{proyecto_id}/modelo-causal",
+        "/proyectos/{proyecto_id}/modelo-causal/aplicabilidad", "/proyectos/{proyecto_id}/modelo-causal/casos",
+        "/proyectos/{proyecto_id}/modelo-causal/contrafactual",
     } <= rutas
     componentes = set(esquema["components"]["schemas"])
     assert {"Revision", "DecisionesUsuario", "ResumenPreparacion", "RecomendacionPrueba", "ConfiguracionPC",

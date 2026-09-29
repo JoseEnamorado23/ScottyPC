@@ -402,13 +402,14 @@ class RespuestaConfiguracionPC(BaseModel):
 
 # --- Trabajos -----------------------------------------------------------------------------------
 
+TipoTrabajo = Literal["recomendacion", "pc", "modelo_causal"]
 EstadoTrabajo = Literal["pendiente", "en_curso", "completado", "cancelado", "fallido", "interrumpido"]
 
 
 class Trabajo(BaseModel):
     id: str
     proyecto_id: str
-    tipo: Literal["recomendacion", "pc"]
+    tipo: TipoTrabajo
     estado: EstadoTrabajo
     completadas: int
     total: int | None
@@ -430,7 +431,7 @@ class DetallesTrabajo(BaseModel):
 
 class ResumenTrabajo(BaseModel):
     id: str
-    tipo: Literal["recomendacion", "pc"]
+    tipo: TipoTrabajo
     estado: EstadoTrabajo
     completadas: int
     total: int | None
@@ -617,6 +618,305 @@ class ResultadoExportar(BaseModel):
     carpeta: str
     archivos: list[str]
     version: int
+
+
+# --- Modelo causal ------------------------------------------------------------------------------
+
+
+class ProblemaAplicabilidad(BaseModel):
+    codigo: str
+    severidad: Literal["bloqueante", "advertencia"]
+    mensaje: str
+    accion: str = Field(description="Qué hacer para resolverlo.")
+    destino: Literal["resultados", "decisiones", "preparacion", "analisis", "modelo_causal"] | None = Field(
+        description="Pantalla donde se resuelve (la interfaz lleva a ella)."
+    )
+    variables: list[str]
+
+
+class SubgrafoObjetivo(BaseModel):
+    objetivo: str
+    variables: list[str] = Field(description="Objetivo y ancestros, en orden topológico si no hay ciclos.")
+    padres: dict[str, list[str]]
+    aristas: list[list[str]]
+    sin_orientar: list[list[str]]
+    fuera: list[str]
+
+
+class Aplicabilidad(BaseModel):
+    problemas: list[ProblemaAplicabilidad]
+    bloqueado: bool
+    version_resultado: int | None
+    subgrafo: SubgrafoObjetivo | None
+
+
+class SolicitudModeloCausal(_Entrada):
+    monotonia: dict[str, Literal["creciente", "decreciente", "ninguna"]] = Field(
+        {}, description="Override por padre del objetivo; los demás se deciden con la recomendación de prueba."
+    )
+    mecanismos: dict[str, Literal["simple", "complejo"]] = Field({}, description="Override del tipo de mecanismo.")
+    pesos_clase: bool = Field(
+        False, description="Pesos de clase en el objetivo (las probabilidades dejan de estar calibradas)."
+    )
+    umbral_parsimonia: float | None = Field(
+        None, ge=0, le=1, description="Mejora mínima para preferir el modelo complejo."
+    )
+
+    def a_configuracion(self) -> dict[str, Any]:
+        datos = self.model_dump()
+        if datos["umbral_parsimonia"] is None:
+            datos.pop("umbral_parsimonia")
+        return datos
+
+
+class ResultadoLigado(BaseModel):
+    version: int | None
+    sha256: str | None
+
+
+class SubgrafoModelo(BaseModel):
+    variables: list[str]
+    padres: dict[str, list[str]]
+    aristas: list[list[str]]
+    fuera: list[str]
+    descendientes_objetivo: list[str]
+
+
+class InfoVariableModelo(BaseModel):
+    tipo: Literal["continua", "binaria"]
+    rol: Literal["raiz", "intermedia", "objetivo"]
+    mediana: float | None
+    minimo: float | None
+    maximo: float | None
+    faltantes_train: int
+
+
+class DecisionMonotonia(BaseModel):
+    padre: str
+    restriccion: Literal["creciente", "decreciente"] | None
+    origen: Literal["automatico", "manual", "no_aplica"]
+    motivo: str
+
+
+class ResumenMecanismo(BaseModel):
+    familia: str
+    padres: list[str]
+    binaria: bool
+    seleccion: dict[str, Any]
+
+
+class ResumenModeloCausal(BaseModel):
+    version_formato: int
+    objetivo: str
+    tipo_objetivo: str | None
+    clase_positiva: list[Any] | None = Field(description="Valores originales del objetivo que cuentan como 1.")
+    resultado_pc: ResultadoLigado
+    train_sha256: str
+    semilla: int
+    configuracion: dict[str, Any]
+    subgrafo: SubgrafoModelo
+    variables: dict[str, InfoVariableModelo] = Field(description="Unidades preparadas.")
+    monotonia: list[DecisionMonotonia]
+    umbral_decision: float | None
+    pesos_clase: bool
+    imputadas_en_modelo: list[str]
+    advertencias: list[ProblemaAplicabilidad]
+    versiones: dict[str, str]
+    huella: str
+    mecanismos: dict[str, ResumenMecanismo]
+
+
+class CandidatoMecanismo(BaseModel):
+    tipo: Literal["simple", "complejo"]
+    familia: str
+    puntuacion_cv: float | None
+    umbral_cv: float | None
+    error: str | None
+    rescate: list[str]
+    nombre_familia: str
+
+
+class HistogramaEfecto(BaseModel):
+    tipo: Literal["valores", "histograma"]
+    valores: list[float] | None = None
+    limites: list[float] | None = None
+    conteos: list[int]
+
+
+class EfectoParcial(BaseModel):
+    padre: str
+    coeficiente: float | None = Field(description="Solo en mecanismos lineales (unidades preparadas).")
+    signo: int = Field(description="1 creciente, -1 decreciente, 0 sube y baja (o plano).")
+    x: list[float] = Field(description="Valores del padre en unidades originales.")
+    y: list[float] = Field(description="Efecto parcial (probabilidad o valor esperado).")
+    histograma: HistogramaEfecto | None = None
+
+
+class EvaluacionMecanismo(BaseModel):
+    variable: str
+    rol: Literal["intermedia", "objetivo"]
+    tipo: Literal["continua", "binaria"]
+    padres: list[str]
+    familia: str
+    nombre_familia: str
+    elegido: Literal["simple", "complejo"]
+    origen: Literal["automatico", "manual"]
+    motivo: str
+    metrica: Literal["r2", "exactitud_balanceada"]
+    candidatos: list[CandidatoMecanismo]
+    puntuacion_cv: float
+    puntuacion_test: float | None
+    filas_train: int
+    filas_test: int
+    rescate: list[str]
+    efectos: list[EfectoParcial]
+
+
+class PuntoCalibracion(BaseModel):
+    probabilidad_media: float
+    frecuencia_observada: float
+    filas: int
+
+
+class Calibracion(BaseModel):
+    cv: list[PuntoCalibracion]
+    test: list[PuntoCalibracion]
+
+
+class EvaluacionObjetivo(BaseModel):
+    umbral_decision: float | None
+    pesos_clase: bool
+    cv: dict[str, float | None]
+    test: dict[str, float | None]
+    calibracion: Calibracion | None
+    prevalencia_train: float | None
+
+
+class ComparacionReferencia(BaseModel):
+    metrica: str
+    modelo_causal: float
+    referencia: float
+    diferencia: float
+
+
+class ModeloReferencia(BaseModel):
+    familia: str
+    variables: list[str]
+    umbral: float | None
+    cv: dict[str, float | None]
+    test: dict[str, float | None]
+    comparacion: list[ComparacionReferencia]
+    principal: str
+    advertencia: str | None
+
+
+class EvaluacionModeloCausal(BaseModel):
+    objetivo: str
+    mecanismos: list[EvaluacionMecanismo]
+    evaluacion_objetivo: EvaluacionObjetivo
+    referencia: ModeloReferencia
+
+
+class ControlVariable(BaseModel):
+    nombre: str
+    control: Literal["numerica", "ordinal", "categorica", "grupo_one_hot"]
+    columnas: list[str]
+    categorias: list[Any]
+    minimo: float | None = Field(description="Mínimo de entrenamiento en unidades originales (numéricas).")
+    maximo: float | None
+    rol: Literal["raiz", "intermedia"]
+    columnas_en_modelo: list[str]
+
+
+class ModeloCausal(BaseModel):
+    modelo: ResumenModeloCausal
+    evaluacion: EvaluacionModeloCausal
+    controles: list[ControlVariable] = Field(description="Ancestros del objetivo intervenibles (dummies agrupadas).")
+    vigente: bool = Field(description="False si la versión actual del resultado de PC no es la del modelo.")
+    motivo_desactualizado: str | None
+    filas_test: int
+
+
+class CasoTest(BaseModel):
+    indice: int = Field(description="Posición de la fila en los datos originales.")
+    valores: dict[str, Any] = Field(description="Por control, en unidades originales.")
+    objetivo: Any
+
+
+class CasosModelo(BaseModel):
+    total: int
+    pagina: int
+    por_pagina: int
+    filas: list[CasoTest]
+
+
+class CasoEntrada(_Entrada):
+    indice_test: int | None = Field(None, description="Fila de test (índice de «casos»).")
+    valores: dict[str, Any] | None = Field(None, description="Valores propios en unidades originales.")
+
+
+class IntervencionEntrada(_Entrada):
+    variable: str = Field(description="Ancestro del objetivo, o el nombre de una categoría one-hot.")
+    tipo: Literal["desplazar", "fijar"]
+    valor: Any = Field(description="Cantidad a sumar (desplazar) o valor/categoría (fijar), en unidades originales.")
+
+
+class SolicitudContrafactual(_Entrada):
+    caso: CasoEntrada
+    intervenciones: list[IntervencionEntrada] = []
+
+
+class AvisoContrafactual(BaseModel):
+    codigo: str
+    mensaje: str
+    variables: list[str]
+
+
+class ValorContrafactual(BaseModel):
+    variable: str
+    rol: Literal["raiz", "intermedia", "objetivo"]
+    tipo: Literal["continua", "binaria"]
+    grupo: str | None
+    antes: Any
+    despues: Any
+    antes_numerico: float | None
+    despues_numerico: float | None
+    cambio: float
+    intervenida: bool
+    extrapolacion: bool
+    observado: bool
+
+
+class ContribucionPadre(BaseModel):
+    padre: str
+    contribucion: float
+
+
+class PasoTraza(BaseModel):
+    variable: str
+    causa: Literal["intervencion", "propagacion"]
+    antes: float | None
+    despues: float | None
+    cambio: float
+    por_padre: list[ContribucionPadre]
+
+
+class ResultadoContrafactual(BaseModel):
+    objetivo: str
+    medida: Literal["probabilidad", "valor"]
+    antes: float
+    despues: float
+    cambio: float
+    umbral_decision: float | None
+    clase_antes: int | None
+    clase_despues: int | None
+    valores: list[ValorContrafactual]
+    traza: list[PasoTraza]
+    avisos: list[AvisoContrafactual]
+    aproximado: bool
+    muestras: int
+    extrapolacion: bool
+    caso: dict[str, Any]
 
 
 class Apagado(BaseModel):

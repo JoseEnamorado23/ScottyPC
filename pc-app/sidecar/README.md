@@ -88,6 +88,7 @@ El servidor devuelve el `Content-Type` correcto (`image/png`, `text/csv`,
     ├── pc/                     resultados de PC = versión 1 (y punto_control.json mientras corre)
     │   ├── versiones.json      índice: parámetros de cada versión y la versión actual
     │   └── versiones/<n>/      versiones ajustadas (resultado.json, grafo.png, CSV)
+    ├── modelo_causal/          modelo_causal.json (mecanismos, huella) y evaluacion.json
     └── anteriores/<fecha-hora>/   archivos de etapas invalidadas
 ```
 
@@ -103,6 +104,7 @@ Un índice único parcial en `trabajos` garantiza **un solo trabajo activo por p
 | recomendacion | preparacion | `recomendacion.json` |
 | configuracion_pc | preparacion | `pc.json` |
 | analisis | configuracion_pc | `pc/` |
+| modelo_causal | analisis | `modelo_causal/` |
 
 Al rehacer una etapa, sus archivos anteriores y los de **todas las posteriores** se mueven
 a `anteriores/<fecha-hora>/` y esas etapas quedan `desactualizada`. Ejecutar una etapa sin
@@ -110,7 +112,11 @@ su requisito vigente, o modificar un proyecto con un trabajo en curso, devuelve 
 un mensaje que indica qué falta.
 
 Rehacer la preparación (p. ej. con otra separación) deja desactualizadas la recomendación,
-la configuración de PC y el análisis, pero no las decisiones.
+la configuración de PC, el análisis y el modelo causal, pero no las decisiones.
+
+El modelo causal queda ligado a la versión del resultado de PC con la que se construyó
+(número y sha256 de su `resultado.json`): guardar una versión nueva o cambiar la versión
+actual lo archiva y lo deja `desactualizada`.
 
 ## Endpoints
 
@@ -145,6 +151,11 @@ la configuración de PC y el análisis, pero no las decisiones.
 | `PUT /proyectos/{id}/resultado/version-actual` `{version}` | Vuelve a cualquier versión. |
 | `GET /proyectos/{id}/resultado/procedencia` | Archivo, hash, filas, decisiones y separación resumidas por el núcleo, configuración original de PC y prueba recomendada. |
 | `GET /proyectos/{id}/archivos/{nombre}?version=` | Archivos de resultados de una versión (ver *Seguridad*). |
+| `POST /proyectos/{id}/modelo-causal/aplicabilidad` `{monotonia?, mecanismos?, pesos_clase?, umbral_parsimonia?}` | Bloqueantes y advertencias del modelo causal (cada uno con `accion` y `destino`: la pantalla donde se resuelve) y el subgrafo del objetivo, **sin construir nada**. Si el análisis no está vigente, un único bloqueante (`RESULTADO_DESACTUALIZADO` o `RESULTADO_INCOMPLETO`). |
+| `POST /proyectos/{id}/modelo-causal` `{monotonia?, mecanismos?, pesos_clase?, umbral_parsimonia?}` | Construye el modelo causal sobre la versión actual del resultado como **trabajo** (202). 409 `MODELO_NO_APLICABLE` con `detalles.problemas` si hay bloqueantes; el trabajo falla con `RESULTADO_CAMBIADO` si la versión cambia mientras se construye. «Reanudar» lo repite con la misma configuración. |
+| `GET /proyectos/{id}/modelo-causal` | Modelo (subgrafo, mecanismos elegidos con sus candidatos, monotonía, umbral de decisión, advertencias, huella), evaluación (métricas, calibración, referencia, curvas de efecto parcial con histograma), `controles` de los escenarios (dummies one-hot agrupadas por categoría) y `vigente`. |
+| `GET /proyectos/{id}/modelo-causal/casos?pagina=` | Filas de test en unidades originales (50 por página) para elegir un caso. |
+| `POST /proyectos/{id}/modelo-causal/contrafactual` `{caso: {indice_test} \| {valores}, intervenciones: [{variable, tipo, valor}]}` | Escenario: valores antes y después de todas las variables del subgrafo, probabilidad (o valor) del objetivo, clase según el umbral, traza de propagación, extrapolaciones y avisos (`SIN_EFECTO`, `EXTRAPOLACION`...). 422 `CONTRAFACTUAL_NO_VALIDO` con el campo (p. ej. `intervenciones.0.variable` al intervenir el objetivo o una consecuencia suya, `caso.valores.Age` si el valor no es válido). |
 | `POST /proyectos/{id}/exportar` `{carpeta_destino, version?}` | Copia los archivos de **una** versión (por defecto la actual) y la receta a `<destino>/<nombre>_v<n>_<fecha-hora>/`, con `informe.html`: informe autocontenido que se abre sin conexión, con el umbral original junto al usado y el historial de versiones (marcando la exportada). |
 
 El esquema completo está en `/openapi.json` (con token) y `/docs`. Formato de error
@@ -160,6 +171,8 @@ uniforme:
 - Cada trabajo corre en un hilo del servidor con un evento de cancelación. El progreso se
   guarda en memoria en cada corrida y en SQLite como mucho una vez por segundo. El tiempo
   restante se estima con el ritmo de la sesión actual.
+- Tipos de trabajo: `recomendacion`, `pc` y `modelo_causal`. La tabla `trabajos` pasó a la
+  versión 2 del esquema para admitir el tercero (la migración conserva las filas).
 - Si el servidor se reinicia, los trabajos que estaban activos quedan `interrumpido` y se
   pueden reanudar. Cada proyecto expone `ultimo_trabajo` (con `reanudable`) para marcarlos.
 - El grupo de procesos de PC se crea una sola vez, de forma perezosa (solo cuando un

@@ -26,6 +26,7 @@ function textoModo(detalles: Trabajo["detalles"]): string | null {
 const EXPLICACION_CANCELAR = {
   pc: "El avance se guarda: podrá reanudar el análisis desde la última corrida guardada y el resultado será el mismo que sin interrumpir.",
   recomendacion: "La recomendación no guarda avance parcial: al reanudarla se repite desde el principio.",
+  modelo_causal: "La construcción del modelo no guarda avance parcial: al reanudarla se repite con la misma configuración.",
 } as const;
 
 interface Props {

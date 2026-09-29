@@ -10,6 +10,7 @@ import { NuevoProyecto } from "./pantallas/NuevoProyecto";
 import { Preparacion } from "./pantallas/Preparacion";
 import { Recomendacion } from "./pantallas/Recomendacion";
 import { Resultados } from "./pantallas/Resultados";
+import { ModeloCausal } from "./pantallas/ModeloCausal";
 import { Revision } from "./pantallas/Revision";
 
 export function Rutas() {
@@ -25,6 +26,7 @@ export function Rutas() {
       <Route path="/proyectos/:id/configuracion" element={<PantallaConfiguracionPc />} />
       <Route path="/proyectos/:id/analisis" element={<Analisis />} />
       <Route path="/proyectos/:id/resultados" element={<Resultados />} />
+      <Route path="/proyectos/:id/modelo-causal" element={<ModeloCausal />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

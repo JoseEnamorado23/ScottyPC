@@ -17,7 +17,7 @@ interface ValorVigilancia {
 
 const Contexto = createContext<ValorVigilancia | null>(null);
 
-const NOMBRES = { pc: "El análisis", recomendacion: "La recomendación de prueba" } as const;
+const NOMBRES = { pc: "El análisis", recomendacion: "La recomendación de prueba", modelo_causal: "El modelo causal" } as const;
 
 export function avisoDeFin(trabajo: Trabajo): { titulo: string; mensaje: string; color: string } {
   const nombre = NOMBRES[trabajo.tipo];
@@ -25,7 +25,11 @@ export function avisoDeFin(trabajo: Trabajo): { titulo: string; mensaje: string;
     case "completado":
       return { titulo: `${nombre} terminó`, mensaje: trabajo.mensaje ?? "Completado.", color: "green" };
     case "cancelado":
-      return { titulo: `${nombre} se canceló`, mensaje: "El avance se guardó; puede reanudarlo.", color: "gray" };
+      return {
+        titulo: `${nombre} se canceló`,
+        mensaje: trabajo.tipo === "modelo_causal" ? "Puede volver a construirlo." : "El avance se guardó; puede reanudarlo.",
+        color: "gray",
+      };
     case "interrumpido":
       return { titulo: `${nombre} se interrumpió`, mensaje: "Puede reanudarlo desde el proyecto.", color: "orange" };
     default:

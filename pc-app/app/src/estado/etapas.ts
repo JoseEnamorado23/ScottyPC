@@ -1,10 +1,11 @@
 import type { Esquemas } from "../api/cliente";
 
-export type ClaveEtapa = "revision" | "decisiones" | "preparacion" | "recomendacion" | "configuracion_pc" | "analisis";
+export type ClaveEtapa =
+  | "revision" | "decisiones" | "preparacion" | "recomendacion" | "configuracion_pc" | "analisis" | "modelo_causal";
 export type EstadoEtapa = "vigente" | "desactualizada" | "pendiente";
 type Proyecto = Esquemas["Proyecto"];
 
-/** Las seis etapas en el orden del sidecar (`etapas.ETAPAS`), con su pantalla y su requisito. */
+/** Las siete etapas en el orden del sidecar (`etapas.ETAPAS`), con su pantalla y su requisito. */
 export const ETAPAS: { clave: ClaveEtapa; nombre: string; ruta: string; requisito: ClaveEtapa | null }[] = [
   { clave: "revision", nombre: "Revisión", ruta: "revision", requisito: null },
   { clave: "decisiones", nombre: "Decisiones", ruta: "decisiones", requisito: "revision" },
@@ -12,6 +13,7 @@ export const ETAPAS: { clave: ClaveEtapa; nombre: string; ruta: string; requisit
   { clave: "recomendacion", nombre: "Recomendación", ruta: "recomendacion", requisito: "preparacion" },
   { clave: "configuracion_pc", nombre: "Configuración PC", ruta: "configuracion", requisito: "preparacion" },
   { clave: "analisis", nombre: "Análisis", ruta: "analisis", requisito: "configuracion_pc" },
+  { clave: "modelo_causal", nombre: "Modelo causal", ruta: "modelo-causal", requisito: "analisis" },
 ];
 
 export function estadoEtapa(proyecto: Proyecto, clave: ClaveEtapa): EstadoEtapa {
@@ -37,7 +39,7 @@ export function etapasQueSeDesactualizan(proyecto: Proyecto, etapa: ClaveEtapa):
 }
 
 /** Id del trabajo de un tipo a mostrar: el activo o, si no, el último (p. ej. interrumpido). */
-export function trabajoDelProyecto(proyecto: Proyecto, tipo: "pc" | "recomendacion"): string | null {
+export function trabajoDelProyecto(proyecto: Proyecto, tipo: Esquemas["Trabajo"]["tipo"]): string | null {
   const ultimo = proyecto.ultimo_trabajo;
   if (ultimo && ultimo.tipo === tipo) return ultimo.id;
   return null;
@@ -48,8 +50,10 @@ export function rutaDeProyecto(proyecto: Proyecto): string {
   const base = `/proyectos/${proyecto.id}`;
   const ultimo = proyecto.ultimo_trabajo;
   if (proyecto.trabajo_activo || ultimo?.reanudable) {
-    return `${base}/${ultimo?.tipo === "recomendacion" ? "recomendacion" : "analisis"}`;
+    const rutas = { recomendacion: "recomendacion", pc: "analisis", modelo_causal: "modelo-causal" } as const;
+    return `${base}/${rutas[ultimo?.tipo ?? "pc"]}`;
   }
+  if (estadoEtapa(proyecto, "modelo_causal") === "vigente") return `${base}/modelo-causal`;
   if (estadoEtapa(proyecto, "analisis") === "vigente") return `${base}/resultados`;
   const ultimaHecha = [...ETAPAS].reverse().find((e) => estadoEtapa(proyecto, e.clave) !== "pendiente");
   if (!ultimaHecha) return `${base}/datos`;

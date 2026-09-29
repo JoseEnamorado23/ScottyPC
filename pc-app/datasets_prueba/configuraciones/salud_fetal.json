@@ -1,0 +1,267 @@
+{
+  "descripcion": "Salud fetal: sospechoso o patológico (2, 3) frente a normal (1). Niveles por dominio: actividad (contracciones, movimientos) → eventos de la frecuencia cardiaca fetal (línea base, aceleraciones, deceleraciones) → variabilidad → rasgos del histograma de la FCF → objetivo.",
+  "dataset": "fetal_health.csv",
+  "hoja": null,
+  "objetivo": "fetal_health",
+  "decisiones": {
+    "eliminar_duplicados": true,
+    "acciones_hallazgos": {
+      "filas_duplicadas": {
+        "accion": "eliminar_duplicados",
+        "opciones": [
+          "eliminar_duplicados",
+          "conservar"
+        ],
+        "descripcion": "Las filas repetidas pueden quedar a la vez en entrenamiento y test e inflar la exactitud.",
+        "requiere_confirmacion": false
+      },
+      "ceros_sospechosos:accelerations": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar",
+          "ceros_como_faltantes",
+          "ceros_como_faltantes_imputar_mediana"
+        ],
+        "descripcion": "Si el cero no es un valor posible para esta variable, trátelo como faltante.",
+        "requiere_confirmacion": true
+      },
+      "ceros_sospechosos:fetal_movement": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar",
+          "ceros_como_faltantes",
+          "ceros_como_faltantes_imputar_mediana"
+        ],
+        "descripcion": "Si el cero no es un valor posible para esta variable, trátelo como faltante.",
+        "requiere_confirmacion": true
+      },
+      "ceros_sospechosos:uterine_contractions": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar",
+          "ceros_como_faltantes",
+          "ceros_como_faltantes_imputar_mediana"
+        ],
+        "descripcion": "Si el cero no es un valor posible para esta variable, trátelo como faltante.",
+        "requiere_confirmacion": true
+      },
+      "ceros_sospechosos:light_decelerations": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar",
+          "ceros_como_faltantes",
+          "ceros_como_faltantes_imputar_mediana"
+        ],
+        "descripcion": "Si el cero no es un valor posible para esta variable, trátelo como faltante.",
+        "requiere_confirmacion": true
+      },
+      "ceros_sospechosos:percentage_of_time_with_abnormal_long_term_variability": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar",
+          "ceros_como_faltantes",
+          "ceros_como_faltantes_imputar_mediana"
+        ],
+        "descripcion": "Si el cero no es un valor posible para esta variable, trátelo como faltante.",
+        "requiere_confirmacion": true
+      },
+      "ceros_sospechosos:mean_value_of_long_term_variability": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar",
+          "ceros_como_faltantes",
+          "ceros_como_faltantes_imputar_mediana"
+        ],
+        "descripcion": "Si el cero no es un valor posible para esta variable, trátelo como faltante.",
+        "requiere_confirmacion": true
+      },
+      "ceros_sospechosos:histogram_number_of_peaks": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar",
+          "ceros_como_faltantes",
+          "ceros_como_faltantes_imputar_mediana"
+        ],
+        "descripcion": "Si el cero no es un valor posible para esta variable, trátelo como faltante.",
+        "requiere_confirmacion": true
+      },
+      "ceros_sospechosos:histogram_variance": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar",
+          "ceros_como_faltantes",
+          "ceros_como_faltantes_imputar_mediana"
+        ],
+        "descripcion": "Si el cero no es un valor posible para esta variable, trátelo como faltante.",
+        "requiere_confirmacion": true
+      },
+      "casi_constante:severe_decelerations": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar"
+        ],
+        "descripcion": "",
+        "requiere_confirmacion": false
+      },
+      "variable_categorica:histogram_number_of_zeroes": {
+        "accion": "conservar_numerica",
+        "opciones": [
+          "conservar_numerica",
+          "one_hot"
+        ],
+        "descripcion": "Ya es numérica; se usa tal cual.",
+        "requiere_confirmacion": false
+      },
+      "variable_categorica:histogram_tendency": {
+        "accion": "conservar_numerica",
+        "opciones": [
+          "conservar_numerica",
+          "one_hot"
+        ],
+        "descripcion": "Ya es numérica; se usa tal cual.",
+        "requiere_confirmacion": false
+      },
+      "posible_variable_ordinal:histogram_tendency": {
+        "accion": "usar_orden_sugerido",
+        "opciones": [
+          "usar_orden_sugerido",
+          "sin_orden"
+        ],
+        "descripcion": "Orden sugerido: [-1.0, 0.0, 1.0].",
+        "requiere_confirmacion": false
+      },
+      "variable_categorica:fetal_health": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar"
+        ],
+        "descripcion": "",
+        "requiere_confirmacion": false
+      },
+      "posible_variable_ordinal:fetal_health": {
+        "accion": "usar_orden_sugerido",
+        "opciones": [
+          "usar_orden_sugerido",
+          "sin_orden"
+        ],
+        "descripcion": "Orden sugerido: [1.0, 2.0, 3.0].",
+        "requiere_confirmacion": false
+      },
+      "distribucion_objetivo:fetal_health": {
+        "accion": "conservar_clases",
+        "opciones": [
+          "conservar_clases",
+          "agrupar_clases"
+        ],
+        "descripcion": "El objetivo tiene 3 clases. Al agruparlas se parte de {'1.0': 0, '2.0': 1, '3.0': 1}; edite los grupos en las decisiones.",
+        "requiere_confirmacion": false
+      },
+      "tamano_efectivo_insuficiente:fetal_health": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar"
+        ],
+        "descripcion": "",
+        "requiere_confirmacion": false
+      },
+      "grupo_redundante:baseline value|histogram_mode|histogram_mean|histogram_median": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar",
+          "excluir_variables"
+        ],
+        "descripcion": "PC tiende a conservar solo una variable del grupo como causa. Excluir las demás deja solo 'baseline value'.",
+        "requiere_confirmacion": true
+      },
+      "grupo_redundante:histogram_width|histogram_min|histogram_variance": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar",
+          "excluir_variables"
+        ],
+        "descripcion": "PC tiende a conservar solo una variable del grupo como causa. Excluir las demás deja solo 'histogram_width'.",
+        "requiere_confirmacion": true
+      },
+      "columna_derivada:histogram_width|histogram_min|histogram_max": {
+        "accion": "excluir_derivada",
+        "opciones": [
+          "excluir_derivada",
+          "conservar"
+        ],
+        "descripcion": "Se sugiere conservar ['histogram_width', 'histogram_min'] y excluir ['histogram_max'].",
+        "requiere_confirmacion": false
+      }
+    },
+    "columnas_excluidas": [
+      "histogram_max"
+    ],
+    "faltantes": {},
+    "codificaciones": {
+      "fetal_health": {
+        "tipo": "agrupacion",
+        "orden": null,
+        "valor_positivo": null,
+        "grupos": {
+          "1": 0,
+          "2": 1,
+          "3": 1
+        }
+      }
+    },
+    "conversiones": [],
+    "logaritmos": [],
+    "normalizar": true,
+    "columnas_fecha_disponibles": [],
+    "notas": []
+  },
+  "configuracion_pc": {
+    "prueba": "chisq",
+    "max_k": 3,
+    "niveles": [
+      [
+        "uterine_contractions",
+        "fetal_movement"
+      ],
+      [
+        "baseline value",
+        "accelerations",
+        "light_decelerations",
+        "severe_decelerations",
+        "prolongued_decelerations"
+      ],
+      [
+        "abnormal_short_term_variability",
+        "mean_value_of_short_term_variability",
+        "percentage_of_time_with_abnormal_long_term_variability",
+        "mean_value_of_long_term_variability"
+      ],
+      [
+        "histogram_width",
+        "histogram_min",
+        "histogram_number_of_peaks",
+        "histogram_number_of_zeroes",
+        "histogram_mode",
+        "histogram_mean",
+        "histogram_median",
+        "histogram_variance",
+        "histogram_tendency"
+      ],
+      [
+        "fetal_health"
+      ]
+    ],
+    "umbral_frecuencia": 0.7,
+    "orientaciones_manuales": [
+      {
+        "origen": "uterine_contractions",
+        "destino": "fetal_movement",
+        "justificacion": "Las contracciones uterinas estimulan movimientos fetales."
+      },
+      {
+        "origen": "mean_value_of_short_term_variability",
+        "destino": "abnormal_short_term_variability",
+        "justificacion": "El porcentaje de tiempo con variabilidad anormal se deriva del nivel de variabilidad a corto plazo."
+      }
+    ]
+  }
+}

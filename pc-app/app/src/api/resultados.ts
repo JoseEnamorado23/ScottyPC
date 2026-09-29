@@ -15,6 +15,9 @@ export function useAccionesResultado(proyectoId: string) {
   const alCambiarVersiones = async (versiones: Esquemas["VersionesResultado"]) => {
     consultas.setQueryData(claves.versiones(proyectoId), versiones);
     await consultas.invalidateQueries({ queryKey: claves.resultado(proyectoId, null) });
+    // El modelo causal queda ligado a una versión: al cambiarla se desactualiza.
+    await consultas.invalidateQueries({ queryKey: claves.proyecto(proyectoId), exact: true });
+    await consultas.invalidateQueries({ queryKey: claves.modeloCausal(proyectoId) });
   };
 
   const guardarVersion = useMutation({

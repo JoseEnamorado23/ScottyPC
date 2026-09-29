@@ -82,6 +82,7 @@ from pcapp_servidor.almacenamiento.repositorio import (
 from pcapp_servidor.configuracion import ConfiguracionServidor
 from pcapp_servidor.errores import conflicto, invalido, no_encontrado
 from pcapp_servidor.etapas import REQUISITOS, GestorEtapas
+from pcapp_servidor.flujo_causal import ServiciosModeloCausal
 from pcapp_servidor.procesos import GrupoProcesos
 from pcapp_servidor.trabajos import REANUDABLES, Contexto, FuncionTrabajo, GestorTrabajos
 from pcapp_servidor.validacion_campos import validar_decisiones, validar_separacion_campos
@@ -102,6 +103,8 @@ ARCHIVOS_RESULTADO = {
 
 
 MAXIMO_CATEGORIAS = 20
+# Etapa que produce cada tipo de trabajo.
+_ETAPA_DEL_TRABAJO = {"pc": "analisis", "recomendacion": "recomendacion", "modelo_causal": "modelo_causal"}
 
 
 def _campo_de_separacion(mensaje: str) -> str | None:
@@ -144,7 +147,7 @@ def describir_distribucion(serie: pd.Series, columna: str) -> dict[str, Any]:
     return resultado
 
 
-class Servicios:
+class Servicios(ServiciosModeloCausal):
     def __init__(self, configuracion: ConfiguracionServidor, base: BaseDatos) -> None:
         self.archivos = Archivos(configuracion.datos)
         self.proyectos = RepositorioProyectos(base)
@@ -152,6 +155,7 @@ class Servicios:
         self.trabajos = GestorTrabajos(RepositorioTrabajos(base))
         self.grupo = GrupoProcesos(configuracion.procesos)
         self._cerrojo_versiones = threading.RLock()
+        self._iniciar_modelo_causal()
 
     def apagar(self) -> None:
         self.trabajos.detener_todos()
@@ -183,7 +187,7 @@ class Servicios:
     def _reanudable(self, trabajo: Trabajo) -> bool:
         if trabajo.estado not in REANUDABLES:
             return False
-        requisito = REQUISITOS["analisis" if trabajo.tipo == "pc" else "recomendacion"]
+        requisito = REQUISITOS[_ETAPA_DEL_TRABAJO[trabajo.tipo]]
         return requisito in self.etapas.vigentes(trabajo.proyecto_id)
 
     def _ruta(self, proyecto: Proyecto, nombre: str) -> Path:
@@ -642,6 +646,10 @@ class Servicios:
         if trabajo.tipo == "pc":
             self.etapas.exigir(trabajo.proyecto_id, "analisis")
             funcion = self._funcion_pc(trabajo.proyecto_id)
+        elif trabajo.tipo == "modelo_causal":
+            # No hay punto de control: «reanudar» vuelve a construir con la misma configuración.
+            self.etapas.exigir(trabajo.proyecto_id, "modelo_causal")
+            funcion = self._funcion_modelo_causal(trabajo.proyecto_id, trabajo.parametros.get("configuracion") or {})
         else:
             self.etapas.exigir(trabajo.proyecto_id, "recomendacion")
             funcion = self._funcion_recomendacion(trabajo.proyecto_id, trabajo.parametros.get("estimar_tiempo", True))
@@ -799,6 +807,7 @@ class Servicios:
             )
             indice["version_actual"] = numero
             self.archivos.escribir_json(ruta, indice)
+        self.invalidar_modelo_causal(proyecto_id)
         return self._vista_versiones(proyecto, indice)
 
     def cambiar_version_actual(self, proyecto_id: str, version: int) -> dict[str, Any]:
@@ -806,8 +815,11 @@ class Servicios:
         self.etapas.exigir_vigente(proyecto_id, "analisis")
         with self._cerrojo_versiones:
             indice, numero = self._version_pedida(proyecto, version)
+            anterior = indice["version_actual"]
             indice["version_actual"] = numero
             self.archivos.escribir_json(self._ruta(proyecto, f"{CARPETA_PC}/{INDICE_VERSIONES}"), indice)
+        if numero != anterior:
+            self.invalidar_modelo_causal(proyecto_id)
         return self._vista_versiones(proyecto, indice)
 
     def procedencia(self, proyecto_id: str) -> dict[str, Any]:

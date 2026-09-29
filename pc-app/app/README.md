@@ -78,8 +78,9 @@ permite conexiones a `http://127.0.0.1:*`. El token viaja siempre en el encabeza
   - `motor.ts`: comandos de Tauri, diálogo de archivos y notificación del sistema.
   - `trabajos.ts`: lanzar la recomendación o el análisis, cancelar y reanudar.
   - `resultados.ts`: guardar un ajuste como versión, cambiar de versión, validar una orientación y exportar.
+  - `modeloCausal.ts`: aplicabilidad, modelo guardado, casos de test, escenarios y construcción (trabajo).
 - **`src/estado/`**
-  - `etapas.ts`: las seis etapas y cuáles se desactualizan.
+  - `etapas.ts`: las siete etapas y cuáles se desactualizan.
   - `borrador.tsx`: elecciones y ediciones por proyecto.
   - `useElecciones.ts`: pide la previsualización con un retardo de 300 ms.
   - `niveles.ts`: reductor del editor de niveles (mover fichas, agregar, eliminar, renombrar, reordenar, restablecer).
@@ -87,6 +88,7 @@ permite conexiones a `http://127.0.0.1:*`. El token viaja siempre en el encabeza
   - `trabajos.tsx`: vigilancia de los trabajos en curso y aviso al terminar.
   - `ajustes.ts`: borrador del ajuste (umbral y orientaciones manuales) y su comparación con la versión vista.
   - `grafo.ts`: datos de Cytoscape (colores por categoría y signo, id estable por par), disposición por niveles y camino al objetivo.
+  - `modeloCausal.ts`: overrides de la construcción (mecanismo y monotonía), intervenciones de los escenarios, formatos y disposición del grafo pequeño.
 - **`src/componentes/`**
   - `Arranque`: pantalla de arranque, «Reintentar» y aviso «Reiniciar el motor».
   - `Etapas`: el stepper.
@@ -96,9 +98,14 @@ permite conexiones a `http://127.0.0.1:*`. El token viaja siempre en el encabeza
   - `resultados/GrafoCausal`: grafo con Cytoscape.js.
   - `resultados/DialogoOrientacion`: orientación manual con dirección y justificación obligatoria.
   - `resultados/Tablas` y `resultados/Paneles`: caracterización, aristas, ajuste, historial de versiones, detalle de la variable, advertencias, configuración y leyenda.
+  - `modelo_causal/Aplicabilidad`: lista de bloqueantes y advertencias con el botón que lleva a donde se resuelven.
+  - `modelo_causal/Mecanismos`: tabla de mecanismos (con el selector para cambiar el elegido) y curvas de efecto parcial del objetivo con su monotonía editable.
+  - `modelo_causal/Evaluacion`: métricas en validación cruzada y test (umbral y Brier), calibración y modelo de referencia.
+  - `modelo_causal/Escenarios` y `modelo_causal/GrafoPropagacion`: explorador de escenarios y grafo pequeño de la propagación.
+  - `modelo_causal/Graficos`: gráficos SVG (curva de efecto con histograma y calibración).
 - **`src/pantallas/`**
   - `Inicio`, `NuevoProyecto`, `DatosProyecto` (hoja, vista previa, objetivo y distribución), `Revision` y `Decisiones`.
-  - `Preparacion`, `Recomendacion`, `ConfiguracionPc`, `Analisis` y `Resultados`.
+  - `Preparacion`, `Recomendacion`, `ConfiguracionPc`, `Analisis`, `Resultados` y `ModeloCausal`.
 
 **No hay lógica de mapeo en TypeScript.** Las decisiones que resultan de las acciones
 elegidas las calcula el núcleo (`POST /proyectos/{id}/decisiones/previsualizar`, que usa
@@ -123,6 +130,12 @@ Lo mismo en las etapas de análisis:
   las advertencias y la validación de una orientación contra los niveles los calcula el núcleo
   (`POST .../resultado/reagregar`, con un retardo de 300 ms). El frontend solo guarda el
   borrador del ajuste.
+
+- **Modelo causal:** la aplicabilidad, la elección de mecanismos, la monotonía, las métricas,
+  las curvas y los escenarios (incluida la conversión a unidades originales y la agrupación
+  de las dummies one-hot en un control de categoría) los calcula el núcleo. El frontend solo
+  guarda los overrides que el usuario cambia («Cambios sin aplicar» hasta reconstruir) y las
+  intervenciones del escenario, que envía con un retardo de 300 ms.
 
 **Grafo (Cytoscape.js).** Una sola instancia por proyecto, que nunca se vuelve a crear:
 - **Disposición:** posiciones por nivel (una columna por nivel con su nombre; un nivel de más
@@ -163,6 +176,7 @@ con una notificación del sistema si la ventana no está en primer plano.
 - los estados de la pantalla de progreso (en curso, cancelado, interrumpido y completado), la confirmación al cancelar y el paso a Resultados;
 - Resultados: la vista previa con retardo (una sola petición al mover el deslizante varios pasos), «Cambios sin guardar» con Descartar y Guardar, el aviso de umbral bajo, el historial de versiones y la confirmación al cambiar de versión con cambios sin guardar;
 - el diálogo de orientación manual: dirección y justificación obligatorias, el rechazo del núcleo (contra los niveles) junto a la dirección, la orientación aplicada y quitarla desde la tabla de aristas;
+- Modelo causal: la lista de aplicabilidad (bloqueante con su acción y el botón que lleva a Resultados), la construcción con los overrides de mecanismo y monotonía, el aviso de modelo desactualizado, la evaluación (umbral, Brier, calibración y costo de la parsimonia) y el explorador de escenarios (petición con la fila de test y las intervenciones, la categoría como un solo control que solo se fija, la extrapolación, la traza y el grafo de propagación);
 - los filtros por categoría de la caracterización, el recuadro de candidatas prescriptivas y el mensaje cuando no las hay; advertencias, configuración (original y ajustes de la versión) y el panel de una variable.
 
 En jsdom no hay canvas: `src/pruebas/GrafoFalso.tsx` sustituye al grafo de Cytoscape por

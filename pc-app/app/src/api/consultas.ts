@@ -28,6 +28,12 @@ export const claves = {
   vistaPrevia: (id: string, ajuste: unknown) => ["proyectos", id, "resultado", "vista-previa", ajuste] as const,
   procedencia: (id: string) => ["proyectos", id, "resultado", "procedencia"] as const,
   trabajo: (id: string) => ["trabajos", id] as const,
+  /** Prefijo de todo lo del modelo causal (aplicabilidad, modelo, casos, escenarios). */
+  modeloCausal: (id: string) => ["proyectos", id, "modelo-causal"] as const,
+  aplicabilidad: (id: string, configuracion: unknown) => ["proyectos", id, "modelo-causal", "aplicabilidad", configuracion] as const,
+  modelo: (id: string) => ["proyectos", id, "modelo-causal", "modelo"] as const,
+  casos: (id: string, pagina: number) => ["proyectos", id, "modelo-causal", "casos", pagina] as const,
+  escenario: (id: string, solicitud: unknown) => ["proyectos", id, "modelo-causal", "escenario", solicitud] as const,
 };
 
 /** Intervalo de sondeo del progreso de un trabajo en curso. */
@@ -36,7 +42,7 @@ export const ESTADOS_FINALES = ["completado", "cancelado", "fallido", "interrump
 export const esFinal = (estado: string | undefined) => (ESTADOS_FINALES as readonly string[]).includes(estado ?? "");
 
 /** `null` si la etapa no está vigente (409), en vez de un error. */
-async function opcional<T>(peticion: Promise<T>): Promise<T | null> {
+export async function opcional<T>(peticion: Promise<T>): Promise<T | null> {
   try {
     return await peticion;
   } catch (error) {

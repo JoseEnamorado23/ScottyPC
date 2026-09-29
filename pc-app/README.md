@@ -33,9 +33,9 @@ pc-app/
 
 | Componente     | Tecnología prevista                     | Estado                    |
 |----------------|-----------------------------------------|---------------------------|
-| Núcleo         | Paquete Python independiente (`pcapp_nucleo`) | Revisión, preparación, PC con bootstrap y caracterización |
+| Núcleo         | Paquete Python independiente (`pcapp_nucleo`) | Revisión, preparación, PC con bootstrap, caracterización y modelo causal |
 | Sidecar        | FastAPI local en Python                 | Funcional                 |
-| Frontend       | Tauri v2 + React + Vite + TypeScript    | Pendiente                 |
+| Frontend       | Tauri v2 + React + Vite + TypeScript    | Funcional (ver app/README.md) |
 | Almacenamiento | SQLite + archivos locales               | Funcional (en el sidecar) |
 
 El núcleo no depende de ningún componente de presentación.
@@ -62,6 +62,7 @@ El núcleo no depende de ningún componente de presentación.
 | `exportacion.py` | `resultado.json`, `aristas.csv`, `mascara.csv`, `matriz_frecuencias.csv` y `grafo.png`. |
 | `reagregacion.py` | Reagregar el resultado con otro umbral u otras orientaciones manuales sin volver a ejecutar PC; migración de resultados antiguos; advertencias de interpretación. |
 | `informe.py` | Informe HTML autocontenido (se abre sin conexión) y resúmenes de decisiones y separación. |
+| `causal/` | Modelo causal estructural sobre el resultado de PC: `aplicabilidad.py` (bloqueantes y advertencias), `subgrafo.py` (objetivo y ancestros), `mecanismos.py` (candidatos, validación cruzada, parsimonia, GAM de pyGAM y su serialización), `modelo.py` (construcción, evaluación, modelo de referencia, curvas, guardar y cargar), `contrafactuales.py` (abducción–acción–predicción) y `unidades.py` (unidades originales ↔ preparadas con la receta). |
 | `cli.py`, `cli_preparacion.py`, `cli_pc.py`, `cli_comun.py` | Interfaz de línea de comandos (`python -m pcapp_nucleo`). |
 | `modelos.py`, `configuracion.py`, `utilidades.py` | Dataclasses de resultados, umbrales centralizados y serialización a JSON. |
 
@@ -75,6 +76,7 @@ archivo → carga → validación ─┬─ errores bloqueantes → se informan 
                                   → selección de la prueba de independencia
                                   → configuración de PC (niveles, modificables)
                                   → PC con bootstrap → grafo agregado → caracterización
+                                  → modelo causal (objetivo y ancestros) → escenarios «¿qué pasa si…?»
 ```
 
 ## Contrato del núcleo
@@ -247,6 +249,98 @@ niveles y llevar justificación. La configuración de la ejecución no cambia: e
 orientaciones de cada versión quedan en `agregacion`. Los resultados anteriores (sin
 `cuentas`) se completan con `migrar_resultado`.
 
+## Modelo causal estructural
+
+Se construye sobre una versión del resultado de PC y sirve para cualquier dataset que cumpla
+las condiciones de aplicabilidad; no hay código específico de ningún dataset. Solo entra al
+modelo el **subgrafo del objetivo y sus ancestros** (por aristas dirigidas o manuales).
+
+**Aplicabilidad** (`evaluar_aplicabilidad`): lista de problemas con código, severidad,
+mensaje, acción que lo resuelve y pantalla donde se hace.
+
+| Bloqueantes | Advertencias |
+|---|---|
+| Resultado de PC incompleto o desactualizado | Faltantes sin imputar en el subgrafo (se imputan con la mediana de train) |
+| El objetivo no tiene causas directas | Intermedias binarias (el contrafactual es aproximado) |
+| Aristas sin orientar que tocan el subgrafo, o ciclos en él (se agrupan en un solo problema) | Intermedia mal explicada (R² < 0,10 o exactitud balanceada < 0,60 en validación cruzada; tras ajustar) |
+| Objetivo multiclase (agrupar clases en Decisiones) | Variables fuera del subgrafo (se ignoran) |
+| Menos de 10 filas de train por padre en algún mecanismo; con objetivo binario, menos de 10 casos de la clase minoritaria por padre del objetivo | Costo de la parsimonia, pesos de clase y rescate del GAM (tras ajustar) |
+
+**Mecanismos** (uno por variable con padres, solo con train). Se comparan dos candidatos con
+validación cruzada de 5 pliegues (estratificada si la variable es binaria):
+
+| Variable | Simple | Complejo |
+|---|---|---|
+| Intermedia continua | Regresión lineal | Splines cúbicos restringidos (nodos en percentiles) + Ridge |
+| Intermedia binaria | Regresión logística | GAM logístico (pyGAM) |
+| Objetivo binario | Regresión logística | GAM logístico (pyGAM) |
+| Objetivo continuo | Regresión lineal | GAM lineal (pyGAM) |
+
+- **Parsimonia:** se elige el complejo solo si mejora la métrica (R² o exactitud balanceada)
+  en al menos `umbral_parsimonia` (0,02). Si todos los padres son discretos, el complejo
+  coincidiría con el simple y no se considera. El usuario puede forzar uno u otro (queda
+  registrado como `manual`).
+- **Términos del GAM:** spline para los padres con 10 o más valores distintos y término
+  lineal para los demás; `lam` por UBRE/GCV (búsqueda de pyGAM sobre una rejilla fija).
+- **Monotonía del GAM del objetivo:** por defecto, restricción monótona en los padres cuya
+  relación con el objetivo es monótona según los diagnósticos de la recomendación de prueba,
+  en la dirección del signo de Spearman; sin restricción en los no monótonos (relaciones en
+  U). Editable por padre; se registra si fue automática o manual.
+- **Calibración:** el objetivo binario se ajusta **sin pesos de clase** para que las
+  probabilidades estén calibradas; el desbalance se compensa con el **umbral de decisión**,
+  elegido en validación cruzada para maximizar la exactitud balanceada y guardado en el
+  modelo. Los pesos de clase son un override que advierte que las probabilidades dejan de
+  estar calibradas.
+- **Rescate si pyGAM no converge** (pyGAM solo lo imprime; se captura): `lam` × 10 y × 100;
+  si se usaban pesos de clase, después sin pesos; si nada converge, se usa el modelo simple.
+  Todo queda registrado.
+- **Raíces:** conservan su valor observado; no tienen mecanismo.
+
+**Evaluación:** para cada mecanismo, la métrica en validación cruzada y en test y los
+coeficientes (lineales) o curvas con su signo. Para el objetivo: exactitud balanceada, AUC y
+Brier en validación cruzada (predicciones fuera de pliegue) y **una sola vez** en test,
+curva de calibración y la comparación con un **modelo de referencia** (regresión logística o
+lineal con todas las variables preparadas). Si el mecanismo del objetivo es claramente peor
+(diferencia > `umbral_referencia`, 0,02), se advierte el costo de la parsimonia. Curvas de
+efecto parcial (dependencia parcial sobre las filas de train) de cada padre, en unidades
+originales, con el histograma de train.
+
+**Contrafactuales** (`contrafactual(modelo, caso, intervenciones)`):
+
+- *Abducción:* las intermedias continuas guardan el residuo aditivo del caso. Una intermedia
+  binaria se modela como X = 1[η(padres) + U > 0] con U logística (así P(X = 1) = σ(η)); se
+  toman 200 muestras de U de la logística truncada al intervalo compatible con el valor
+  observado (U > −η si X = 1; U ≤ −η si X = 0), con semilla fija, y el resultado promedia
+  las muestras. Es una aproximación de Monte Carlo; sin intermedias binarias es exacto.
+- *Acción:* «desplazar» suma una cantidad y «fijar» asigna un valor, en unidades originales.
+  Solo tiene efecto sobre ancestros del objetivo; sobre otras variables el cambio es cero y
+  se advierte. No se puede intervenir el objetivo ni sus consecuencias. Una categoría
+  one-hot se interviene siempre como grupo (fijar la categoría pone su dummy en 1 y las demás
+  en 0; la de referencia deja todas en 0), nunca una dummy suelta. Los valores fuera del
+  rango de train se calculan y se marcan como extrapolación.
+- *Predicción:* orden topológico; el objetivo es su probabilidad (o valor esperado), sin
+  residuo. La traza indica qué variable cambió, cuánto y la contribución de cada padre.
+- *Caso:* una fila de test (por su índice) o valores propios en unidades originales. Una raíz
+  sin valor toma la mediana de train y una intermedia sin valor, la predicción de su
+  mecanismo (con aviso).
+
+**Unidades:** `causal/unidades.py` usa la receta para pasar de unidades originales a
+preparadas y al revés (logaritmo, códigos de binarias, ordinales y agrupaciones, min–max).
+Las conversiones de unidades condicionales no se deshacen: las «unidades originales» son las
+del dataset ya convertido.
+
+**Reproducibilidad.** `modelo_causal.json` guarda el grafo usado (versión y sha256 del
+`resultado.json`), los mecanismos elegidos con sus parámetros ajustados, las puntuaciones de
+los candidatos, las decisiones de monotonía, el umbral de decisión, la semilla, el hash del
+train, las versiones de las librerías y una **huella** (sha256 de las predicciones de todos
+los mecanismos sobre train). El GAM se guarda por sus **parámetros ajustados** (información de
+cada término, nudos extremos y coeficientes), no con pickle ni reajustando al cargar:
+reajustar depende del solver y de BLAS y no garantiza los mismos bits, y un pickle es
+inseguro al abrirlo y frágil entre versiones. Al cargar se reconstruye el objeto de pyGAM con
+esos parámetros (pyGAM está fijado en 0.12.0) y las predicciones son idénticas bit a bit; la
+huella lo comprueba. El modelo queda ligado a la versión del resultado de PC: si cambia esa
+versión o una etapa anterior, queda desactualizado.
+
 ## Uso desde la terminal
 
 ```bash
@@ -305,8 +399,10 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-Dependencias: `pandas`, `numpy`, `openpyxl`, `scipy`, `scikit-learn` y `causal-learn`
-(que incluye `matplotlib` y `networkx`); `pytest` para desarrollo.
+Dependencias: `pandas`, `numpy`, `openpyxl`, `scipy`, `scikit-learn`, `causal-learn`
+(que incluye `matplotlib` y `networkx`) y `pygam` 0.12.0 (fijado, porque el modelo causal
+guarda sus parámetros internos); `pytest` para desarrollo. pyGAM 0.12 exige `scipy<1.17`,
+por eso scipy queda acotado.
 
 ## Pruebas
 

@@ -4,6 +4,12 @@ from fastapi import APIRouter, Depends, Query, Response
 from fastapi.responses import FileResponse
 
 from pcapp_servidor.esquemas import (
+    Aplicabilidad,
+    CasosModelo,
+    ModeloCausal,
+    ResultadoContrafactual,
+    SolicitudContrafactual,
+    SolicitudModeloCausal,
     ConfiguracionPC,
     DatosHoja,
     DecisionesUsuario,
@@ -296,3 +302,57 @@ def archivo(
 def exportar(proyecto_id: str, solicitud: SolicitudExportar, s: Servicios = Depends(servicios)) -> dict:
     """Archivos de una versión, la receta e ``informe.html`` (autocontenido, se abre sin conexión)."""
     return s.exportar(proyecto_id, solicitud.carpeta_destino, solicitud.version)
+
+
+# --- Modelo causal ------------------------------------------------------------------------------
+
+
+@router.post(
+    "/{proyecto_id}/modelo-causal/aplicabilidad", response_model=Aplicabilidad,
+    summary="Comprueba si se puede construir el modelo causal (no construye nada)",
+)
+def aplicabilidad_modelo(
+    proyecto_id: str, solicitud: SolicitudModeloCausal | None = None, s: Servicios = Depends(servicios)
+) -> dict:
+    """Bloqueantes y advertencias, cada uno con la acción que lo resuelve y la pantalla donde se hace."""
+    return s.aplicabilidad_modelo(proyecto_id, solicitud.a_configuracion() if solicitud else None)
+
+
+@router.post(
+    "/{proyecto_id}/modelo-causal", response_model=Trabajo, status_code=202,
+    summary="Construye el modelo causal (trabajo)",
+)
+def construir_modelo_causal(
+    proyecto_id: str, solicitud: SolicitudModeloCausal | None = None, s: Servicios = Depends(servicios)
+) -> dict:
+    """409 con ``detalles.problemas`` si hay bloqueantes. Usa la versión actual del resultado de PC."""
+    return s.vista_trabajo(s.lanzar_modelo_causal(proyecto_id, solicitud.a_configuracion() if solicitud else None))
+
+
+@router.get("/{proyecto_id}/modelo-causal", response_model=ModeloCausal, summary="Modelo causal y su evaluación")
+def modelo_causal(proyecto_id: str, s: Servicios = Depends(servicios)) -> dict:
+    return s.modelo_causal(proyecto_id)
+
+
+@router.get(
+    "/{proyecto_id}/modelo-causal/casos", response_model=CasosModelo,
+    summary="Filas de test en unidades originales (para elegir un caso)",
+)
+def casos_modelo(
+    proyecto_id: str,
+    pagina: int = Query(1, ge=1, description="Página (50 filas por página)."),
+    s: Servicios = Depends(servicios),
+) -> dict:
+    return s.casos_modelo(proyecto_id, pagina)
+
+
+@router.post(
+    "/{proyecto_id}/modelo-causal/contrafactual", response_model=ResultadoContrafactual,
+    summary="Escenario «¿qué pasa si…?» sobre un caso",
+)
+def contrafactual_modelo(proyecto_id: str, solicitud: SolicitudContrafactual, s: Servicios = Depends(servicios)) -> dict:
+    """El caso es una fila de test (``indice_test``) o valores propios (``valores``, unidades originales).
+    422 si una intervención no es válida (p. ej. sobre el objetivo o una consecuencia suya)."""
+    return s.contrafactual_modelo(
+        proyecto_id, solicitud.caso.model_dump(), [i.model_dump() for i in solicitud.intervenciones]
+    )

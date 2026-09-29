@@ -1,0 +1,159 @@
+{
+  "descripcion": "Vino tinto: calidad buena (6 a 8) frente a regular (3 a 5). Niveles: composición (incluido el dióxido de azufre libre) → dióxido de azufre total (incluye el libre) → propiedades físicas (density, pH) → calidad.",
+  "dataset": "winequality-red.csv",
+  "hoja": null,
+  "objetivo": "quality",
+  "decisiones": {
+    "eliminar_duplicados": true,
+    "acciones_hallazgos": {
+      "filas_duplicadas": {
+        "accion": "eliminar_duplicados",
+        "opciones": [
+          "eliminar_duplicados",
+          "conservar"
+        ],
+        "descripcion": "Las filas repetidas pueden quedar a la vez en entrenamiento y test e inflar la exactitud.",
+        "requiere_confirmacion": false
+      },
+      "ceros_sospechosos:citric acid": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar",
+          "ceros_como_faltantes",
+          "ceros_como_faltantes_imputar_mediana"
+        ],
+        "descripcion": "Si el cero no es un valor posible para esta variable, trátelo como faltante.",
+        "requiere_confirmacion": true
+      },
+      "variable_categorica:quality": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar"
+        ],
+        "descripcion": "",
+        "requiere_confirmacion": false
+      },
+      "posible_variable_ordinal:quality": {
+        "accion": "usar_orden_sugerido",
+        "opciones": [
+          "usar_orden_sugerido",
+          "sin_orden"
+        ],
+        "descripcion": "Orden sugerido: [3, 4, 5, 6, 7, 8].",
+        "requiere_confirmacion": false
+      },
+      "asimetria_fuerte:residual sugar": {
+        "accion": "aplicar_logaritmo",
+        "opciones": [
+          "aplicar_logaritmo",
+          "conservar"
+        ],
+        "descripcion": "",
+        "requiere_confirmacion": false
+      },
+      "asimetria_fuerte:chlorides": {
+        "accion": "aplicar_logaritmo",
+        "opciones": [
+          "aplicar_logaritmo",
+          "conservar"
+        ],
+        "descripcion": "",
+        "requiere_confirmacion": false
+      },
+      "asimetria_fuerte:sulphates": {
+        "accion": "aplicar_logaritmo",
+        "opciones": [
+          "aplicar_logaritmo",
+          "conservar"
+        ],
+        "descripcion": "",
+        "requiere_confirmacion": false
+      },
+      "distribucion_objetivo:quality": {
+        "accion": "conservar_clases",
+        "opciones": [
+          "conservar_clases",
+          "agrupar_clases"
+        ],
+        "descripcion": "El objetivo tiene 6 clases. Al agruparlas se parte de {'3': 0, '4': 1, '5': 1, '6': 1, '7': 1, '8': 1}; edite los grupos en las decisiones.",
+        "requiere_confirmacion": false
+      },
+      "tamano_efectivo_insuficiente:quality": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar"
+        ],
+        "descripcion": "",
+        "requiere_confirmacion": false
+      }
+    },
+    "columnas_excluidas": [],
+    "faltantes": {},
+    "codificaciones": {
+      "quality": {
+        "tipo": "agrupacion",
+        "orden": null,
+        "valor_positivo": null,
+        "grupos": {
+          "3": 0,
+          "4": 0,
+          "5": 0,
+          "6": 1,
+          "7": 1,
+          "8": 1
+        }
+      }
+    },
+    "conversiones": [],
+    "logaritmos": [
+      "residual sugar",
+      "chlorides",
+      "sulphates"
+    ],
+    "normalizar": true,
+    "columnas_fecha_disponibles": [],
+    "notas": []
+  },
+  "configuracion_pc": {
+    "prueba": "fisherz",
+    "niveles": [
+      [
+        "fixed acidity",
+        "volatile acidity",
+        "citric acid",
+        "residual sugar",
+        "chlorides",
+        "free sulfur dioxide",
+        "sulphates",
+        "alcohol"
+      ],
+      [
+        "total sulfur dioxide"
+      ],
+      [
+        "density",
+        "pH"
+      ],
+      [
+        "quality"
+      ]
+    ],
+    "orientaciones_manuales": [
+      {
+        "origen": "volatile acidity",
+        "destino": "citric acid",
+        "justificacion": "Las bacterias que elevan la acidez volátil consumen el ácido cítrico."
+      },
+      {
+        "origen": "sulphates",
+        "destino": "citric acid",
+        "justificacion": "Los sulfitos añadidos inhiben a las bacterias que degradan el ácido cítrico."
+      },
+      {
+        "origen": "alcohol",
+        "destino": "residual sugar",
+        "justificacion": "La fermentación que produce el alcohol determina cuánto azúcar queda sin fermentar."
+      }
+    ]
+  }
+}

@@ -1,0 +1,147 @@
+{
+  "descripcion": "Diabetes (Pima): ceros como faltantes sin imputar (mv_fisherz), niveles de la fase 6 y orientaciones manuales de las dos aristas que PC deja sin orientar en el subgrafo del objetivo.",
+  "dataset": "diabetes.csv",
+  "hoja": null,
+  "objetivo": "Outcome",
+  "decisiones": {
+    "eliminar_duplicados": false,
+    "acciones_hallazgos": {
+      "ceros_sospechosos:Pregnancies": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar",
+          "ceros_como_faltantes",
+          "ceros_como_faltantes_imputar_mediana"
+        ],
+        "descripcion": "Si el cero no es un valor posible para esta variable, trátelo como faltante.",
+        "requiere_confirmacion": true
+      },
+      "ceros_sospechosos:Glucose": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar",
+          "ceros_como_faltantes",
+          "ceros_como_faltantes_imputar_mediana"
+        ],
+        "descripcion": "Si el cero no es un valor posible para esta variable, trátelo como faltante.",
+        "requiere_confirmacion": true
+      },
+      "ceros_sospechosos:BloodPressure": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar",
+          "ceros_como_faltantes",
+          "ceros_como_faltantes_imputar_mediana"
+        ],
+        "descripcion": "Si el cero no es un valor posible para esta variable, trátelo como faltante.",
+        "requiere_confirmacion": true
+      },
+      "ceros_sospechosos:SkinThickness": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar",
+          "ceros_como_faltantes",
+          "ceros_como_faltantes_imputar_mediana"
+        ],
+        "descripcion": "Si el cero no es un valor posible para esta variable, trátelo como faltante.",
+        "requiere_confirmacion": true
+      },
+      "ceros_sospechosos:Insulin": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar",
+          "ceros_como_faltantes",
+          "ceros_como_faltantes_imputar_mediana"
+        ],
+        "descripcion": "Si el cero no es un valor posible para esta variable, trátelo como faltante.",
+        "requiere_confirmacion": true
+      },
+      "ceros_sospechosos:BMI": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar",
+          "ceros_como_faltantes",
+          "ceros_como_faltantes_imputar_mediana"
+        ],
+        "descripcion": "Si el cero no es un valor posible para esta variable, trátelo como faltante.",
+        "requiere_confirmacion": true
+      },
+      "distribucion_objetivo:Outcome": {
+        "accion": "conservar",
+        "opciones": [
+          "conservar"
+        ],
+        "descripcion": "",
+        "requiere_confirmacion": false
+      }
+    },
+    "columnas_excluidas": [],
+    "faltantes": {
+      "Glucose": {
+        "ceros_como_faltantes": true,
+        "indicador_medido": false,
+        "imputacion": null
+      },
+      "BloodPressure": {
+        "ceros_como_faltantes": true,
+        "indicador_medido": false,
+        "imputacion": null
+      },
+      "SkinThickness": {
+        "ceros_como_faltantes": true,
+        "indicador_medido": false,
+        "imputacion": null
+      },
+      "Insulin": {
+        "ceros_como_faltantes": true,
+        "indicador_medido": false,
+        "imputacion": null
+      },
+      "BMI": {
+        "ceros_como_faltantes": true,
+        "indicador_medido": false,
+        "imputacion": null
+      }
+    },
+    "codificaciones": {},
+    "conversiones": [],
+    "logaritmos": [],
+    "normalizar": true,
+    "columnas_fecha_disponibles": [],
+    "notas": []
+  },
+  "configuracion_pc": {
+    "prueba": "mv_fisherz",
+    "niveles": [
+      [
+        "Age",
+        "Pregnancies",
+        "DiabetesPedigreeFunction"
+      ],
+      [
+        "BMI",
+        "SkinThickness",
+        "BloodPressure"
+      ],
+      [
+        "Glucose",
+        "Insulin"
+      ],
+      [
+        "Outcome"
+      ]
+    ],
+    "orientaciones_manuales": [
+      {
+        "origen": "Age",
+        "destino": "Pregnancies",
+        "justificacion": "La edad precede al número de embarazos acumulados."
+      },
+      {
+        "origen": "BMI",
+        "destino": "SkinThickness",
+        "justificacion": "El pliegue cutáneo refleja la grasa corporal que resume el IMC."
+      }
+    ]
+  }
+}
