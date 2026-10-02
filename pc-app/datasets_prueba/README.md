@@ -99,3 +99,16 @@ Notas sobre por qué difieren de la configuración de la fase 6:
   histogram_median; el umbral 0,7 quita su arista más débil (histogram_mean →
   histogram_variance, 65 % de las corridas).
 
+## Configuraciones de aceptación de la prescripción
+
+La sección `prescripcion` de cada `configuraciones/<nombre>.json` indica las modificables, la
+dirección del objetivo (la probabilidad deseada es el umbral de decisión ± 0,1) y los cambios a
+las restricciones por defecto. La usa `nucleo/tests/test_aceptacion_prescripcion.py` (lenta),
+que calibra μ con train y prescribe los casos de test que no cumplen el objetivo.
+
+| Archivo | Modificables | Objetivo | Criterios |
+|---|---|---|---|
+| `diabetes.json` | BMI, Glucose | Bajar la probabilidad de diabetes | Solo se cambian BMI y Glucose (nunca Age, Pregnancies ni BloodPressure) y dentro del cambio máximo; la mayoría de los casos en riesgo alcanza el objetivo; gradiente proximal y genético tienen un éxito similar (McNemar). Sin modificables, queda bloqueado con «Con estos datos no hay variables prescriptivas». |
+| `vino_tinto.json` | alcohol, sulphates, volatile acidity, free sulfur dioxide, citric acid, fixed acidity, residual sugar | Subir la probabilidad de buena calidad | fixed acidity (y citric acid) no tienen camino al objetivo: se detectan, se ignoran y se advierte. Reducir el SO₂ libre aparece con su efecto a través del SO₂ total en la traza. |
+| `salud_fetal.json` | uterine_contractions, solo bajar | Bajar la probabilidad de un estado sospechoso o patológico | El objetivo no es alcanzable (haría falta aumentar las contracciones): se informa la restricción de dirección activa y nunca se prescribe aumentarlas. |
+

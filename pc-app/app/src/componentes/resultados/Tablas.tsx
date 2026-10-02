@@ -20,12 +20,20 @@ export function InsigniaCategoria({ categoria }: { categoria: Categoria }) {
 
 // --- Caracterización ---------------------------------------------------------------------------
 
-export function CandidatasPrescriptivas({ caracterizacion }: { caracterizacion: Resultado["caracterizacion"] }) {
+export function CandidatasPrescriptivas({
+  caracterizacion, nota,
+}: { caracterizacion: Resultado["caracterizacion"]; nota?: string }) {
   const candidatas = caracterizacion.candidatas_prescriptivas;
+  const origen = nota ? (
+    <Text size="xs" c="dimmed" mt={4} data-testid="origen-candidatas">
+      {nota}
+    </Text>
+  ) : null;
   if (candidatas.length === 0) {
     return (
       <Alert color="orange" variant="light" title="Sin candidatas prescriptivas" data-testid="candidatas-prescriptivas">
         {caracterizacion.mensaje}
+        {origen}
       </Alert>
     );
   }
@@ -42,6 +50,7 @@ export function CandidatasPrescriptivas({ caracterizacion }: { caracterizacion: 
           </Badge>
         ))}
       </Group>
+      {origen}
     </Card>
   );
 }
@@ -62,7 +71,7 @@ export function TablaCaracterizacion({ resultado, alElegir }: { resultado: Resul
 
   return (
     <Stack>
-      <CandidatasPrescriptivas caracterizacion={caracterizacion} />
+      <CandidatasPrescriptivas caracterizacion={caracterizacion} nota={resultado.nota_candidatas} />
       <Chip.Group multiple value={filtro} onChange={setFiltro}>
         <Group gap="xs" aria-label="Filtrar por categoría" role="group">
           {ORDEN_CATEGORIAS.map((categoria) => (

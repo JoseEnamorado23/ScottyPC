@@ -79,8 +79,9 @@ permite conexiones a `http://127.0.0.1:*`. El token viaja siempre en el encabeza
   - `trabajos.ts`: lanzar la recomendación o el análisis, cancelar y reanudar.
   - `resultados.ts`: guardar un ajuste como versión, cambiar de versión, validar una orientación y exportar.
   - `modeloCausal.ts`: aplicabilidad, modelo guardado, casos de test, escenarios y construcción (trabajo).
+  - `prescripcion.ts`: configuración, condiciones, validación, caso, lotes, evaluaciones, trabajos y exportación.
 - **`src/estado/`**
-  - `etapas.ts`: las siete etapas y cuáles se desactualizan.
+  - `etapas.ts`: las ocho etapas y cuáles se desactualizan.
   - `borrador.tsx`: elecciones y ediciones por proyecto.
   - `useElecciones.ts`: pide la previsualización con un retardo de 300 ms.
   - `niveles.ts`: reductor del editor de niveles (mover fichas, agregar, eliminar, renombrar, reordenar, restablecer).
@@ -89,6 +90,7 @@ permite conexiones a `http://127.0.0.1:*`. El token viaja siempre en el encabeza
   - `ajustes.ts`: borrador del ajuste (umbral y orientaciones manuales) y su comparación con la versión vista.
   - `grafo.ts`: datos de Cytoscape (colores por categoría y signo, id estable por par), disposición por niveles y camino al objetivo.
   - `modeloCausal.ts`: overrides de la construcción (mecanismo y monotonía), intervenciones de los escenarios, formatos y disposición del grafo pequeño.
+  - `prescripcion.ts`: borrador de la configuración, declaración de supuestos (fecha al confirmar las tres casillas) y paso de una prescripción al explorador de escenarios.
 - **`src/componentes/`**
   - `Arranque`: pantalla de arranque, «Reintentar» y aviso «Reiniciar el motor».
   - `Etapas`: el stepper.
@@ -103,9 +105,10 @@ permite conexiones a `http://127.0.0.1:*`. El token viaja siempre en el encabeza
   - `modelo_causal/Evaluacion`: métricas en validación cruzada y test (umbral y Brier), calibración y modelo de referencia.
   - `modelo_causal/Escenarios` y `modelo_causal/GrafoPropagacion`: explorador de escenarios y grafo pequeño de la propagación.
   - `modelo_causal/Graficos`: gráficos SVG (curva de efecto con histograma y calibración).
+  - `prescripcion/Configuracion`, `prescripcion/Caso`, `prescripcion/Lote` y `prescripcion/Evaluacion`: configuración con la declaración de supuestos, caso individual (con «Probar una variante», que abre el explorador de escenarios con la prescripción precargada), lotes filtrables y evaluación con sensibilidad y comparación de optimizadores.
 - **`src/pantallas/`**
   - `Inicio`, `NuevoProyecto`, `DatosProyecto` (hoja, vista previa, objetivo y distribución), `Revision` y `Decisiones`.
-  - `Preparacion`, `Recomendacion`, `ConfiguracionPc`, `Analisis`, `Resultados` y `ModeloCausal`.
+  - `Preparacion`, `Recomendacion`, `ConfiguracionPc`, `Analisis`, `Resultados`, `ModeloCausal` y `Prescripcion` (con el aviso permanente sobre datos observacionales).
 
 **No hay lógica de mapeo en TypeScript.** Las decisiones que resultan de las acciones
 elegidas las calcula el núcleo (`POST /proyectos/{id}/decisiones/previsualizar`, que usa
@@ -177,6 +180,7 @@ con una notificación del sistema si la ventana no está en primer plano.
 - Resultados: la vista previa con retardo (una sola petición al mover el deslizante varios pasos), «Cambios sin guardar» con Descartar y Guardar, el aviso de umbral bajo, el historial de versiones y la confirmación al cambiar de versión con cambios sin guardar;
 - el diálogo de orientación manual: dirección y justificación obligatorias, el rechazo del núcleo (contra los niveles) junto a la dirección, la orientación aplicada y quitarla desde la tabla de aristas;
 - Modelo causal: la lista de aplicabilidad (bloqueante con su acción y el botón que lleva a Resultados), la construcción con los overrides de mecanismo y monotonía, el aviso de modelo desactualizado, la evaluación (umbral, Brier, calibración y costo de la parsimonia) y el explorador de escenarios (petición con la fila de test y las intervenciones, la categoría como un solo control que solo se fija, la extrapolación, la traza y el grafo de propagación);
+- Prescripción: el aviso permanente, los bloqueantes con su botón, la declaración de supuestos (fecha al confirmar y envío al guardar), el caso individual (acciones ordenadas, marcas, explicación y «Probar una variante» con las intervenciones precargadas), el filtro del lote y la evaluación (evaluación interna y McNemar);
 - los filtros por categoría de la caracterización, el recuadro de candidatas prescriptivas y el mensaje cuando no las hay; advertencias, configuración (original y ajustes de la versión) y el panel de una variable.
 
 En jsdom no hay canvas: `src/pruebas/GrafoFalso.tsx` sustituye al grafo de Cytoscape por

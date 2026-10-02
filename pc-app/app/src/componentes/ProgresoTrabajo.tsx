@@ -27,6 +27,9 @@ const EXPLICACION_CANCELAR = {
   pc: "El avance se guarda: podrá reanudar el análisis desde la última corrida guardada y el resultado será el mismo que sin interrumpir.",
   recomendacion: "La recomendación no guarda avance parcial: al reanudarla se repite desde el principio.",
   modelo_causal: "La construcción del modelo no guarda avance parcial: al reanudarla se repite con la misma configuración.",
+  calibracion_mu: "La calibración de μ no guarda avance parcial: al reanudarla se repite desde el principio.",
+  lote_prescripcion: "El lote no guarda avance parcial: al reanudarlo se repite desde el principio.",
+  evaluacion_prescripcion: "La evaluación no guarda avance parcial: al reanudarla se repite desde el principio.",
 } as const;
 
 interface Props {

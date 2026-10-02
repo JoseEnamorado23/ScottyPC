@@ -89,6 +89,8 @@ El servidor devuelve el `Content-Type` correcto (`image/png`, `text/csv`,
     │   ├── versiones.json      índice: parámetros de cada versión y la versión actual
     │   └── versiones/<n>/      versiones ajustadas (resultado.json, grafo.png, CSV)
     ├── modelo_causal/          modelo_causal.json (mecanismos, huella) y evaluacion.json
+    ├── prescripcion/           prescripcion.json (configuración, referencia, calibración de μ),
+    │                           lotes/<n>/ y evaluaciones/<n>/ (numerados, sin sobrescribir)
     └── anteriores/<fecha-hora>/   archivos de etapas invalidadas
 ```
 
@@ -105,6 +107,7 @@ Un índice único parcial en `trabajos` garantiza **un solo trabajo activo por p
 | configuracion_pc | preparacion | `pc.json` |
 | analisis | configuracion_pc | `pc/` |
 | modelo_causal | analisis | `modelo_causal/` |
+| prescripcion | modelo_causal | `prescripcion/` |
 
 Al rehacer una etapa, sus archivos anteriores y los de **todas las posteriores** se mueven
 a `anteriores/<fecha-hora>/` y esas etapas quedan `desactualizada`. Ejecutar una etapa sin
@@ -156,6 +159,14 @@ actual lo archiva y lo deja `desactualizada`.
 | `GET /proyectos/{id}/modelo-causal` | Modelo (subgrafo, mecanismos elegidos con sus candidatos, monotonía, umbral de decisión, advertencias, huella), evaluación (métricas, calibración, referencia, curvas de efecto parcial con histograma), `controles` de los escenarios (dummies one-hot agrupadas por categoría) y `vigente`. |
 | `GET /proyectos/{id}/modelo-causal/casos?pagina=` | Filas de test en unidades originales (50 por página) para elegir un caso. |
 | `POST /proyectos/{id}/modelo-causal/contrafactual` `{caso: {indice_test} \| {valores}, intervenciones: [{variable, tipo, valor}]}` | Escenario: valores antes y después de todas las variables del subgrafo, probabilidad (o valor) del objetivo, clase según el umbral, traza de propagación, extrapolaciones y avisos (`SIN_EFECTO`, `EXTRAPOLACION`...). 422 `CONTRAFACTUAL_NO_VALIDO` con el campo (p. ej. `intervenciones.0.variable` al intervenir el objetivo o una consecuencia suya, `caso.valores.Age` si el valor no es válido). |
+| `POST /proyectos/{id}/prescripcion/condiciones` `{configuración?}` | Bloqueantes y advertencias para prescribir (con la configuración enviada, o la guardada o sugerida). |
+| `GET/PUT /proyectos/{id}/prescripcion/configuracion` | Configuración guardada (o sugerida, `guardada: false`, con las modificables de pc.json), prescriptivas, controles, calibración y μ efectivo. El PUT (422 por campo) ajusta el modelo de referencia con train y solo desactualiza la prescripción. |
+| `POST /proyectos/{id}/prescripcion/configuracion/validar` | Errores por campo, condiciones y la configuración completada por el núcleo, sin guardar. |
+| `POST /proyectos/{id}/prescripcion/calibrar-mu` | Calibración de μ con train como **trabajo** (`calibracion_mu`). |
+| `POST /proyectos/{id}/prescripcion/caso` `{caso: {indice_test} \| {valores}}` | Prescripción de un caso. 409 `MU_SIN_CALIBRAR` o `PRESCRIPCION_BLOQUEADA` (con los problemas). |
+| `POST /proyectos/{id}/prescripcion/lote` `{origen: "test" \| "csv", ruta_csv?}` | Lote como **trabajo** (`lote_prescripcion`). `GET .../lotes` y `GET .../lotes/{n}?pagina=&filtro=` (alcanzado, no_alcanzable, requiere_revision, ya_cumple). |
+| `POST /proyectos/{id}/prescripcion/evaluacion` | Evaluación del prescriptor sobre test como **trabajo** (`evaluacion_prescripcion`). `GET .../evaluaciones` y `GET .../evaluaciones/{n}`. |
+| `POST /proyectos/{id}/prescripcion/exportar` `{carpeta_destino, lote?, evaluacion?}` | `prescripciones.csv` e `informe_prescripcion.html` (autocontenido). |
 | `POST /proyectos/{id}/exportar` `{carpeta_destino, version?}` | Copia los archivos de **una** versión (por defecto la actual) y la receta a `<destino>/<nombre>_v<n>_<fecha-hora>/`, con `informe.html`: informe autocontenido que se abre sin conexión, con el umbral original junto al usado y el historial de versiones (marcando la exportada). |
 
 El esquema completo está en `/openapi.json` (con token) y `/docs`. Formato de error
@@ -171,8 +182,10 @@ uniforme:
 - Cada trabajo corre en un hilo del servidor con un evento de cancelación. El progreso se
   guarda en memoria en cada corrida y en SQLite como mucho una vez por segundo. El tiempo
   restante se estima con el ritmo de la sesión actual.
-- Tipos de trabajo: `recomendacion`, `pc` y `modelo_causal`. La tabla `trabajos` pasó a la
-  versión 2 del esquema para admitir el tercero (la migración conserva las filas).
+- Tipos de trabajo: `recomendacion`, `pc`, `modelo_causal`, `calibracion_mu`,
+  `lote_prescripcion` y `evaluacion_prescripcion`. La tabla `trabajos` está en la versión 3 del
+  esquema (las migraciones recrean la tabla y conservan las filas). La calibración, los lotes y
+  la evaluación usan el grupo de procesos; «reanudar» los repite desde el principio.
 - Si el servidor se reinicia, los trabajos que estaban activos quedan `interrumpido` y se
   pueden reanudar. Cada proyecto expone `ultimo_trabajo` (con `reanudable`) para marcarlos.
 - El grupo de procesos de PC se crea una sola vez, de forma perezosa (solo cuando un

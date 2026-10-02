@@ -554,6 +554,228 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/proyectos/{proyecto_id}/prescripcion/condiciones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Condiciones para prescribir
+         * @description Con la configuración enviada o, si no se envía, con la guardada (o la sugerida).
+         */
+        post: operations["condiciones_proyectos__proyecto_id__prescripcion_condiciones_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/prescripcion/configuracion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Configuración de la prescripción
+         * @description La guardada o, si no hay, la sugerida (``guardada: false``) con las modificables de pc.json.
+         */
+        get: operations["configuracion_proyectos__proyecto_id__prescripcion_configuracion_get"];
+        /**
+         * Guarda la configuración
+         * @description Solo desactualiza la etapa de prescripción (sus lotes y evaluaciones se archivan).
+         */
+        put: operations["guardar_proyectos__proyecto_id__prescripcion_configuracion_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/prescripcion/configuracion/validar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Valida sin guardar */
+        post: operations["validar_proyectos__proyecto_id__prescripcion_configuracion_validar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/prescripcion/calibrar-mu": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Calibra μ con train (trabajo) */
+        post: operations["calibrar_proyectos__proyecto_id__prescripcion_calibrar_mu_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/prescripcion/caso": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prescripción de un caso
+         * @description 409 ``MU_SIN_CALIBRAR`` si μ es automático y no se calibró; 409 ``PRESCRIPCION_BLOQUEADA`` con
+         *     los problemas si hay bloqueantes.
+         */
+        post: operations["caso_proyectos__proyecto_id__prescripcion_caso_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/prescripcion/lote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prescripción por lote (trabajo)
+         * @description «test»: los casos de test que no cumplen el objetivo. «csv»: un archivo con las columnas
+         *     originales, preparado con la receta (las filas que no se pueden preparar se informan).
+         */
+        post: operations["lote_proyectos__proyecto_id__prescripcion_lote_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/prescripcion/lotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lotes guardados */
+        get: operations["lotes_proyectos__proyecto_id__prescripcion_lotes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/prescripcion/lotes/{numero}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resultados de un lote (paginados) */
+        get: operations["resultados_lote_proyectos__proyecto_id__prescripcion_lotes__numero__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/prescripcion/evaluacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Evalúa el prescriptor sobre test (trabajo) */
+        post: operations["evaluacion_proyectos__proyecto_id__prescripcion_evaluacion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/prescripcion/evaluaciones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Evaluaciones guardadas */
+        get: operations["evaluaciones_proyectos__proyecto_id__prescripcion_evaluaciones_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/prescripcion/evaluaciones/{numero}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Informe de una evaluación */
+        get: operations["informe_evaluacion_proyectos__proyecto_id__prescripcion_evaluaciones__numero__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/prescripcion/exportar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** CSV de prescripciones e informe HTML */
+        post: operations["exportar_proyectos__proyecto_id__prescripcion_exportar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/trabajos/{trabajo_id}": {
         parameters: {
             query?: never;
@@ -631,6 +853,40 @@ export interface components {
              * @default false
              */
             requiere_confirmacion: boolean;
+        };
+        /** AccionPrescrita */
+        AccionPrescrita: {
+            /** Variable */
+            variable: string;
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "continua" | "discreta";
+            /** Antes */
+            antes: unknown;
+            /** Despues */
+            despues: unknown;
+            /** Antes Numerico */
+            antes_numerico: number | null;
+            /** Despues Numerico */
+            despues_numerico: number | null;
+            /** Cambio */
+            cambio: number | null;
+            /**
+             * Contribucion
+             * @description Cuánto baja el logro si se quita solo esta acción.
+             */
+            contribucion: number;
+            /** Restriccion Activa */
+            restriccion_activa: string | null;
+            /** Extrapolacion */
+            extrapolacion: boolean;
+            /**
+             * Mantener
+             * @description Intermedia que se mantiene constante (cambio despreciable).
+             */
+            mantener: boolean;
         };
         /** AdvertenciaEleccion */
         AdvertenciaEleccion: {
@@ -736,6 +992,29 @@ export interface components {
             cv: components["schemas"]["PuntoCalibracion"][];
             /** Test */
             test: components["schemas"]["PuntoCalibracion"][];
+        };
+        /** CalibracionMu */
+        CalibracionMu: {
+            /** Mu */
+            mu: number;
+            /** Rejilla */
+            rejilla: components["schemas"]["PuntoRejilla"][];
+            /** Casos */
+            casos: number;
+            /** Alcanzables */
+            alcanzables: number;
+            /** No Alcanzables */
+            no_alcanzables: number;
+            /** Casos Que Ya Cumplen */
+            casos_que_ya_cumplen: number;
+            /** Exito Requerido */
+            exito_requerido: number;
+            /** Advertencia */
+            advertencia: string | null;
+            /** Nota */
+            nota: string;
+            /** Calibrada En */
+            calibrada_en?: string | null;
         };
         /** CandidatoMecanismo */
         CandidatoMecanismo: {
@@ -870,6 +1149,17 @@ export interface components {
             /** Variables */
             variables: string[];
         };
+        /** ComparacionOptimizadores */
+        ComparacionOptimizadores: {
+            /** Optimizador */
+            optimizador: string;
+            /** Tasa Exito */
+            tasa_exito: number;
+            /** Costo Medio */
+            costo_medio: number;
+            /** Segundos Medios */
+            segundos_medios: number;
+        };
         /** ComparacionReferencia */
         ComparacionReferencia: {
             /** Metrica */
@@ -880,6 +1170,54 @@ export interface components {
             referencia: number;
             /** Diferencia */
             diferencia: number;
+        };
+        /** CondicionesPrescripcion */
+        CondicionesPrescripcion: {
+            /** Problemas */
+            problemas: components["schemas"]["ProblemaAplicabilidad"][];
+            /** Bloqueado */
+            bloqueado: boolean;
+            /** Aviso */
+            aviso: string;
+        };
+        /** ConfiguracionAccion */
+        ConfiguracionAccion: {
+            /** Variable */
+            variable: string;
+            /**
+             * Permitida
+             * @default true
+             */
+            permitida: boolean;
+            /**
+             * Direccion
+             * @default ambas
+             * @enum {string}
+             */
+            direccion: "subir" | "bajar" | "ambas";
+            /**
+             * Minimo
+             * @description Límite absoluto (unidades originales).
+             */
+            minimo?: number | null;
+            /** Maximo */
+            maximo?: number | null;
+            /**
+             * Cambio Maximo
+             * @description Cambio máximo respecto del valor actual (unidades originales).
+             */
+            cambio_maximo?: number | null;
+            /**
+             * Costo
+             * @description Costo por unidad de la escala normalizada (rango de train).
+             * @default 1
+             */
+            costo: number;
+            /**
+             * Estados Permitidos
+             * @description Binarias, ordinales y categorías: estados a los que se puede pasar.
+             */
+            estados_permitidos?: unknown[] | null;
         };
         /** ConfiguracionPC */
         ConfiguracionPC: {
@@ -954,6 +1292,86 @@ export interface components {
              * @description Títulos de los niveles (opcionales).
              */
             nombres_niveles?: string[] | null;
+        };
+        /** ConfiguracionPrescripcion */
+        ConfiguracionPrescripcion: {
+            /** Modificables */
+            modificables: string[];
+            objetivo: components["schemas"]["ObjetivoDeseado"];
+            /** Acciones */
+            acciones: {
+                [key: string]: components["schemas"]["ConfiguracionAccion"];
+            };
+            /**
+             * Supuestos
+             * @default {}
+             */
+            supuestos: {
+                [key: string]: components["schemas"]["Supuestos"];
+            };
+            /**
+             * Mu
+             * @default automatico
+             */
+            mu: "automatico" | number;
+            /**
+             * Optimizador
+             * @default gradiente_proximal
+             * @enum {string}
+             */
+            optimizador: "gradiente_proximal" | "genetico";
+            /** Rejilla Mu */
+            rejilla_mu?: number[];
+            /**
+             * Exito Calibracion
+             * @default 0.95
+             */
+            exito_calibracion: number;
+            /**
+             * Arranques Aleatorios
+             * @default 4
+             */
+            arranques_aleatorios: number;
+            /**
+             * Iteraciones Maximas
+             * @default 300
+             */
+            iteraciones_maximas: number;
+            /**
+             * Tolerancia
+             * @default 1e-8
+             */
+            tolerancia: number;
+            /**
+             * Tau Suavizado
+             * @default 0.25
+             */
+            tau_suavizado: number;
+            /**
+             * Poblacion
+             * @default 40
+             */
+            poblacion: number;
+            /**
+             * Generaciones
+             * @default 60
+             */
+            generaciones: number;
+            /**
+             * Alfa Blx
+             * @default 0.5
+             */
+            alfa_blx: number;
+            /**
+             * Probabilidad Mutacion
+             * @default 0.2
+             */
+            probabilidad_mutacion: number;
+            /**
+             * Elite
+             * @default 2
+             */
+            elite: number;
         };
         /** ConfiguracionSeparacion */
         ConfiguracionSeparacion: {
@@ -1400,6 +1818,45 @@ export interface components {
             /** Prevalencia Train */
             prevalencia_train: number | null;
         };
+        /** EvaluacionPrescriptor */
+        EvaluacionPrescriptor: {
+            /** Casos */
+            casos: number;
+            /** Tasa Exito */
+            tasa_exito: number;
+            /** No Alcanzables */
+            no_alcanzables: number;
+            /** Cambio Medio */
+            cambio_medio: {
+                [key: string]: {
+                    [key: string]: number | null;
+                };
+            };
+            /** Porcentaje Acciones En Cero */
+            porcentaje_acciones_en_cero: number;
+            /** Porcentaje Requiere Revision */
+            porcentaje_requiere_revision: number;
+            /** Porcentaje Extrapolacion */
+            porcentaje_extrapolacion: number;
+            /** Sensibilidad Cambio Maximo */
+            sensibilidad_cambio_maximo: {
+                [key: string]: number;
+            }[];
+            /** Sensibilidad Mu */
+            sensibilidad_mu: {
+                [key: string]: number;
+            }[];
+            /** Comparacion Optimizadores */
+            comparacion_optimizadores: components["schemas"]["ComparacionOptimizadores"][];
+            /** Mcnemar */
+            mcnemar: {
+                [key: string]: unknown;
+            };
+            /** Mu */
+            mu: number;
+            /** Texto */
+            texto: string;
+        };
         /** Hallazgo */
         Hallazgo: {
             /** Tipo */
@@ -1469,6 +1926,11 @@ export interface components {
             /** Faltantes Train */
             faltantes_train: number;
         };
+        /** InformeEvaluacion */
+        InformeEvaluacion: {
+            meta: components["schemas"]["MetaEvaluacion"];
+            evaluacion: components["schemas"]["EvaluacionPrescriptor"];
+        };
         /** IntervencionEntrada */
         IntervencionEntrada: {
             /**
@@ -1519,6 +1981,53 @@ export interface components {
             frecuencia_dirigida: number[][];
             /** Frecuencia Sin Orientar */
             frecuencia_sin_orientar: number[][];
+        };
+        /** MetaEvaluacion */
+        MetaEvaluacion: {
+            /** Numero */
+            numero: number;
+            /** Casos */
+            casos: number;
+            /** Mu */
+            mu: number;
+            /** Optimizador */
+            optimizador: string;
+            /** Tasa Exito */
+            tasa_exito: number;
+            /** Huella Modelo */
+            huella_modelo: string;
+            /** Creado En */
+            creado_en: string;
+        };
+        /** MetaLote */
+        MetaLote: {
+            /** Numero */
+            numero: number;
+            /**
+             * Origen
+             * @enum {string}
+             */
+            origen: "test" | "csv";
+            /** Ruta Csv */
+            ruta_csv: string | null;
+            /** Casos */
+            casos: number;
+            /** Mu */
+            mu: number;
+            /** Optimizador */
+            optimizador: string;
+            /** Filas Con Problemas */
+            filas_con_problemas: components["schemas"]["ProblemaFila"][];
+            /** Columnas Ignoradas */
+            columnas_ignoradas: string[];
+            /** Huella Modelo */
+            huella_modelo: string;
+            /** Creado En */
+            creado_en: string;
+            /** Resumen */
+            resumen: {
+                [key: string]: number;
+            };
         };
         /** MetadatosColumna */
         MetadatosColumna: {
@@ -1575,6 +2084,19 @@ export interface components {
             /** Advertencia */
             advertencia: string | null;
         };
+        /** ObjetivoDeseado */
+        ObjetivoDeseado: {
+            /**
+             * Direccion
+             * @enum {string}
+             */
+            direccion: "subir" | "bajar";
+            /**
+             * Valor
+             * @description Probabilidad de la clase 1 (objetivo binario) o valor en unidades originales.
+             */
+            valor: number;
+        };
         /** OrientacionManual */
         OrientacionManual: {
             /** Origen */
@@ -1586,6 +2108,18 @@ export interface components {
              * @default
              */
             justificacion: string;
+        };
+        /** PaginaLote */
+        PaginaLote: {
+            meta: components["schemas"]["MetaLote"];
+            /** Total */
+            total: number;
+            /** Pagina */
+            pagina: number;
+            /** Por Pagina */
+            por_pagina: number;
+            /** Filas */
+            filas: components["schemas"]["ResultadoPrescripcion"][];
         };
         /** ParVariables */
         ParVariables: {
@@ -1653,7 +2187,7 @@ export interface components {
              * Destino
              * @description Pantalla donde se resuelve (la interfaz lleva a ella).
              */
-            destino: ("resultados" | "decisiones" | "preparacion" | "analisis" | "modelo_causal") | null;
+            destino: ("resultados" | "decisiones" | "preparacion" | "analisis" | "modelo_causal" | "prescripcion") | null;
             /** Variables */
             variables: string[];
         };
@@ -1661,6 +2195,13 @@ export interface components {
         ProblemaConfiguracion: {
             /** Campo */
             campo: string;
+            /** Mensaje */
+            mensaje: string;
+        };
+        /** ProblemaFila */
+        ProblemaFila: {
+            /** Fila */
+            fila: number;
             /** Mensaje */
             mensaje: string;
         };
@@ -1807,6 +2348,17 @@ export interface components {
             /** Filas */
             filas: number;
         };
+        /** PuntoRejilla */
+        PuntoRejilla: {
+            /** Mu */
+            mu: number;
+            /** Tasa Exito */
+            tasa_exito: number | null;
+            /** Exitos */
+            exitos: number;
+            /** Evaluados */
+            evaluados: number;
+        };
         /** RecetaOrigen */
         RecetaOrigen: {
             /** Archivo */
@@ -1874,6 +2426,18 @@ export interface components {
         RespuestaError: {
             error: components["schemas"]["CuerpoError"];
         };
+        /** RestriccionActiva */
+        RestriccionActiva: {
+            /** Variable */
+            variable: string;
+            /**
+             * Restriccion
+             * @enum {string}
+             */
+            restriccion: "limite" | "cambio_maximo" | "direccion" | "estados_permitidos";
+            /** Mensaje */
+            mensaje: string;
+        };
         /** ResultadoContrafactual */
         ResultadoContrafactual: {
             /** Objetivo */
@@ -1920,6 +2484,13 @@ export interface components {
             archivos: string[];
             /** Version */
             version: number;
+        };
+        /** ResultadoExportarPrescripcion */
+        ResultadoExportarPrescripcion: {
+            /** Carpeta */
+            carpeta: string;
+            /** Archivos */
+            archivos: string[];
         };
         /** ResultadoLigado */
         ResultadoLigado: {
@@ -1973,6 +2544,77 @@ export interface components {
              * @description Columnas del grafo: una por nivel, con su título y las variables ordenadas para reducir cruces.
              */
             disposicion: components["schemas"]["ColumnaDisposicion"][];
+            /**
+             * Origen Candidatas
+             * @description De qué lista de modificables salen las candidatas prescriptivas.
+             * @enum {string}
+             */
+            origen_candidatas: "configuracion_pc" | "prescripcion";
+            /** Nota Candidatas */
+            nota_candidatas: string;
+        };
+        /** ResultadoPrescripcion */
+        ResultadoPrescripcion: {
+            /** Caso */
+            caso: {
+                [key: string]: unknown;
+            };
+            /** Objetivo */
+            objetivo: string;
+            /**
+             * Medida
+             * @enum {string}
+             */
+            medida: "probabilidad" | "valor";
+            /**
+             * Direccion
+             * @enum {string}
+             */
+            direccion: "subir" | "bajar";
+            /** Deseado */
+            deseado: number;
+            /** Antes */
+            antes: number;
+            /** Despues */
+            despues: number;
+            /** Alcanzado */
+            alcanzado: boolean;
+            /** Ya Cumple */
+            ya_cumple: boolean;
+            /** Falta */
+            falta: number;
+            /** Acciones */
+            acciones: components["schemas"]["AccionPrescrita"][];
+            /** Sin Cambio */
+            sin_cambio: string[];
+            /** Restricciones Activas */
+            restricciones_activas: components["schemas"]["RestriccionActiva"][];
+            /** Extrapolacion */
+            extrapolacion: boolean;
+            /** Aproximado */
+            aproximado: boolean;
+            /** Requiere Revision */
+            requiere_revision: boolean;
+            /** Referencia */
+            referencia: {
+                [key: string]: unknown;
+            };
+            /** Explicacion */
+            explicacion: string;
+            /** Costo Total */
+            costo_total: number;
+            /** Optimizador */
+            optimizador: string;
+            /** Mu */
+            mu: number;
+            /** Segundos */
+            segundos: number;
+            /** Traza */
+            traza: components["schemas"]["PasoTraza"][];
+            /** Valores */
+            valores: components["schemas"]["ValorContrafactual"][];
+            /** Avisos */
+            avisos: components["schemas"]["AvisoContrafactual"][];
         };
         /** ResultadoValidacion */
         ResultadoValidacion: {
@@ -2085,7 +2727,7 @@ export interface components {
              * Tipo
              * @enum {string}
              */
-            tipo: "recomendacion" | "pc" | "modelo_causal";
+            tipo: "recomendacion" | "pc" | "modelo_causal" | "calibracion_mu" | "lote_prescripcion" | "evaluacion_prescripcion";
             /**
              * Estado
              * @enum {string}
@@ -2137,6 +2779,10 @@ export interface components {
             /** Grupo Procesos Creado */
             grupo_procesos_creado: boolean;
         };
+        /** SolicitudCasoPrescripcion */
+        SolicitudCasoPrescripcion: {
+            caso: components["schemas"]["CasoEntrada"];
+        };
         /** SolicitudContrafactual */
         SolicitudContrafactual: {
             caso: components["schemas"]["CasoEntrada"];
@@ -2165,6 +2811,34 @@ export interface components {
              * @description Versión que se exporta (por defecto, la actual).
              */
             version?: number | null;
+        };
+        /** SolicitudExportarPrescripcion */
+        SolicitudExportarPrescripcion: {
+            /** Carpeta Destino */
+            carpeta_destino: string;
+            /**
+             * Lote
+             * @description Lote cuyas prescripciones se exportan en CSV.
+             */
+            lote?: number | null;
+            /**
+             * Evaluacion
+             * @description Evaluación que se incluye en el informe.
+             */
+            evaluacion?: number | null;
+        };
+        /** SolicitudLote */
+        SolicitudLote: {
+            /**
+             * Origen
+             * @enum {string}
+             */
+            origen: "test" | "csv";
+            /**
+             * Ruta Csv
+             * @description CSV o XLSX con las columnas ORIGINALES del dataset (origen «csv»).
+             */
+            ruta_csv?: string | null;
         };
         /** SolicitudModeloCausal */
         SolicitudModeloCausal: {
@@ -2299,6 +2973,26 @@ export interface components {
             /** Fuera */
             fuera: string[];
         };
+        /** Supuestos */
+        Supuestos: {
+            /**
+             * Modificable Por Decision
+             * @default false
+             */
+            modificable_por_decision: boolean;
+            /**
+             * Medida Antes Del Resultado
+             * @default false
+             */
+            medida_antes_del_resultado: boolean;
+            /**
+             * No Define El Objetivo
+             * @default false
+             */
+            no_define_el_objetivo: boolean;
+            /** Confirmado En */
+            confirmado_en?: string | null;
+        };
         /** Trabajo */
         Trabajo: {
             /** Id */
@@ -2309,7 +3003,7 @@ export interface components {
              * Tipo
              * @enum {string}
              */
-            tipo: "recomendacion" | "pc" | "modelo_causal";
+            tipo: "recomendacion" | "pc" | "modelo_causal" | "calibracion_mu" | "lote_prescripcion" | "evaluacion_prescripcion";
             /**
              * Estado
              * @enum {string}
@@ -2363,6 +3057,16 @@ export interface components {
             errores: components["schemas"]["ProblemaConfiguracion"][];
             /** Advertencias */
             advertencias: components["schemas"]["ProblemaConfiguracion"][];
+        };
+        /** ValidacionPrescripcion */
+        ValidacionPrescripcion: {
+            /** Valida */
+            valida: boolean;
+            /** Errores */
+            errores: components["schemas"]["ProblemaConfiguracion"][];
+            /** Condiciones */
+            condiciones: components["schemas"]["ProblemaAplicabilidad"][];
+            configuracion: components["schemas"]["ConfiguracionPrescripcion"];
         };
         /** ValorContrafactual */
         ValorContrafactual: {
@@ -2425,6 +3129,48 @@ export interface components {
             umbral_original: number;
             /** Versiones */
             versiones: components["schemas"]["VersionResultado"][];
+        };
+        /** VistaConfiguracionPrescripcion */
+        VistaConfiguracionPrescripcion: {
+            configuracion: components["schemas"]["ConfiguracionPrescripcion"];
+            /**
+             * Guardada
+             * @description False si es la configuración sugerida (aún no guardada).
+             */
+            guardada: boolean;
+            /** Prescriptivas */
+            prescriptivas: string[];
+            /** Sin Camino */
+            sin_camino: string[];
+            /** Desconocidas */
+            desconocidas: string[];
+            /** Controles */
+            controles: components["schemas"]["ControlVariable"][];
+            /**
+             * Variables Grafo
+             * @description Variables del grafo que se pueden marcar como modificables.
+             */
+            variables_grafo: string[];
+            /**
+             * Modificables Pc
+             * @description Modificables de la configuración de PC (punto de partida).
+             */
+            modificables_pc: string[];
+            /**
+             * Medida
+             * @enum {string}
+             */
+            medida: "probabilidad" | "valor";
+            /** Umbral Decision */
+            umbral_decision: number | null;
+            calibracion: components["schemas"]["CalibracionMu"] | null;
+            /**
+             * Mu Efectivo
+             * @description μ que se usará (manual o calibrado); null si falta calibrar.
+             */
+            mu_efectivo: number | null;
+            /** Aviso */
+            aviso: string;
         };
     };
     responses: never;
@@ -4236,6 +4982,673 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResultadoContrafactual"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    condiciones_proyectos__proyecto_id__prescripcion_condiciones_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ConfiguracionPrescripcion"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CondicionesPrescripcion"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    configuracion_proyectos__proyecto_id__prescripcion_configuracion_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VistaConfiguracionPrescripcion"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    guardar_proyectos__proyecto_id__prescripcion_configuracion_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfiguracionPrescripcion"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VistaConfiguracionPrescripcion"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    validar_proyectos__proyecto_id__prescripcion_configuracion_validar_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfiguracionPrescripcion"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValidacionPrescripcion"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    calibrar_proyectos__proyecto_id__prescripcion_calibrar_mu_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trabajo"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    caso_proyectos__proyecto_id__prescripcion_caso_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SolicitudCasoPrescripcion"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultadoPrescripcion"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    lote_proyectos__proyecto_id__prescripcion_lote_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SolicitudLote"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trabajo"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    lotes_proyectos__proyecto_id__prescripcion_lotes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaLote"][];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    resultados_lote_proyectos__proyecto_id__prescripcion_lotes__numero__get: {
+        parameters: {
+            query?: {
+                pagina?: number;
+                /** @description alcanzado, no_alcanzable, requiere_revision o ya_cumple. */
+                filtro?: string | null;
+            };
+            header?: never;
+            path: {
+                proyecto_id: string;
+                numero: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginaLote"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    evaluacion_proyectos__proyecto_id__prescripcion_evaluacion_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trabajo"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    evaluaciones_proyectos__proyecto_id__prescripcion_evaluaciones_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaEvaluacion"][];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    informe_evaluacion_proyectos__proyecto_id__prescripcion_evaluaciones__numero__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+                numero: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformeEvaluacion"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    exportar_proyectos__proyecto_id__prescripcion_exportar_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SolicitudExportarPrescripcion"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultadoExportarPrescripcion"];
                 };
             };
             /** @description No encontrado. */

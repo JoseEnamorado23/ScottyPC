@@ -13,17 +13,17 @@ from datetime import datetime, timezone
 from importlib import resources
 from pathlib import Path
 
-VERSION_ESQUEMA = 2
+VERSION_ESQUEMA = 3
 
-# Migraciones: versión de origen → script que la lleva a la siguiente.
-_MIGRACIONES = {
-    # 1 → 2: nuevo tipo de trabajo «modelo_causal» (SQLite no permite cambiar un CHECK: se
-    # recrea la tabla conservando las filas).
-    1: """
+
+def _recrear_trabajos(tipos: tuple[str, ...]) -> str:
+    """SQLite no permite cambiar un CHECK: se recrea la tabla ``trabajos`` conservando las filas."""
+    lista = ", ".join(f"'{t}'" for t in tipos)
+    return f"""
         CREATE TABLE trabajos_nueva (
             id TEXT PRIMARY KEY,
             proyecto_id TEXT NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
-            tipo TEXT NOT NULL CHECK (tipo IN ('recomendacion', 'pc', 'modelo_causal')),
+            tipo TEXT NOT NULL CHECK (tipo IN ({lista})),
             estado TEXT NOT NULL CHECK (
                 estado IN ('pendiente', 'en_curso', 'completado', 'cancelado', 'fallido', 'interrumpido')
             ),
@@ -32,7 +32,7 @@ _MIGRACIONES = {
             fallidas INTEGER NOT NULL DEFAULT 0,
             segundos REAL NOT NULL DEFAULT 0,
             mensaje TEXT,
-            parametros TEXT NOT NULL DEFAULT '{}',
+            parametros TEXT NOT NULL DEFAULT '{{}}',
             inicio TEXT,
             fin TEXT,
             error TEXT,
@@ -47,7 +47,17 @@ _MIGRACIONES = {
         CREATE UNIQUE INDEX un_trabajo_activo ON trabajos(proyecto_id)
             WHERE estado IN ('pendiente', 'en_curso');
         CREATE INDEX trabajos_por_proyecto ON trabajos(proyecto_id, inicio);
-    """,
+    """
+
+
+# Migraciones: versión de origen → script que la lleva a la siguiente.
+_MIGRACIONES = {
+    # 1 → 2: nuevo tipo de trabajo «modelo_causal».
+    1: _recrear_trabajos(("recomendacion", "pc", "modelo_causal")),
+    # 2 → 3: trabajos de la prescripción.
+    2: _recrear_trabajos((
+        "recomendacion", "pc", "modelo_causal", "calibracion_mu", "lote_prescripcion", "evaluacion_prescripcion",
+    )),
 }
 
 

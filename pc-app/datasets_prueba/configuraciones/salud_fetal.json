@@ -263,5 +263,18 @@
         "justificacion": "El porcentaje de tiempo con variabilidad anormal se deriva del nivel de variabilidad a corto plazo."
       }
     ]
+  },
+  "prescripcion": {
+    "modificables": [
+      "uterine_contractions"
+    ],
+    "objetivo": {
+      "direccion": "bajar"
+    },
+    "acciones": {
+      "uterine_contractions": {
+        "direccion": "bajar"
+      }
+    }
   }
 }

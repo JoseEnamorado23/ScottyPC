@@ -33,7 +33,7 @@ pc-app/
 
 | Componente     | Tecnología prevista                     | Estado                    |
 |----------------|-----------------------------------------|---------------------------|
-| Núcleo         | Paquete Python independiente (`pcapp_nucleo`) | Revisión, preparación, PC con bootstrap, caracterización y modelo causal |
+| Núcleo         | Paquete Python independiente (`pcapp_nucleo`) | Revisión, preparación, PC con bootstrap, caracterización, modelo causal y prescripción |
 | Sidecar        | FastAPI local en Python                 | Funcional                 |
 | Frontend       | Tauri v2 + React + Vite + TypeScript    | Funcional (ver app/README.md) |
 | Almacenamiento | SQLite + archivos locales               | Funcional (en el sidecar) |
@@ -62,6 +62,7 @@ El núcleo no depende de ningún componente de presentación.
 | `exportacion.py` | `resultado.json`, `aristas.csv`, `mascara.csv`, `matriz_frecuencias.csv` y `grafo.png`. |
 | `reagregacion.py` | Reagregar el resultado con otro umbral u otras orientaciones manuales sin volver a ejecutar PC; migración de resultados antiguos; advertencias de interpretación. |
 | `informe.py` | Informe HTML autocontenido (se abre sin conexión) y resúmenes de decisiones y separación. |
+| `prescripcion/` | Optimizador de prescripciones: `configuracion.py` (configuración y variables prescriptivas), `condiciones.py`, `problema.py` (restricciones, función objetivo y evaluador vectorizado), `optimizadores.py` (gradiente proximal y genético, pulido, cierre y recorte), `prescriptor.py` (resultado por caso y explicación), `calibracion.py` (μ con train), `lotes.py` (lotes y evaluación), `referencia.py` e `informe.py` (CSV y HTML). |
 | `causal/` | Modelo causal estructural sobre el resultado de PC: `aplicabilidad.py` (bloqueantes y advertencias), `subgrafo.py` (objetivo y ancestros), `mecanismos.py` (candidatos, validación cruzada, parsimonia, GAM de pyGAM y su serialización), `modelo.py` (construcción, evaluación, modelo de referencia, curvas, guardar y cargar), `contrafactuales.py` (abducción–acción–predicción) y `unidades.py` (unidades originales ↔ preparadas con la receta). |
 | `cli.py`, `cli_preparacion.py`, `cli_pc.py`, `cli_comun.py` | Interfaz de línea de comandos (`python -m pcapp_nucleo`). |
 | `modelos.py`, `configuracion.py`, `utilidades.py` | Dataclasses de resultados, umbrales centralizados y serialización a JSON. |
@@ -77,6 +78,7 @@ archivo → carga → validación ─┬─ errores bloqueantes → se informan 
                                   → configuración de PC (niveles, modificables)
                                   → PC con bootstrap → grafo agregado → caracterización
                                   → modelo causal (objetivo y ancestros) → escenarios «¿qué pasa si…?»
+                                  → prescripción (intervención mínima que alcanza el objetivo)
 ```
 
 ## Contrato del núcleo
@@ -340,6 +342,77 @@ inseguro al abrirlo y frágil entre versiones. Al cargar se reconstruye el objet
 esos parámetros (pyGAM está fijado en 0.12.0) y las predicciones son idénticas bit a bit; la
 huella lo comprueba. El modelo queda ligado a la versión del resultado de PC: si cambia esa
 versión o una etapa anterior, queda desactualizado.
+
+## Prescripción
+
+Se construye sobre el motor de contrafactuales del modelo causal y funciona con cualquier
+dataset que tenga un modelo causal vigente y al menos una **variable prescriptiva**: ancestro
+del objetivo y modificable. La lista de modificables es propia de la prescripción (empieza con
+la de la configuración de PC) y cambiarla solo desactualiza la prescripción; Resultados indica
+con qué lista calcula sus candidatas prescriptivas.
+
+**Condiciones** (`evaluar_prescribibilidad`, mismo formato que la aplicabilidad). Bloqueantes:
+modelo causal no vigente; ninguna variable prescriptiva («Con estos datos no hay variables
+prescriptivas», con el motivo); declaración de supuestos sin confirmar. Advertencias:
+modificables sin camino al objetivo (se ignoran), costo de la parsimonia del modelo causal e
+intermedias binarias (Monte Carlo).
+
+**Configuración** (`prescripcion.json`, serializable): objetivo deseado (dirección y
+probabilidad o valor; por defecto el umbral de decisión ± 0,1), y por variable: permitida,
+dirección (subir, bajar o ambas), límites absolutos y cambio máximo en unidades originales (por
+defecto el rango de train y el 25 % de ese rango), costo por unidad de la escala normalizada y,
+para binarias, ordinales y categorías one-hot (como grupo), los estados permitidos. μ automático
+o manual, optimizador y la **declaración de supuestos** por variable (se puede modificar con
+una decisión real, se mide antes del resultado, no forma parte de la definición del objetivo),
+que el usuario confirma y queda guardada con fecha.
+
+**Función objetivo** (escala normalizada: d = cambio / rango de train):
+`max(0, brecha)² + μ · (Σ costo_i · |d_i| + Σ costo_j · [cambia el estado j])`, con brecha =
+deseado − p (subir) o p − deseado (bajar), y p de la propagación completa por el grafo con los
+residuos del caso. Un evaluador vectorizado propaga muchas combinaciones de acciones en una
+sola llamada; solo recalcula las variables que descienden de alguna acción.
+
+**Optimizadores** (misma interfaz y mismo resultado; deterministas con la semilla derivada de la
+del modelo y del caso):
+- *Gradiente proximal* (por defecto): diferencias finitas, paso proximal (soft-threshold
+  lr·μ·costo, que deja exactamente en cero los cambios innecesarios), proyección a la caja de
+  límites, cambio máximo y dirección, y búsqueda lineal. Las acciones discretas se enumeran si
+  hay 16 combinaciones o menos (optimizando las continuas en cada una) o se recorren por
+  coordenadas. Multiarranque: el valor actual y 4 puntos al azar.
+- *Genético*: torneo, cruce BLX-α (continuas) y uniforme (discretas), mutación, elitismo y
+  reparación recortando a la caja.
+- *Intermedias binarias*: para que el gradiente no sea cero, el optimizador usa σ((η + U)/τ) en
+  vez de 1[η + U > 0]; el resultado y el éxito se deciden **siempre con el motor exacto**.
+- *Post-proceso común*: pulido (quita las acciones cuya retirada no empeora la pérdida), cierre
+  (con la penalización el óptimo queda un poco antes del objetivo; si con las mismas acciones se
+  puede alcanzar dentro de las restricciones, se escala hasta el mínimo que lo alcanza) y recorte
+  (quita las acciones sin las que, volviendo a cerrar, se sigue alcanzando con un costo
+  prácticamente igual). Fijar una intermedia con un cambio despreciable equivale a **mantenerla
+  constante** (corta el efecto que le llega de otras acciones) y se presenta así.
+
+**Calibración de μ** (solo train, trabajo): sobre los casos de train que no cumplen el objetivo,
+el μ más grande de la rejilla (0,001 a 0,1) con el que al menos el 95 % de los casos
+**alcanzables** (los que llegan al objetivo con μ = 0, dentro de las restricciones) lo alcanza;
+si ninguno, el más pequeño y una advertencia. Cada caso resuelve μ = 0 y después la rejilla de
+menor a mayor, arrancando desde la solución anterior (un solo arranque); la prescripción final
+usa multiarranque, y el informe lo dice. Los casos se reparten entre procesos; el resultado es
+idéntico en paralelo y en secuencial. Se guarda la rejilla con sus tasas.
+
+**Resultado por caso**: acciones (antes, después y cambio en unidades originales) ordenadas por
+contribución (cuánto baja el logro si se quita solo esa acción), acciones sin cambio,
+probabilidad o valor antes y después, si se alcanza, traza de propagación y marcas
+(extrapolación, Monte Carlo y `requiere_revision` si el modelo de referencia, evaluado sobre el
+perfil propagado, discrepa). Si no se puede alcanzar: la mejor solución posible (sin penalizar
+el costo), cuánto falta y las restricciones activas (las que, relajadas, acercarían al objetivo).
+Un caso que ya cumple no recibe acciones. La explicación se genera con plantillas.
+
+**Modos**: caso individual (fila de test o valores propios); lote (casos de test que no cumplen
+el objetivo, o un CSV con las columnas ORIGINALES, al que `preparacion.preparar_nuevos` aplica la
+receta sin aprender nada e informando las filas que no se pueden preparar); evaluación sobre test
+(éxito, no alcanzables, cambio medio por acción, % de acciones en cero, % con revisión,
+sensibilidad al cambio máximo y a μ, comparación de optimizadores con McNemar exacta y un texto
+que aclara que es una evaluación interna). Lotes y evaluaciones se guardan numerados.
+Exportación: CSV de prescripciones e informe HTML autocontenido.
 
 ## Uso desde la terminal
 

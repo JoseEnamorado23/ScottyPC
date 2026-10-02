@@ -14,6 +14,7 @@ import {
   aIntervenciones, cambio, fueraDeRango, modosDe, numero, porcentaje, textoValor,
   type Intervencion, type Intervenciones, type ModoIntervencion,
 } from "../../estado/modeloCausal";
+import type { VarianteEscenario } from "../../estado/prescripcion";
 import { MensajeError } from "../MensajeError";
 import { GrafoPropagacion } from "./GrafoPropagacion";
 
@@ -103,21 +104,31 @@ function FilaControl({ control, valorCaso, intervencion, extrapolado, alCambiar 
 interface Props {
   proyectoId: string;
   vista: Vista;
+  /** Escenario precargado (p. ej. una prescripción que se quiere ajustar a mano). */
+  inicial?: VarianteEscenario | null;
 }
 
-export function ExploradorEscenarios({ proyectoId, vista }: Props) {
+export function ExploradorEscenarios({ proyectoId, vista, inicial = null }: Props) {
   const { modelo, controles } = vista;
   const [fuente, setFuente] = useState<"test" | "propio">("test");
   const [pagina, setPagina] = useState(1);
   const casos = useCasosModelo(proyectoId, pagina, true);
-  const [fila, setFila] = useState<CasoTest | null>(null);
+  const [fila, setFila] = useState<CasoTest | null>(
+    inicial?.indice_test != null ? { indice: inicial.indice_test, valores: {}, objetivo: null } : null,
+  );
   const [propios, setPropios] = useState<Record<string, unknown>>({});
-  const [intervenciones, setIntervenciones] = useState<Intervenciones>({});
+  const [intervenciones, setIntervenciones] = useState<Intervenciones>(inicial?.intervenciones ?? {});
   const [diferidas] = useDebouncedValue(intervenciones, RETARDO_ESCENARIO_MS);
 
   // Primer caso por defecto: la primera fila de test.
   useEffect(() => {
-    if (!fila && casos.data?.filas.length) setFila(casos.data.filas[0]);
+    if (!casos.data?.filas.length) return;
+    if (!fila) setFila(casos.data.filas[0]);
+    // Un caso precargado solo trae el índice: si está en la página, se completan sus valores.
+    else if (!Object.keys(fila.valores).length) {
+      const completa = casos.data.filas.find((c) => c.indice === fila.indice);
+      if (completa) setFila(completa);
+    }
   }, [casos.data, fila]);
 
   const valoresCaso: Record<string, unknown> = fuente === "test" ? (fila?.valores ?? {}) : propios;

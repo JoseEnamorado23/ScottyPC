@@ -83,6 +83,7 @@ from pcapp_servidor.configuracion import ConfiguracionServidor
 from pcapp_servidor.errores import conflicto, invalido, no_encontrado
 from pcapp_servidor.etapas import REQUISITOS, GestorEtapas
 from pcapp_servidor.flujo_causal import ServiciosModeloCausal
+from pcapp_servidor.flujo_prescripcion import ServiciosPrescripcion
 from pcapp_servidor.procesos import GrupoProcesos
 from pcapp_servidor.trabajos import REANUDABLES, Contexto, FuncionTrabajo, GestorTrabajos
 from pcapp_servidor.validacion_campos import validar_decisiones, validar_separacion_campos
@@ -104,7 +105,12 @@ ARCHIVOS_RESULTADO = {
 
 MAXIMO_CATEGORIAS = 20
 # Etapa que produce cada tipo de trabajo.
-_ETAPA_DEL_TRABAJO = {"pc": "analisis", "recomendacion": "recomendacion", "modelo_causal": "modelo_causal"}
+_ETAPA_DEL_TRABAJO = {
+    "pc": "analisis", "recomendacion": "recomendacion", "modelo_causal": "modelo_causal",
+    "calibracion_mu": "prescripcion", "lote_prescripcion": "prescripcion", "evaluacion_prescripcion": "prescripcion",
+}
+# Categorías de la caracterización que cuentan como candidatas prescriptivas.
+_CATEGORIAS_CANDIDATAS = ("causa_directa", "causa_indirecta")
 
 
 def _campo_de_separacion(mensaje: str) -> str | None:
@@ -147,7 +153,7 @@ def describir_distribucion(serie: pd.Series, columna: str) -> dict[str, Any]:
     return resultado
 
 
-class Servicios(ServiciosModeloCausal):
+class Servicios(ServiciosModeloCausal, ServiciosPrescripcion):
     def __init__(self, configuracion: ConfiguracionServidor, base: BaseDatos) -> None:
         self.archivos = Archivos(configuracion.datos)
         self.proyectos = RepositorioProyectos(base)
@@ -650,6 +656,14 @@ class Servicios(ServiciosModeloCausal):
             # No hay punto de control: «reanudar» vuelve a construir con la misma configuración.
             self.etapas.exigir(trabajo.proyecto_id, "modelo_causal")
             funcion = self._funcion_modelo_causal(trabajo.proyecto_id, trabajo.parametros.get("configuracion") or {})
+        elif trabajo.tipo == "calibracion_mu":
+            funcion = self._funcion_calibracion(trabajo.proyecto_id)
+        elif trabajo.tipo == "lote_prescripcion":
+            funcion = self._funcion_lote(
+                trabajo.proyecto_id, trabajo.parametros.get("origen", "test"), trabajo.parametros.get("ruta_csv")
+            )
+        elif trabajo.tipo == "evaluacion_prescripcion":
+            funcion = self._funcion_evaluacion(trabajo.proyecto_id)
         else:
             self.etapas.exigir(trabajo.proyecto_id, "recomendacion")
             funcion = self._funcion_recomendacion(trabajo.proyecto_id, trabajo.parametros.get("estimar_tiempo", True))
@@ -738,6 +752,35 @@ class Servicios(ServiciosModeloCausal):
             ),
             avisos=a_diccionario_serializable(self._avisos(proyecto, contenido)),
             disposicion=[{"titulo": titulo, "variables": variables} for titulo, variables in columnas],
+        )
+        return self._con_candidatas(proyecto, vista)
+
+    def _con_candidatas(self, proyecto: Proyecto, vista: dict[str, Any]) -> dict[str, Any]:
+        """Si hay una configuración de prescripción, las candidatas prescriptivas se calculan con su
+        lista de modificables (y se indica); si no, con las de la configuración de PC."""
+        modificables = self.modificables_prescripcion(proyecto)
+        if modificables is None:
+            vista.update(
+                origen_candidatas="configuracion_pc",
+                nota_candidatas="Candidatas calculadas con las variables modificables de la configuración de PC.",
+            )
+            return vista
+        marcadas = set(modificables)
+        caracterizacion = dict(vista["caracterizacion"])
+        variables = [{**v, "modificable": v["variable"] in marcadas} for v in caracterizacion["variables"]]
+        caracterizacion.update(
+            variables=variables,
+            candidatas_prescriptivas=[
+                v["variable"] for v in variables if v["modificable"] and v["categoria"] in _CATEGORIAS_CANDIDATAS
+            ],
+        )
+        vista.update(
+            caracterizacion=caracterizacion,
+            origen_candidatas="prescripcion",
+            nota_candidatas=(
+                "Candidatas calculadas con la lista de modificables de la configuración de la prescripción "
+                "(que puede diferir de la de la configuración de PC)."
+            ),
         )
         return vista
 

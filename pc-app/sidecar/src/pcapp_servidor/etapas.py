@@ -15,6 +15,7 @@ from pcapp_servidor.errores import conflicto
 
 ETAPAS = (
     "revision", "decisiones", "preparacion", "recomendacion", "configuracion_pc", "analisis", "modelo_causal",
+    "prescripcion",
 )
 
 REQUISITOS: dict[str, str | None] = {
@@ -25,6 +26,7 @@ REQUISITOS: dict[str, str | None] = {
     "configuracion_pc": "preparacion",
     "analisis": "configuracion_pc",
     "modelo_causal": "analisis",
+    "prescripcion": "modelo_causal",
 }
 
 ARCHIVOS = {
@@ -35,6 +37,7 @@ ARCHIVOS = {
     "configuracion_pc": ["pc.json"],
     "analisis": ["pc"],
     "modelo_causal": ["modelo_causal"],
+    "prescripcion": ["prescripcion"],
 }
 
 _NOMBRES = {
@@ -45,6 +48,7 @@ _NOMBRES = {
     "configuracion_pc": "la configuración de PC",
     "analisis": "el análisis",
     "modelo_causal": "el modelo causal",
+    "prescripcion": "la configuración de la prescripción",
 }
 
 _COMO_HACERLA = {
@@ -55,6 +59,7 @@ _COMO_HACERLA = {
     "configuracion_pc": "PUT /proyectos/{id}/configuracion-pc",
     "analisis": "POST /proyectos/{id}/pc",
     "modelo_causal": "POST /proyectos/{id}/modelo-causal",
+    "prescripcion": "PUT /proyectos/{id}/prescripcion/configuracion",
 }
 
 

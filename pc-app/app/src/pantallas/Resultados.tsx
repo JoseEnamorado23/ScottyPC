@@ -14,7 +14,7 @@ import { ErrorApi } from "../api/cliente";
 import { claves, useProcedencia, useProyecto, useResultado, useVersiones, useVistaPrevia } from "../api/consultas";
 import { elegirCarpeta, guardarImagen } from "../api/motor";
 import { useAccionesResultado } from "../api/resultados";
-import { Etapas } from "../componentes/Etapas";
+
 import { MensajeError } from "../componentes/MensajeError";
 import { DialogoOrientacion, erroresDeOrientacion, type ErroresOrientacion } from "../componentes/resultados/DialogoOrientacion";
 import { GrafoCausal, type ControlGrafo } from "../componentes/resultados/GrafoCausal";
@@ -140,7 +140,7 @@ function PantallaResultados({ id }: { id: string }) {
 
   return (
     <Stack>
-      <Etapas proyecto={proyecto.data} actual="analisis" />
+
       <Group justify="space-between" align="flex-start">
         <div>
           <Title order={2}>Resultados</Title>

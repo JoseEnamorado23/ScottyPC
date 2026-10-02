@@ -143,5 +143,15 @@
         "justificacion": "El pliegue cutáneo refleja la grasa corporal que resume el IMC."
       }
     ]
+  },
+  "prescripcion": {
+    "modificables": [
+      "BMI",
+      "Glucose"
+    ],
+    "objetivo": {
+      "direccion": "bajar"
+    },
+    "acciones": {}
   }
 }

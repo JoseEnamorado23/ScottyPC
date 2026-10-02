@@ -79,6 +79,8 @@ export function resultado({ umbral = 0.6, orientaciones = [] as Orientacion[], v
           mensaje: "Estas aristas solo aparecen porque el umbral se bajó de 60 % a 45 %.",
           variables: [], pares: [{ variable_a: "Outcome", variable_b: "Insulin", frecuencia: 0.45, con_objetivo: true }],
         }],
+    origen_candidatas: "configuracion_pc",
+    nota_candidatas: "Candidatas calculadas con las variables modificables de la configuración de PC.",
     disposicion: [
       { titulo: "Demografía", variables: ["Age", "Insulin", "BloodPressure"] },
       { titulo: "Medidas", variables: ["BMI"] },

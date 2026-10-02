@@ -155,5 +155,20 @@
         "justificacion": "La fermentación que produce el alcohol determina cuánto azúcar queda sin fermentar."
       }
     ]
+  },
+  "prescripcion": {
+    "modificables": [
+      "alcohol",
+      "sulphates",
+      "volatile acidity",
+      "free sulfur dioxide",
+      "citric acid",
+      "fixed acidity",
+      "residual sugar"
+    ],
+    "objetivo": {
+      "direccion": "subir"
+    },
+    "acciones": {}
   }
 }

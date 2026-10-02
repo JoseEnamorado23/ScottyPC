@@ -17,7 +17,14 @@ interface ValorVigilancia {
 
 const Contexto = createContext<ValorVigilancia | null>(null);
 
-const NOMBRES = { pc: "El análisis", recomendacion: "La recomendación de prueba", modelo_causal: "El modelo causal" } as const;
+const NOMBRES = {
+  pc: "El análisis",
+  recomendacion: "La recomendación de prueba",
+  modelo_causal: "El modelo causal",
+  calibracion_mu: "La calibración de μ",
+  lote_prescripcion: "El lote de prescripciones",
+  evaluacion_prescripcion: "La evaluación del prescriptor",
+} as const;
 
 export function avisoDeFin(trabajo: Trabajo): { titulo: string; mensaje: string; color: string } {
   const nombre = NOMBRES[trabajo.tipo];

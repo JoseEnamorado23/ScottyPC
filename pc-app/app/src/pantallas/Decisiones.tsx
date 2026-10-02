@@ -1,7 +1,7 @@
 import { Alert, Badge, Button, Card, Center, Group, List, Loader, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { IconDeviceFloppy } from "@tabler/icons-react";
+import { IconDeviceFloppy, IconArrowRight } from "@tabler/icons-react";
 import { useNavigate, useParams } from "react-router";
 
 import { datos, ErrorApi, type Esquemas } from "../api/cliente";
@@ -9,9 +9,9 @@ import { claves, useDatosHoja, useProyecto } from "../api/consultas";
 import { useApi } from "../api/contexto";
 import { useConfirmarInvalidacion } from "../componentes/ConfirmarInvalidacion";
 import { EditorAgrupacion, EditorConversion, EditorOrden } from "../componentes/EditoresDecisiones";
-import { Etapas } from "../componentes/Etapas";
+
 import { MensajeError } from "../componentes/MensajeError";
-import { etapasQueSeDesactualizan } from "../estado/etapas";
+import { etapasQueSeDesactualizan, etapaDisponible } from "../estado/etapas";
 import { formatoValor, nombreAccion } from "../estado/textos";
 import { useElecciones } from "../estado/useElecciones";
 
@@ -64,7 +64,7 @@ export function PantallaDecisiones() {
   return (
     <Stack>
       {modal}
-      <Etapas proyecto={proyecto.data} actual="decisiones" />
+
       <Group justify="space-between">
         <Title order={2}>Decisiones</Title>
         <Group>

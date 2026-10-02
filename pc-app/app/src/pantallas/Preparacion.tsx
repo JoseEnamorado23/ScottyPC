@@ -27,7 +27,7 @@ import { datos, ErrorApi, type Esquemas } from "../api/cliente";
 import { claves, useEstadoPreparacion, useProyecto } from "../api/consultas";
 import { useApi } from "../api/contexto";
 import { useConfirmarInvalidacion } from "../componentes/ConfirmarInvalidacion";
-import { Etapas } from "../componentes/Etapas";
+
 import { MensajeError } from "../componentes/MensajeError";
 import { etapasQueSeDesactualizan } from "../estado/etapas";
 import { formatoValor } from "../estado/textos";
@@ -92,7 +92,7 @@ export function Preparacion() {
   return (
     <Stack>
       {modal}
-      <Etapas proyecto={proyecto.data} actual="preparacion" />
+
       <Group justify="space-between">
         <Title order={2}>Preparación</Title>
         <Group>

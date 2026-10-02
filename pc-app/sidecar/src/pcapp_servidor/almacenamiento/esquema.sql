@@ -1,4 +1,4 @@
--- Esquema de app.db (versión 2).
+-- Esquema de app.db (versión 3).
 
 CREATE TABLE proyectos (
     id TEXT PRIMARY KEY,
@@ -24,7 +24,9 @@ CREATE TABLE etapas (
 CREATE TABLE trabajos (
     id TEXT PRIMARY KEY,
     proyecto_id TEXT NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
-    tipo TEXT NOT NULL CHECK (tipo IN ('recomendacion', 'pc', 'modelo_causal')),
+    tipo TEXT NOT NULL CHECK (tipo IN (
+        'recomendacion', 'pc', 'modelo_causal', 'calibracion_mu', 'lote_prescripcion', 'evaluacion_prescripcion'
+    )),
     estado TEXT NOT NULL CHECK (
         estado IN ('pendiente', 'en_curso', 'completado', 'cancelado', 'fallido', 'interrumpido')
     ),

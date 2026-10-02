@@ -21,6 +21,10 @@ export const NOMBRES_METRICA: Record<string, string> = {
 export const numero = (valor: number | null | undefined, decimales = 3) =>
   valor === null || valor === undefined ? "—" : valor.toLocaleString("es", { maximumFractionDigits: decimales });
 
+/** Número con decimales fijos. */
+export const decimalFijo = (valor: number, decimales: number) =>
+  valor.toLocaleString("es", { minimumFractionDigits: decimales, maximumFractionDigits: decimales });
+
 /** Métrica con decimales fijos (para comparar columnas). */
 export const metrica = (valor: number | null | undefined) =>
   valor === null || valor === undefined

@@ -1,11 +1,12 @@
 import type { Esquemas } from "../api/cliente";
 
 export type ClaveEtapa =
-  | "revision" | "decisiones" | "preparacion" | "recomendacion" | "configuracion_pc" | "analisis" | "modelo_causal";
+  | "revision" | "decisiones" | "preparacion" | "recomendacion" | "configuracion_pc" | "analisis" | "modelo_causal"
+  | "prescripcion";
 export type EstadoEtapa = "vigente" | "desactualizada" | "pendiente";
 type Proyecto = Esquemas["Proyecto"];
 
-/** Las siete etapas en el orden del sidecar (`etapas.ETAPAS`), con su pantalla y su requisito. */
+/** Las ocho etapas en el orden del sidecar (`etapas.ETAPAS`), con su pantalla y su requisito. */
 export const ETAPAS: { clave: ClaveEtapa; nombre: string; ruta: string; requisito: ClaveEtapa | null }[] = [
   { clave: "revision", nombre: "Revisión", ruta: "revision", requisito: null },
   { clave: "decisiones", nombre: "Decisiones", ruta: "decisiones", requisito: "revision" },
@@ -14,6 +15,7 @@ export const ETAPAS: { clave: ClaveEtapa; nombre: string; ruta: string; requisit
   { clave: "configuracion_pc", nombre: "Configuración PC", ruta: "configuracion", requisito: "preparacion" },
   { clave: "analisis", nombre: "Análisis", ruta: "analisis", requisito: "configuracion_pc" },
   { clave: "modelo_causal", nombre: "Modelo causal", ruta: "modelo-causal", requisito: "analisis" },
+  { clave: "prescripcion", nombre: "Prescripción", ruta: "prescripcion", requisito: "modelo_causal" },
 ];
 
 export function estadoEtapa(proyecto: Proyecto, clave: ClaveEtapa): EstadoEtapa {
@@ -50,9 +52,13 @@ export function rutaDeProyecto(proyecto: Proyecto): string {
   const base = `/proyectos/${proyecto.id}`;
   const ultimo = proyecto.ultimo_trabajo;
   if (proyecto.trabajo_activo || ultimo?.reanudable) {
-    const rutas = { recomendacion: "recomendacion", pc: "analisis", modelo_causal: "modelo-causal" } as const;
+    const rutas = {
+      recomendacion: "recomendacion", pc: "analisis", modelo_causal: "modelo-causal",
+      calibracion_mu: "prescripcion", lote_prescripcion: "prescripcion", evaluacion_prescripcion: "prescripcion",
+    } as const;
     return `${base}/${rutas[ultimo?.tipo ?? "pc"]}`;
   }
+  if (estadoEtapa(proyecto, "prescripcion") === "vigente") return `${base}/prescripcion`;
   if (estadoEtapa(proyecto, "modelo_causal") === "vigente") return `${base}/modelo-causal`;
   if (estadoEtapa(proyecto, "analisis") === "vigente") return `${base}/resultados`;
   const ultimaHecha = [...ETAPAS].reverse().find((e) => estadoEtapa(proyecto, e.clave) !== "pendiente");

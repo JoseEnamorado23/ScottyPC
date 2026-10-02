@@ -3,7 +3,7 @@ import "@mantine/notifications/styles.css";
 import "@mantine/dates/styles.css";
 import "dayjs/locale/es";
 
-import { MantineProvider, createTheme } from "@mantine/core";
+import { Checkbox, MantineProvider, createTheme } from "@mantine/core";
 import { DatesProvider } from "@mantine/dates";
 import { Notifications } from "@mantine/notifications";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -32,11 +32,20 @@ const theme = createTheme({
   fontFamily: "'Fira Code', monospace",
   fontFamilyMonospace: "'Fira Code', monospace",
   headings: { fontFamily: "'Fira Code', monospace" },
+  components: {
+    Checkbox: Checkbox.extend({
+      defaultProps: {
+        color: "dark",
+        radius: "sm",
+        size: "sm",
+      },
+    }),
+  },
 });
 
 createRoot(document.getElementById("raiz")!).render(
   <StrictMode>
-    <MantineProvider theme={theme}>
+    <MantineProvider theme={theme} defaultColorScheme="auto">
       <DatesProvider settings={{ locale: "es", firstDayOfWeek: 1 }}>
         <Notifications />
         <QueryClientProvider client={consultas}>

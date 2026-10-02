@@ -5,7 +5,7 @@ import { useNavigate, useParams } from "react-router";
 
 import { esFinal, useProyecto, useTrabajo } from "../api/consultas";
 import { useAccionesTrabajo } from "../api/trabajos";
-import { Etapas } from "../componentes/Etapas";
+
 import { MensajeError } from "../componentes/MensajeError";
 import { ProgresoTrabajo } from "../componentes/ProgresoTrabajo";
 import { estadoEtapa, trabajoDelProyecto } from "../estado/etapas";
@@ -42,7 +42,7 @@ export function Analisis() {
 
   return (
     <Stack>
-      <Etapas proyecto={proyecto.data} actual="analisis" />
+
       <Group justify="space-between">
         <Title order={2}>Análisis</Title>
         <Group>

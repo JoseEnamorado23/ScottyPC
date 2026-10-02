@@ -27,7 +27,7 @@ import { claves, useConfiguracionPc, useProyecto, useValidacionConfiguracion } f
 import { useApi } from "../api/contexto";
 import { useConfirmarInvalidacion } from "../componentes/ConfirmarInvalidacion";
 import { EditorNiveles } from "../componentes/EditorNiveles";
-import { Etapas } from "../componentes/Etapas";
+
 import { MensajeError } from "../componentes/MensajeError";
 import { useBorradorAnalisis } from "../estado/borradorAnalisis";
 import { estadoEtapa, etapasQueSeDesactualizan } from "../estado/etapas";
@@ -131,7 +131,7 @@ function EditorConfiguracion({ proyecto, inicial, guardada, alCambiar }: {
   return (
     <Stack>
       {modal}
-      <Etapas proyecto={proyecto} actual="configuracion_pc" />
+
       <Group justify="space-between">
         <Title order={2}>Configuración de PC</Title>
         <Group>

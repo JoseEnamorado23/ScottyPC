@@ -16,7 +16,7 @@ from pcapp_servidor.configuracion import ORIGENES_PERMITIDOS, ConfiguracionServi
 from pcapp_servidor.errores import cuerpo_error, registrar_manejadores, respuesta_error_interno
 from pcapp_servidor.flujo import Servicios
 from pcapp_servidor.registro import REGISTRO
-from pcapp_servidor.rutas import proyectos, sistema, trabajos
+from pcapp_servidor.rutas import prescripcion, proyectos, sistema, trabajos
 
 
 def crear_aplicacion(
@@ -72,6 +72,6 @@ def crear_aplicacion(
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["X-Token", "Content-Type"],
     )
-    for modulo in (sistema, proyectos, trabajos):
+    for modulo in (sistema, proyectos, prescripcion, trabajos):
         aplicacion.include_router(modulo.router)
     return aplicacion

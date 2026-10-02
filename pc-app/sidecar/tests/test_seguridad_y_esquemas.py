@@ -10,6 +10,10 @@ from conftest import TOKEN, crear_cliente, esperar_trabajo, hasta_configuracion,
 from pcapp_nucleo.causal import aplicabilidad as causal_aplicabilidad
 from pcapp_nucleo.causal import contrafactuales as causal_contrafactual
 from pcapp_nucleo.causal import mecanismos as causal_mecanismos
+from pcapp_nucleo.prescripcion import calibracion as p_calibracion
+from pcapp_nucleo.prescripcion import configuracion as p_configuracion
+from pcapp_nucleo.prescripcion import lotes as p_lotes
+from pcapp_nucleo.prescripcion import prescriptor as p_prescriptor
 from pcapp_nucleo import (
     caracterizacion,
     informe,
@@ -153,6 +157,16 @@ PARES = [
     (esquemas.ContribucionPadre, causal_contrafactual.ContribucionPadre),
     (esquemas.PasoTraza, causal_contrafactual.PasoTraza),
     (esquemas.ResultadoContrafactual, causal_contrafactual.ResultadoContrafactual),
+    (esquemas.ObjetivoDeseado, p_configuracion.ObjetivoDeseado),
+    (esquemas.ConfiguracionAccion, p_configuracion.ConfiguracionAccion),
+    (esquemas.Supuestos, p_configuracion.Supuestos),
+    (esquemas.ConfiguracionPrescripcion, p_configuracion.ConfiguracionPrescripcion),
+    (esquemas.PuntoRejilla, p_calibracion.PuntoRejilla),
+    (esquemas.AccionPrescrita, p_prescriptor.AccionPrescrita),
+    (esquemas.RestriccionActiva, p_prescriptor.RestriccionActiva),
+    (esquemas.ResultadoPrescripcion, p_prescriptor.ResultadoPrescripcion),
+    (esquemas.ComparacionOptimizadores, p_lotes.ComparacionOptimizadores),
+    (esquemas.EvaluacionPrescriptor, p_lotes.EvaluacionPrescriptor),
 ]
 
 
@@ -181,6 +195,11 @@ def test_openapi_completo(cliente):
         "/trabajos/{trabajo_id}/reanudar", "/proyectos/{proyecto_id}/modelo-causal",
         "/proyectos/{proyecto_id}/modelo-causal/aplicabilidad", "/proyectos/{proyecto_id}/modelo-causal/casos",
         "/proyectos/{proyecto_id}/modelo-causal/contrafactual",
+        "/proyectos/{proyecto_id}/prescripcion/configuracion", "/proyectos/{proyecto_id}/prescripcion/configuracion/validar",
+        "/proyectos/{proyecto_id}/prescripcion/condiciones", "/proyectos/{proyecto_id}/prescripcion/calibrar-mu",
+        "/proyectos/{proyecto_id}/prescripcion/caso", "/proyectos/{proyecto_id}/prescripcion/lote",
+        "/proyectos/{proyecto_id}/prescripcion/lotes/{numero}", "/proyectos/{proyecto_id}/prescripcion/evaluacion",
+        "/proyectos/{proyecto_id}/prescripcion/evaluaciones/{numero}", "/proyectos/{proyecto_id}/prescripcion/exportar",
     } <= rutas
     componentes = set(esquema["components"]["schemas"])
     assert {"Revision", "DecisionesUsuario", "ResumenPreparacion", "RecomendacionPrueba", "ConfiguracionPC",

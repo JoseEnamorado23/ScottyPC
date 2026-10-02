@@ -4,12 +4,12 @@
 import { Alert, Badge, Button, Card, Center, Group, Loader, Stack, Switch, Tabs, Text, Title } from "@mantine/core";
 import { IconAlertTriangle, IconHammer } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useLocation, useNavigate, useParams } from "react-router";
 
 import { esFinal, useProyecto, useTrabajo } from "../api/consultas";
 import { useAplicabilidad, useConstruirModelo, useModeloCausal } from "../api/modeloCausal";
 import { useAccionesTrabajo } from "../api/trabajos";
-import { Etapas } from "../componentes/Etapas";
+
 import { MensajeError } from "../componentes/MensajeError";
 import { ProgresoTrabajo } from "../componentes/ProgresoTrabajo";
 import { ListaAplicabilidad } from "../componentes/modelo_causal/Aplicabilidad";
@@ -21,6 +21,7 @@ import { estadoEtapa, trabajoDelProyecto } from "../estado/etapas";
 import {
   SOLICITUD_VACIA, mecanismoObjetivo, mismaSolicitud, solicitudDelModelo, type Solicitud,
 } from "../estado/modeloCausal";
+import type { VarianteEscenario } from "../estado/prescripcion";
 import { useVigilancia } from "../estado/trabajos";
 
 export function ModeloCausal() {
@@ -45,7 +46,9 @@ function PantallaModeloCausal({ id }: { id: string }) {
   const actual = solicitud ?? guardada;
   const cambiada = !mismaSolicitud(actual, guardada);
   const aplicabilidad = useAplicabilidad(id, actual, !!proyecto.data);
-  const [pestana, setPestana] = useState<string | null>("mecanismos");
+  // «Probar una variante» (desde la prescripción) llega con el escenario precargado.
+  const variante = (useLocation().state as { variante?: VarianteEscenario } | null)?.variante ?? null;
+  const [pestana, setPestana] = useState<string | null>(variante ? "escenarios" : "mecanismos");
 
   useEffect(() => {
     if (trabajo.data && !esFinal(trabajo.data.estado)) vigilar(trabajo.data);
@@ -69,7 +72,7 @@ function PantallaModeloCausal({ id }: { id: string }) {
   return (
     <Stack>
       <style>{ESTILO_GRAFICOS}</style>
-      <Etapas proyecto={proyecto.data} actual="modelo_causal" />
+
       <Group justify="space-between">
         <Title order={2}>Modelo causal</Title>
         <Button variant="default" onClick={() => navegar(`/proyectos/${id}/resultados`)} disabled={!analisisVigente}>
@@ -185,7 +188,7 @@ function PantallaModeloCausal({ id }: { id: string }) {
             <PanelEvaluacion evaluacion={vista.evaluacion} binario={binario} />
           </Tabs.Panel>
           <Tabs.Panel value="escenarios" pt="md">
-            <ExploradorEscenarios proyectoId={id} vista={vista} />
+            <ExploradorEscenarios proyectoId={id} vista={vista} inicial={variante} />
           </Tabs.Panel>
         </Tabs>
       )}

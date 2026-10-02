@@ -15,7 +15,7 @@ const MARGEN = 22;
 interface Props {
   variables: string[];
   padres: Record<string, string[]>;
-  resultado: Esquemas["ResultadoContrafactual"] | null;
+  resultado: Pick<Esquemas["ResultadoContrafactual"], "valores" | "medida"> | null;
 }
 
 const recortar = (texto: string, n = 20) => (texto.length > n ? `${texto.slice(0, n - 1)}…` : texto);

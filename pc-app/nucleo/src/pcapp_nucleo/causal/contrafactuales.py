@@ -148,14 +148,15 @@ def _completar(modelo: ModeloCausal, valores: dict[str, float], avisos: list[Avi
 
 
 def caso_desde_test(modelo: ModeloCausal, test: pd.DataFrame, indice: int) -> Caso:
-    """Fila de test por su índice (posición de la fila en los datos originales)."""
+    """Fila de test por su índice (posición de la fila en los datos originales). También sirve
+    para filas nuevas preparadas con la receta, que pueden no traer el objetivo."""
     if indice not in test.index:
         raise ErrorContrafactual(f"No hay ninguna fila de test con índice {indice}.", "caso.indice")
     fila = test.loc[indice]
     valores = {v: float(fila[v]) if pd.notna(fila[v]) else math.nan for v in modelo.ancestros}
     avisos: list[AvisoContrafactual] = []
     _completar(modelo, valores, avisos, "test")
-    observado = fila[modelo.objetivo]
+    observado = fila[modelo.objetivo] if modelo.objetivo in fila.index else None
     return Caso(
         valores, "test", int(indice),
         modelo.unidades.a_original(modelo.objetivo, float(observado)) if pd.notna(observado) else None, avisos,
@@ -337,17 +338,25 @@ def _resumen(modelo: ModeloCausal, variable: str, vector: np.ndarray) -> tuple[A
     return float(numericos.mean()), float(numericos.mean())
 
 
-def contrafactual(modelo: ModeloCausal, caso: Caso, intervenciones: list[Intervencion]) -> ResultadoContrafactual:
-    avisos = list(caso.avisos)
-    acciones = _resolver(modelo, intervenciones, avisos)
+@dataclass
+class Abduccion:
+    """Valores factuales del subgrafo (vectores de ``muestras``) y ruido de cada intermedia."""
+
+    antes: dict[str, np.ndarray]
+    residuos: dict[str, np.ndarray]
+    observado: dict[str, bool]
+    muestras: int
+    binarias_intermedias: list[str]
+
+
+def abducir(modelo: ModeloCausal, caso: Caso) -> Abduccion:
+    """Abducción del caso: residuo aditivo de las intermedias continuas y muestras del ruido
+    compatibles con el valor observado de las binarias (semilla fija)."""
     binarias_intermedias = [
         v for v in modelo.variables if modelo.info_variables[v]["rol"] == INTERMEDIA and modelo.tipo(v) == BINARIA
     ]
     muestras = modelo.muestras_abduccion if binarias_intermedias else 1
     rng = np.random.default_rng(modelo.semilla)
-    objetivo = modelo.objetivo
-
-    # Abducción: valores factuales (vectores de muestras) y ruido de cada intermedia.
     antes: dict[str, np.ndarray] = {}
     residuos: dict[str, np.ndarray] = {}
     observado: dict[str, bool] = {}
@@ -371,21 +380,48 @@ def contrafactual(modelo: ModeloCausal, caso: Caso, intervenciones: list[Interve
         else:
             residuos[v] = (x - eta) if observado[v] else np.zeros(muestras)
             antes[v] = eta + residuos[v]
+    return Abduccion(antes, residuos, observado, muestras, binarias_intermedias)
 
-    # Acción.
+
+def contrafactual(modelo: ModeloCausal, caso: Caso, intervenciones: list[Intervencion]) -> ResultadoContrafactual:
+    avisos = list(caso.avisos)
+    acciones = _resolver(modelo, intervenciones, avisos)
+    abduccion = abducir(modelo, caso)
     fijadas: dict[str, np.ndarray] = {}
     intervenidas: dict[str, str] = {}
-    extrapoladas: list[str] = []
     for accion in acciones:
         for columna, (tipo, valor) in accion.columnas.items():
             if tipo == FIJAR:
-                vector = np.full(muestras, float(valor))
+                vector = np.full(abduccion.muestras, float(valor))
             else:
-                vector = _desplazar(modelo, columna, antes[columna], valor, f"intervenciones.{accion.nombre}")
+                vector = _desplazar(modelo, columna, abduccion.antes[columna], valor, f"intervenciones.{accion.nombre}")
             fijadas[columna] = vector
             intervenidas[columna] = accion.nombre
-            if not all(_en_rango(modelo, columna, float(x)) for x in vector):
-                extrapoladas.append(columna)
+    return _consecuencias(modelo, caso, abduccion, fijadas, intervenidas, avisos)
+
+
+def contrafactual_preparado(
+    modelo: ModeloCausal, caso: Caso, fijadas: dict[str, float], nombres: dict[str, str] | None = None,
+    abduccion: Abduccion | None = None,
+) -> ResultadoContrafactual:
+    """Contrafactual con valores ya en unidades preparadas (``columna → valor``), sin validar
+    las intervenciones (lo usa la prescripción, que ya las restringe). ``nombres`` da el nombre
+    de la acción de cada columna (p. ej. el grupo de una dummy)."""
+    abduccion = abduccion or abducir(modelo, caso)
+    vectores = {c: np.full(abduccion.muestras, float(v)) for c, v in fijadas.items()}
+    intervenidas = {c: (nombres or {}).get(c, c) for c in fijadas}
+    return _consecuencias(modelo, caso, abduccion, vectores, intervenidas, list(caso.avisos))
+
+
+def _consecuencias(
+    modelo: ModeloCausal, caso: Caso, abduccion: Abduccion, fijadas: dict[str, np.ndarray],
+    intervenidas: dict[str, str], avisos: list[AvisoContrafactual],
+) -> ResultadoContrafactual:
+    """Predicción tras la acción y resultado en unidades originales, con la traza."""
+    antes, residuos, observado = abduccion.antes, abduccion.residuos, abduccion.observado
+    muestras, binarias_intermedias = abduccion.muestras, abduccion.binarias_intermedias
+    objetivo = modelo.objetivo
+    extrapoladas = [c for c, vector in fijadas.items() if not all(_en_rango(modelo, c, float(x)) for x in vector)]
 
     # Predicción.
     despues: dict[str, np.ndarray] = {}

@@ -24,7 +24,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import operator
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field, fields, replace
 from pathlib import Path
 from typing import Any
 
@@ -593,7 +593,7 @@ def _preprocesar(
             "Estas columnas no son numéricas: "
             f"{', '.join(repr(c) for c in no_numericas)}. Codifíquelas o exclúyalas en las decisiones."
         )
-    if datos[objetivo].isna().any():
+    if objetivo in datos and datos[objetivo].isna().any():
         raise ErrorPreparacion("La variable objetivo tiene faltantes después de la preparación.")
     return datos, previos, registro
 
@@ -648,7 +648,7 @@ def _codificar(
             registro.tipo(columna, tipo)
         registro.anotar(columna, f"codificacion_{codificacion.tipo}", mapeo=pares)
 
-    if not tipos_pandas.is_numeric_dtype(datos[objetivo].dtype):
+    if objetivo in datos and not tipos_pandas.is_numeric_dtype(datos[objetivo].dtype):
         if reproducir:
             pares = previos["codificacion_objetivo"]
         else:
@@ -1065,6 +1065,106 @@ def aplicar_receta(
         )
     datos = _ordenar_columnas(datos, receta.objetivo, fecha)
     return _datos_preparados(datos, receta)
+
+
+@dataclass(frozen=True)
+class ProblemaFila:
+    """Fila de datos nuevos que no se pudo preparar (``fila`` = posición en el archivo, desde 0)."""
+
+    fila: int
+    mensaje: str
+
+
+@dataclass(frozen=True)
+class NuevosPreparados:
+    """Filas nuevas preparadas con la receta (índice = posición en el archivo)."""
+
+    datos: pd.DataFrame
+    problemas: list[ProblemaFila]
+    columnas_ignoradas: list[str]
+
+
+def columnas_originales_requeridas(receta: Receta) -> list[str]:
+    """Columnas del dataset original que necesita la receta para preparar filas nuevas."""
+    requeridas: list[str] = []
+    for columna in receta.columnas:
+        if columna.nombre == receta.objetivo:
+            continue
+        p = columna.parametros
+        if columna.tipo_final == ONE_HOT and "columna_original" in p:
+            original = p["columna_original"]
+        elif columna.tipo_final == INDICADOR and "columna_original" in p:
+            original = p["columna_original"]
+        else:
+            original = columna.nombre
+        if original not in requeridas:
+            requeridas.append(original)
+    return requeridas
+
+
+def preparar_nuevos(
+    dataframe: pd.DataFrame, receta: Receta, configuracion: ConfiguracionValidacion | None = None
+) -> NuevosPreparados:
+    """Prepara filas NUEVAS (p. ej. un CSV para prescribir) con la receta, sin aprender nada.
+
+    Mismos pasos que ``aplicar_receta`` con estas diferencias: el objetivo no hace falta (si
+    viene, se ignora), no se eliminan duplicados, y una fila que no se puede preparar (categoría
+    no vista, valor no numérico, faltante en una columna de «eliminar filas») se informa en
+    ``problemas`` en vez de detener todo.
+
+    Raises:
+        ErrorPreparacion: si faltan columnas que usa la receta.
+    """
+    configuracion = configuracion or ConfiguracionValidacion()
+    requeridas = columnas_originales_requeridas(receta)
+    faltan = [c for c in requeridas if c not in dataframe.columns]
+    if faltan:
+        raise ErrorPreparacion(
+            "Faltan columnas del dataset original: " + ", ".join(repr(c) for c in faltan) + "."
+        )
+    ignoradas = [str(c) for c in dataframe.columns if c not in requeridas]
+    datos = dataframe[requeridas].reset_index(drop=True)
+    eliminar = [c for c, t in receta.decisiones.faltantes.items() if t.imputacion == "eliminar_filas"]
+    decisiones = replace(
+        receta.decisiones,
+        eliminar_duplicados=False,
+        faltantes={
+            c: replace(t, imputacion=None) if t.imputacion == "eliminar_filas" else t
+            for c, t in receta.decisiones.faltantes.items()
+        },
+    )
+
+    def preprocesar(parte: pd.DataFrame) -> pd.DataFrame:
+        resultado, _, _ = _preprocesar(
+            parte, receta.objetivo, decisiones, None, configuracion, receta.parametros_previos
+        )
+        resultado.index = parte.index
+        return resultado
+
+    problemas: list[ProblemaFila] = []
+    try:
+        preparadas = preprocesar(datos)
+    except ErrorPreparacion:
+        partes = []
+        for fila in range(len(datos)):
+            try:
+                partes.append(preprocesar(datos.iloc[[fila]]))
+            except ErrorPreparacion as error:
+                problemas.append(ProblemaFila(fila, str(error)))
+        preparadas = pd.concat(partes) if partes else pd.DataFrame(columns=[c.nombre for c in receta.columnas])
+    for columna in eliminar:
+        if columna in preparadas:
+            sin_valor = preparadas.index[preparadas[columna].isna()]
+            problemas.extend(
+                ProblemaFila(int(f), f"Falta '{columna}', que la preparación exige (se eliminaban esas filas).")
+                for f in sin_valor
+            )
+            preparadas = preparadas.drop(index=sin_valor)
+    columnas = [c.nombre for c in receta.columnas if c.nombre != receta.objetivo]
+    preparadas = _aplicar_parametros(preparadas, receta.objetivo, receta.parametros_aprendidos)
+    return NuevosPreparados(
+        preparadas.reindex(columns=columnas), sorted(problemas, key=lambda p: p.fila), ignoradas
+    )
 
 
 def _ordenar_columnas(datos: pd.DataFrame, objetivo: str, fecha: str | None) -> pd.DataFrame:

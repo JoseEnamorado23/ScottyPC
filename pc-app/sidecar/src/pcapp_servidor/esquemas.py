@@ -402,7 +402,9 @@ class RespuestaConfiguracionPC(BaseModel):
 
 # --- Trabajos -----------------------------------------------------------------------------------
 
-TipoTrabajo = Literal["recomendacion", "pc", "modelo_causal"]
+TipoTrabajo = Literal[
+    "recomendacion", "pc", "modelo_causal", "calibracion_mu", "lote_prescripcion", "evaluacion_prescripcion"
+]
 EstadoTrabajo = Literal["pendiente", "en_curso", "completado", "cancelado", "fallido", "interrumpido"]
 
 
@@ -553,6 +555,10 @@ class ResultadoPC(BaseModel):
     disposicion: list[ColumnaDisposicion] = Field(
         description="Columnas del grafo: una por nivel, con su título y las variables ordenadas para reducir cruces."
     )
+    origen_candidatas: Literal["configuracion_pc", "prescripcion"] = Field(
+        description="De qué lista de modificables salen las candidatas prescriptivas."
+    )
+    nota_candidatas: str
 
 
 # --- Versiones del resultado -----------------------------------------------------------------
@@ -628,7 +634,7 @@ class ProblemaAplicabilidad(BaseModel):
     severidad: Literal["bloqueante", "advertencia"]
     mensaje: str
     accion: str = Field(description="Qué hacer para resolverlo.")
-    destino: Literal["resultados", "decisiones", "preparacion", "analisis", "modelo_causal"] | None = Field(
+    destino: Literal["resultados", "decisiones", "preparacion", "analisis", "modelo_causal", "prescripcion"] | None = Field(
         description="Pantalla donde se resuelve (la interfaz lleva a ella)."
     )
     variables: list[str]
@@ -917,6 +923,234 @@ class ResultadoContrafactual(BaseModel):
     muestras: int
     extrapolacion: bool
     caso: dict[str, Any]
+
+
+# --- Prescripción ---------------------------------------------------------------------------------
+
+
+class ObjetivoDeseado(_Entrada):
+    direccion: Literal["subir", "bajar"]
+    valor: float = Field(description="Probabilidad de la clase 1 (objetivo binario) o valor en unidades originales.")
+
+
+class ConfiguracionAccion(_Entrada):
+    variable: str
+    permitida: bool = True
+    direccion: Literal["subir", "bajar", "ambas"] = "ambas"
+    minimo: float | None = Field(None, description="Límite absoluto (unidades originales).")
+    maximo: float | None = None
+    cambio_maximo: float | None = Field(None, description="Cambio máximo respecto del valor actual (unidades originales).")
+    costo: float = Field(1.0, description="Costo por unidad de la escala normalizada (rango de train).")
+    estados_permitidos: list[Any] | None = Field(None, description="Binarias, ordinales y categorías: estados a los que se puede pasar.")
+
+
+class Supuestos(_Entrada):
+    modificable_por_decision: bool = False
+    medida_antes_del_resultado: bool = False
+    no_define_el_objetivo: bool = False
+    confirmado_en: str | None = None
+
+
+class ConfiguracionPrescripcion(_Entrada):
+    modificables: list[str]
+    objetivo: ObjetivoDeseado
+    acciones: dict[str, ConfiguracionAccion]
+    supuestos: dict[str, Supuestos] = {}
+    mu: Literal["automatico"] | float = "automatico"
+    optimizador: Literal["gradiente_proximal", "genetico"] = "gradiente_proximal"
+    rejilla_mu: list[float] = Field(default_factory=lambda: [0.001, 0.001778, 0.003162, 0.005623, 0.01, 0.017783, 0.031623, 0.056234, 0.1])
+    exito_calibracion: float = 0.95
+    arranques_aleatorios: int = 4
+    iteraciones_maximas: int = 300
+    tolerancia: float = 1e-8
+    tau_suavizado: float = 0.25
+    poblacion: int = 40
+    generaciones: int = 60
+    alfa_blx: float = 0.5
+    probabilidad_mutacion: float = 0.2
+    elite: int = 2
+
+
+class PuntoRejilla(BaseModel):
+    mu: float
+    tasa_exito: float | None
+    exitos: int
+    evaluados: int
+
+
+class CalibracionMu(BaseModel):
+    mu: float
+    rejilla: list[PuntoRejilla]
+    casos: int
+    alcanzables: int
+    no_alcanzables: int
+    casos_que_ya_cumplen: int
+    exito_requerido: float
+    advertencia: str | None
+    nota: str
+    calibrada_en: str | None = None
+
+
+class VistaConfiguracionPrescripcion(BaseModel):
+    configuracion: ConfiguracionPrescripcion
+    guardada: bool = Field(description="False si es la configuración sugerida (aún no guardada).")
+    prescriptivas: list[str]
+    sin_camino: list[str]
+    desconocidas: list[str]
+    controles: list[ControlVariable]
+    variables_grafo: list[str] = Field(description="Variables del grafo que se pueden marcar como modificables.")
+    modificables_pc: list[str] = Field(description="Modificables de la configuración de PC (punto de partida).")
+    medida: Literal["probabilidad", "valor"]
+    umbral_decision: float | None
+    calibracion: CalibracionMu | None
+    mu_efectivo: float | None = Field(description="μ que se usará (manual o calibrado); null si falta calibrar.")
+    aviso: str
+
+
+class ValidacionPrescripcion(BaseModel):
+    valida: bool
+    errores: list[ProblemaConfiguracion]
+    condiciones: list[ProblemaAplicabilidad]
+    configuracion: ConfiguracionPrescripcion
+
+
+class CondicionesPrescripcion(BaseModel):
+    problemas: list[ProblemaAplicabilidad]
+    bloqueado: bool
+    aviso: str
+
+
+class SolicitudCasoPrescripcion(_Entrada):
+    caso: CasoEntrada
+
+
+class AccionPrescrita(BaseModel):
+    variable: str
+    tipo: Literal["continua", "discreta"]
+    antes: Any
+    despues: Any
+    antes_numerico: float | None
+    despues_numerico: float | None
+    cambio: float | None
+    contribucion: float = Field(description="Cuánto baja el logro si se quita solo esta acción.")
+    restriccion_activa: str | None
+    extrapolacion: bool
+    mantener: bool = Field(description="Intermedia que se mantiene constante (cambio despreciable).")
+
+
+class RestriccionActiva(BaseModel):
+    variable: str
+    restriccion: Literal["limite", "cambio_maximo", "direccion", "estados_permitidos"]
+    mensaje: str
+
+
+class ResultadoPrescripcion(BaseModel):
+    caso: dict[str, Any]
+    objetivo: str
+    medida: Literal["probabilidad", "valor"]
+    direccion: Literal["subir", "bajar"]
+    deseado: float
+    antes: float
+    despues: float
+    alcanzado: bool
+    ya_cumple: bool
+    falta: float
+    acciones: list[AccionPrescrita]
+    sin_cambio: list[str]
+    restricciones_activas: list[RestriccionActiva]
+    extrapolacion: bool
+    aproximado: bool
+    requiere_revision: bool
+    referencia: dict[str, Any]
+    explicacion: str
+    costo_total: float
+    optimizador: str
+    mu: float
+    segundos: float
+    traza: list[PasoTraza]
+    valores: list[ValorContrafactual]
+    avisos: list[AvisoContrafactual]
+
+
+class SolicitudLote(_Entrada):
+    origen: Literal["test", "csv"]
+    ruta_csv: str | None = Field(None, description="CSV o XLSX con las columnas ORIGINALES del dataset (origen «csv»).")
+
+
+class ProblemaFila(BaseModel):
+    fila: int
+    mensaje: str
+
+
+class MetaLote(BaseModel):
+    numero: int
+    origen: Literal["test", "csv"]
+    ruta_csv: str | None
+    casos: int
+    mu: float
+    optimizador: str
+    filas_con_problemas: list[ProblemaFila]
+    columnas_ignoradas: list[str]
+    huella_modelo: str
+    creado_en: str
+    resumen: dict[str, int]
+
+
+class PaginaLote(BaseModel):
+    meta: MetaLote
+    total: int
+    pagina: int
+    por_pagina: int
+    filas: list[ResultadoPrescripcion]
+
+
+class ComparacionOptimizadores(BaseModel):
+    optimizador: str
+    tasa_exito: float
+    costo_medio: float
+    segundos_medios: float
+
+
+class EvaluacionPrescriptor(BaseModel):
+    casos: int
+    tasa_exito: float
+    no_alcanzables: int
+    cambio_medio: dict[str, dict[str, float | None]]
+    porcentaje_acciones_en_cero: float
+    porcentaje_requiere_revision: float
+    porcentaje_extrapolacion: float
+    sensibilidad_cambio_maximo: list[dict[str, float]]
+    sensibilidad_mu: list[dict[str, float]]
+    comparacion_optimizadores: list[ComparacionOptimizadores]
+    mcnemar: dict[str, Any]
+    mu: float
+    texto: str
+
+
+class MetaEvaluacion(BaseModel):
+    numero: int
+    casos: int
+    mu: float
+    optimizador: str
+    tasa_exito: float
+    huella_modelo: str
+    creado_en: str
+
+
+class InformeEvaluacion(BaseModel):
+    meta: MetaEvaluacion
+    evaluacion: EvaluacionPrescriptor
+
+
+class SolicitudExportarPrescripcion(_Entrada):
+    carpeta_destino: str
+    lote: int | None = Field(None, description="Lote cuyas prescripciones se exportan en CSV.")
+    evaluacion: int | None = Field(None, description="Evaluación que se incluye en el informe.")
+
+
+class ResultadoExportarPrescripcion(BaseModel):
+    carpeta: str
+    archivos: list[str]
 
 
 class Apagado(BaseModel):

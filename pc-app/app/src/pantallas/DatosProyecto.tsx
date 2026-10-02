@@ -7,7 +7,7 @@ import { datos, ErrorApi } from "../api/cliente";
 import { claves, useDatosHoja, useDistribucion, useProyecto } from "../api/consultas";
 import { useApi } from "../api/contexto";
 import { useConfirmarInvalidacion } from "../componentes/ConfirmarInvalidacion";
-import { Etapas } from "../componentes/Etapas";
+
 import { MensajeError } from "../componentes/MensajeError";
 import { esListaDeProblemas, ProblemasValidacion } from "../componentes/ProblemasValidacion";
 import { VistaDistribucion } from "../componentes/VistaDistribucion";
@@ -63,7 +63,7 @@ export function DatosProyecto() {
   return (
     <Stack>
       {modal}
-      <Etapas proyecto={proyecto.data} actual="revision" />
+
       <Title order={2}>{proyecto.data.nombre}</Title>
       <Text size="sm" c="dimmed">
         {proyecto.data.archivo_original}

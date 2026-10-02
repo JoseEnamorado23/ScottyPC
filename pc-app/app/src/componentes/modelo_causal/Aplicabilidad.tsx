@@ -13,6 +13,7 @@ const DESTINOS: Record<string, { ruta: string; texto: string }> = {
   decisiones: { ruta: "decisiones", texto: "Ir a Decisiones" },
   preparacion: { ruta: "preparacion", texto: "Ir a Preparación" },
   analisis: { ruta: "analisis", texto: "Ir al Análisis" },
+  modelo_causal: { ruta: "modelo-causal", texto: "Ir al Modelo causal" },
 };
 
 interface Props {
@@ -20,9 +21,16 @@ interface Props {
   problemas: Problema[];
   /** Advertencias del ajuste (sin la línea de resumen de la aplicabilidad). */
   delAjuste?: boolean;
+  /** Destinos que están en la misma pantalla (p. ej. la pestaña de configuración). */
+  destinosLocales?: Record<string, { texto: string; accion: (problema: Problema) => void }>;
+  /** Texto de la línea de resumen cuando no hay bloqueantes. */
+  sinBloqueantes?: string;
 }
 
-export function ListaAplicabilidad({ proyectoId, problemas, delAjuste = false }: Props) {
+export function ListaAplicabilidad({
+  proyectoId, problemas, delAjuste = false, destinosLocales = {},
+  sinBloqueantes = "Sin bloqueantes: se puede construir el modelo causal.",
+}: Props) {
   const navegar = useNavigate();
   const bloqueantes = problemas.filter((p) => p.severidad === "bloqueante");
   const advertencias = problemas.filter((p) => p.severidad === "advertencia");
@@ -33,7 +41,7 @@ export function ListaAplicabilidad({ proyectoId, problemas, delAjuste = false }:
           <ThemeIcon color="green" variant="light" size="sm">
             <IconCircleCheck size={14} />
           </ThemeIcon>
-          <Text size="sm">Sin bloqueantes: se puede construir el modelo causal.</Text>
+          <Text size="sm">{sinBloqueantes}</Text>
         </Group>
       ) : (
         <Text size="sm" fw={600}>
@@ -43,6 +51,7 @@ export function ListaAplicabilidad({ proyectoId, problemas, delAjuste = false }:
       {[...bloqueantes, ...advertencias].map((p, i) => {
         const bloquea = p.severidad === "bloqueante";
         const destino = p.destino ? DESTINOS[p.destino] : undefined;
+        const local = p.destino ? destinosLocales[p.destino] : undefined;
         return (
           <Alert
             key={`${p.codigo}-${i}`}
@@ -58,7 +67,11 @@ export function ListaAplicabilidad({ proyectoId, problemas, delAjuste = false }:
                 <Text size="sm" c="dimmed">
                   {p.accion}
                 </Text>
-                {destino && (
+                {local ? (
+                  <Button size="xs" variant="default" onClick={() => local.accion(p)}>
+                    {local.texto}
+                  </Button>
+                ) : destino && (
                   <Button size="xs" variant="default" onClick={() => navegar(`/proyectos/${proyectoId}/${destino.ruta}`)}>
                     {destino.texto}
                   </Button>

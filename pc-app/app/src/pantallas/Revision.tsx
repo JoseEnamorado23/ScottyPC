@@ -17,7 +17,7 @@ import { useNavigate, useParams } from "react-router";
 
 import type { Esquemas } from "../api/cliente";
 import { useProyecto } from "../api/consultas";
-import { Etapas } from "../componentes/Etapas";
+
 import { MensajeError } from "../componentes/MensajeError";
 import { ProblemasValidacion } from "../componentes/ProblemasValidacion";
 import { formatoValor, nombreAccion, nombreTipo } from "../estado/textos";
@@ -44,7 +44,7 @@ export function Revision() {
 
   return (
     <Stack>
-      <Etapas proyecto={proyecto.data} actual="revision" />
+
       <Group justify="space-between" align="flex-start">
         <Stack gap={0}>
           <Title order={2}>Revisión del dataset</Title>

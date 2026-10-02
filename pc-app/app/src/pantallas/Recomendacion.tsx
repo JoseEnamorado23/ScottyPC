@@ -26,7 +26,7 @@ import { useNavigate, useParams } from "react-router";
 import type { Esquemas } from "../api/cliente";
 import { esFinal, useEvaluacionPrueba, useProyecto, useRecomendacion, useTrabajo } from "../api/consultas";
 import { useAccionesTrabajo } from "../api/trabajos";
-import { Etapas } from "../componentes/Etapas";
+
 import { MensajeError } from "../componentes/MensajeError";
 import { formatoDuracion, ProgresoTrabajo } from "../componentes/ProgresoTrabajo";
 import { useBorradorAnalisis, type EleccionPrueba, type Prueba } from "../estado/borradorAnalisis";
@@ -77,7 +77,7 @@ export function Recomendacion() {
 
   return (
     <Stack>
-      <Etapas proyecto={proyecto.data} actual="recomendacion" />
+
       <Group justify="space-between">
         <Title order={2}>Recomendación de prueba</Title>
         <Group>

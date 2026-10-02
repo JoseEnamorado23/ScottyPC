@@ -97,16 +97,18 @@ def base_splines(x: np.ndarray, nodos: list[float]) -> np.ndarray:
     """x y los términos de un spline cúbico restringido (lineal fuera de los nodos extremos)."""
     t = np.asarray(nodos, dtype=float)
     k = len(t)
-    columnas = [x]
+    x = np.asarray(x, dtype=float)
     escala = (t[-1] - t[0]) ** 2
-    for j in range(k - 2):
-        termino = (
-            np.maximum(x - t[j], 0) ** 3
-            - np.maximum(x - t[k - 2], 0) ** 3 * (t[k - 1] - t[j]) / (t[k - 1] - t[k - 2])
-            + np.maximum(x - t[k - 1], 0) ** 3 * (t[k - 2] - t[j]) / (t[k - 1] - t[k - 2])
-        )
-        columnas.append(termino / escala)
-    return np.column_stack(columnas)
+    # Todos los términos a la vez (misma secuencia de operaciones por elemento que término a término,
+    # así que los resultados son idénticos bit a bit).
+    tj = t[: k - 2]
+    columna = x[:, None]
+    terminos = (
+        np.maximum(columna - tj, 0) ** 3
+        - np.maximum(columna - t[k - 2], 0) ** 3 * (t[k - 1] - tj) / (t[k - 1] - t[k - 2])
+        + np.maximum(columna - t[k - 1], 0) ** 3 * (t[k - 2] - tj) / (t[k - 1] - t[k - 2])
+    )
+    return np.column_stack([x, terminos / escala])
 
 
 class MecanismoSplines(Mecanismo):
