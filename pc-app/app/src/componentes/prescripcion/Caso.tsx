@@ -41,7 +41,7 @@ export function TarjetaPrescripcion({ r, proyectoId, indiceTest }: { r: Resultad
               <IconArrowRight size={20} />
               <Title order={3} data-testid="prescripcion-despues">{formato(r.despues)}</Title>
             </Group>
-            <Text size="sm" mt={4}>Objetivo: {r.direccion === "bajar" ? "≤" : "≥"} {formato(r.deseado)}</Text>
+            <Text size="sm" mt={4}>Objetivo{r.medida === "probabilidad" ? ` (${r.objetivo}=${r.clase_positiva})` : ""}: {r.direccion === "bajar" ? "≤" : "≥"} {formato(r.deseado)}</Text>
             <Group gap={6} mt="xs">
               {r.ya_cumple ? (
                 <Badge color="gray" variant="light">Ya cumple el objetivo</Badge>

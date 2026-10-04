@@ -930,7 +930,8 @@ class ResultadoContrafactual(BaseModel):
 
 class ObjetivoDeseado(_Entrada):
     direccion: Literal["subir", "bajar"]
-    valor: float = Field(description="Probabilidad de la clase 1 (objetivo binario) o valor en unidades originales.")
+    valor: float = Field(description="Probabilidad de la clase de interés (objetivo binario) o valor en unidades originales.")
+    clase_positiva: Literal[0, 1] = Field(1, description="Clase de interés del objetivo binario; la dirección se aplica a su probabilidad.")
 
 
 class ConfiguracionAccion(_Entrada):
@@ -1000,6 +1001,7 @@ class VistaConfiguracionPrescripcion(BaseModel):
     controles: list[ControlVariable]
     variables_grafo: list[str] = Field(description="Variables del grafo que se pueden marcar como modificables.")
     modificables_pc: list[str] = Field(description="Modificables de la configuración de PC (punto de partida).")
+    objetivo: str
     medida: Literal["probabilidad", "valor"]
     umbral_decision: float | None
     calibracion: CalibracionMu | None
@@ -1049,6 +1051,7 @@ class ResultadoPrescripcion(BaseModel):
     objetivo: str
     medida: Literal["probabilidad", "valor"]
     direccion: Literal["subir", "bajar"]
+    clase_positiva: Literal[0, 1] = 1
     deseado: float
     antes: float
     despues: float

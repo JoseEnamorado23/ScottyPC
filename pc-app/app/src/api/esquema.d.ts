@@ -2093,9 +2093,16 @@ export interface components {
             direccion: "subir" | "bajar";
             /**
              * Valor
-             * @description Probabilidad de la clase 1 (objetivo binario) o valor en unidades originales.
+             * @description Probabilidad de la clase de interés (objetivo binario) o valor en unidades originales.
              */
             valor: number;
+            /**
+             * Clase Positiva
+             * @description Clase de interés del objetivo binario; la dirección se aplica a su probabilidad.
+             * @default 1
+             * @enum {integer}
+             */
+            clase_positiva: 0 | 1;
         };
         /** OrientacionManual */
         OrientacionManual: {
@@ -2571,6 +2578,12 @@ export interface components {
              * @enum {string}
              */
             direccion: "subir" | "bajar";
+            /**
+             * Clase Positiva
+             * @default 1
+             * @enum {integer}
+             */
+            clase_positiva: 0 | 1;
             /** Deseado */
             deseado: number;
             /** Antes */
@@ -3156,6 +3169,8 @@ export interface components {
              * @description Modificables de la configuración de PC (punto de partida).
              */
             modificables_pc: string[];
+            /** Objetivo */
+            objetivo: string;
             /**
              * Medida
              * @enum {string}

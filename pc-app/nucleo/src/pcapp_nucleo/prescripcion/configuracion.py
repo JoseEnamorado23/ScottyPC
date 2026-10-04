@@ -19,6 +19,7 @@ from pcapp_nucleo.pc_config import ProblemaConfiguracion
 
 SUBIR, BAJAR, AMBAS = "subir", "bajar", "ambas"
 DIRECCIONES_OBJETIVO = (SUBIR, BAJAR)
+CLASES_POSITIVAS = (0, 1)
 DIRECCIONES_ACCION = (SUBIR, BAJAR, AMBAS)
 GRADIENTE, GENETICO = "gradiente_proximal", "genetico"
 OPTIMIZADORES = (GRADIENTE, GENETICO)
@@ -32,10 +33,15 @@ MAXIMO_NIVELES_DISCRETOS = 10
 
 @dataclass(frozen=True)
 class ObjetivoDeseado:
-    """``valor``: probabilidad de la clase 1 (objetivo binario) o valor en unidades originales."""
+    """``valor``: probabilidad de ``clase_positiva`` (objetivo binario) o valor en unidades originales.
+
+    La dirección y la clase de interés las decide el usuario; ``objetivo_por_defecto`` solo
+    las sugiere. ``clase_positiva`` (0 o 1) solo se usa con objetivo binario.
+    """
 
     direccion: str
     valor: float
+    clase_positiva: int = 1
 
 
 @dataclass(frozen=True)
@@ -153,8 +159,12 @@ def accion_por_defecto(modelo: ModeloCausal, variable: str) -> ConfiguracionAcci
 
 
 def objetivo_por_defecto(modelo: ModeloCausal) -> ObjetivoDeseado:
-    """Binario: el umbral de decisión ± 0,1. La dirección por defecto es bajar la probabilidad
-    de la clase 1 si es la minoritaria (suele ser el evento adverso) y subirla si no."""
+    """Valor inicial SUGERIDO (el usuario lo confirma o lo cambia; nada lo fuerza).
+
+    Binario: la clase de interés es la 1; la dirección sugerida es bajar su probabilidad si es
+    la minoritaria (suele ser el evento adverso) y subirla si no, con el umbral de decisión ± 0,1.
+    La distribución de clases no dice qué es deseable (p. ej. «aprobado» minoritario se quiere
+    subir), por eso es solo una sugerencia."""
     if modelo.binario:
         # La mediana de un objetivo 0/1 es 0 si la clase 1 es la minoritaria.
         minoritaria = modelo.info_variables[modelo.objetivo]["mediana"] < 0.5
@@ -252,6 +262,8 @@ def problemas_configuracion(modelo: ModeloCausal, c: ConfiguracionPrescripcion) 
     problemas: list[ProblemaConfiguracion] = []
     if c.objetivo.direccion not in DIRECCIONES_OBJETIVO:
         problemas.append(ProblemaConfiguracion("objetivo.direccion", "Debe ser 'subir' o 'bajar'."))
+    if modelo.binario and c.objetivo.clase_positiva not in CLASES_POSITIVAS:
+        problemas.append(ProblemaConfiguracion("objetivo.clase_positiva", "Debe ser 0 o 1."))
     if modelo.binario and not 0 < c.objetivo.valor < 1:
         problemas.append(ProblemaConfiguracion("objetivo.valor", "La probabilidad deseada debe estar entre 0 y 1."))
     if c.optimizador not in OPTIMIZADORES:

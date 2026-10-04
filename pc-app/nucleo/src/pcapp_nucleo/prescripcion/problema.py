@@ -251,7 +251,9 @@ class ProblemaPrescripcion:
         self.costos = np.array([a.costo for a in self.continuas])
         self.actual = tuple(a.actual for a in self.discretas)
         objetivo = configuracion.objetivo
-        self.direccion = objetivo.direccion
+        self.direccion = objetivo.direccion  # explícita (la elige el usuario), sin heurística
+        # Binario: p es la probabilidad de la clase de interés (clase_positiva).
+        self.clase_positiva = int(objetivo.clase_positiva) if modelo.binario else 1
         if modelo.binario:
             self.deseado, self.escala_objetivo = float(objetivo.valor), 1.0
         else:
@@ -308,9 +310,13 @@ class ProblemaPrescripcion:
             np.asarray(estados, dtype=int).reshape(m, len(self.discretas)),
         )
 
+    def a_clase(self, p1: np.ndarray) -> np.ndarray:
+        """Probabilidad de la clase 1 (la del modelo) → probabilidad de la clase de interés."""
+        return p1 if self.clase_positiva == 1 else 1.0 - p1
+
     def p(self, D: np.ndarray, estados: np.ndarray, suave: bool = False) -> np.ndarray:
         D, estados = self.matrices(D, estados)
-        return self.evaluador.objetivo(self.fijadas(D, estados), D.shape[0], suave)
+        return self.a_clase(self.evaluador.objetivo(self.fijadas(D, estados), D.shape[0], suave))
 
     def brecha(self, p: np.ndarray) -> np.ndarray:
         diferencia = (self.deseado - p) if self.direccion == SUBIR else (p - self.deseado)

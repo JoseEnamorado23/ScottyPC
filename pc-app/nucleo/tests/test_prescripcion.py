@@ -102,6 +102,29 @@ def test_intervencion_minima_analitica(logistico, costos, esperada):
         assert r.acciones[0].cambio == pytest.approx(delta_preparado * escala, rel=1e-3)
 
 
+def test_clase_positiva_cero_equivale_a_bajar_la_clase_uno(logistico):
+    """Subir P(Y=0) a 0,7 es lo mismo que bajar P(Y=1) a 0,3; la dirección es la que elige el usuario."""
+    datos, modelo = logistico
+    caso = caso_en_riesgo(datos, modelo)
+    bajar_1 = sin_restricciones(configuracion(modelo, ["X1", "X2"], "bajar", 0.3), "X1", "X2")
+    subir_0 = replace(bajar_1, objetivo=ObjetivoDeseado("subir", 0.7, clase_positiva=0))
+    r1 = prescribir_caso(modelo, caso, bajar_1, 0.01)
+    r0 = prescribir_caso(modelo, caso, subir_0, 0.01)
+    assert r0.clase_positiva == 0 and r0.direccion == "subir" and r0.alcanzado
+    assert r0.antes == pytest.approx(1 - r1.antes) and r0.despues == pytest.approx(1 - r1.despues, abs=1e-6)
+    assert [(a.variable, round(a.cambio, 6)) for a in r0.acciones] == [(a.variable, round(a.cambio, 6)) for a in r1.acciones]
+    assert "Y=0" in r0.explicacion
+
+
+def test_la_direccion_sugerida_no_se_impone(logistico):
+    """La dirección explícita manda aunque contradiga la heurística de la clase minoritaria."""
+    datos, modelo = logistico
+    sugerida = configuracion_por_defecto(modelo, ["X1", "X2"]).objetivo
+    contraria = "subir" if sugerida.direccion == "bajar" else "bajar"
+    c = replace(configuracion_por_defecto(modelo, ["X1", "X2"]), objetivo=ObjetivoDeseado(contraria, sugerida.valor))
+    assert ProblemaPrescripcion(modelo, caso_en_riesgo(datos, modelo), c, 0.01).direccion == contraria
+
+
 def test_caso_que_ya_cumple_no_recibe_cambios(logistico):
     datos, modelo = logistico
     c = configuracion(modelo, ["X1", "X2"], "bajar", 0.99)

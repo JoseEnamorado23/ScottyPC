@@ -113,6 +113,7 @@ class ServiciosPrescripcion:
             "controles": controles,
             "variables_grafo": [v for v in grafo if v != modelo.objetivo],
             "modificables_pc": list(self._leer(proyecto, "pc.json").get("modificables", [])),
+            "objetivo": modelo.objetivo,
             "medida": "probabilidad" if modelo.binario else "valor",
             "umbral_decision": modelo.umbral_decision,
             "calibracion": (contenido or {}).get("calibracion"),

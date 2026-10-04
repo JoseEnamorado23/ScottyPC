@@ -113,6 +113,17 @@ export function ConfiguracionPrescripcion(p: Props) {
       <Card withBorder id="seccion-objetivo">
         <Stack gap="sm">
           <Title order={4}>Objetivo deseado</Title>
+          {probabilidad && (
+            <SegmentedControl
+              aria-label="Clase de interés"
+              value={String(borrador.objetivo.clase_positiva ?? 1)}
+              onChange={(v) => p.alCambiar({ ...borrador, objetivo: { ...borrador.objetivo, clase_positiva: Number(v) as 0 | 1 } })}
+              data={[
+                { value: "1", label: `${vista.objetivo}=1` },
+                { value: "0", label: `${vista.objetivo}=0` },
+              ]}
+            />
+          )}
           <Group align="flex-end">
             <SegmentedControl
               aria-label="Dirección del objetivo"
@@ -124,7 +135,7 @@ export function ConfiguracionPrescripcion(p: Props) {
               ]}
             />
             <NumberInput
-              label={probabilidad ? "Probabilidad deseada de la clase 1" : "Valor deseado"}
+              label={probabilidad ? `Probabilidad deseada de ${vista.objetivo}=${borrador.objetivo.clase_positiva ?? 1}` : "Valor deseado"}
               w={220} decimalSeparator="," step={probabilidad ? 0.01 : 1} min={probabilidad ? 0 : undefined} max={probabilidad ? 1 : undefined}
               value={borrador.objetivo.valor} error={errores["objetivo.valor"]}
               onChange={(v) => p.alCambiar({ ...borrador, objetivo: { ...borrador.objetivo, valor: typeof v === "number" ? v : 0 } })}
@@ -132,8 +143,8 @@ export function ConfiguracionPrescripcion(p: Props) {
           </Group>
           {probabilidad && vista.umbral_decision !== null && (
             <Text size="xs" c="dimmed">
-              Umbral de decisión del modelo: {porcentaje(vista.umbral_decision)}. Por defecto el objetivo es ese umbral ± 0,1 en la
-              dirección elegida.
+              Umbral de decisión del modelo: {porcentaje(vista.umbral_decision)}. La clase y la dirección son una decisión tuya: el valor
+              inicial es solo una sugerencia (bajar la clase 1 si es minoritaria; umbral ± 0,1) y puedes cambiarlo.
             </Text>
           )}
         </Stack>

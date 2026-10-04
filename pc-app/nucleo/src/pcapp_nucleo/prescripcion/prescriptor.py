@@ -67,6 +67,7 @@ class ResultadoPrescripcion:
     objetivo: str
     medida: str
     direccion: str
+    clase_positiva: int
     deseado: float
     antes: float
     despues: float
@@ -133,7 +134,7 @@ def _frase_accion(a: AccionPrescrita) -> str:
 
 
 def explicar(r: ResultadoPrescripcion) -> str:
-    cantidad = "la probabilidad" if r.medida == "probabilidad" else f"el valor esperado de {r.objetivo}"
+    cantidad = f"la probabilidad de {r.objetivo}={r.clase_positiva}" if r.medida == "probabilidad" else f"el valor esperado de {r.objetivo}"
     formato = (lambda x: decimal(x, ".2f")) if r.medida == "probabilidad" else numero
     comparador = "≤" if r.direccion == BAJAR else "≥"
     if r.ya_cumple:
@@ -208,7 +209,7 @@ def _restricciones_activas(problema: ProblemaPrescripcion, s: Solucion) -> list[
         for excluido in a.excluidos:
             fijadas = {**fijadas_base, **excluido}
             valores = {c: (np.array([v]), np.array([True])) for c, v in fijadas.items()}
-            p = problema.evaluador.objetivo(valores, 1)
+            p = problema.a_clase(problema.evaluador.objetivo(valores, 1))
             if float(problema.brecha(p)[0]) < base - 1e-9:
                 activas.append(RestriccionActiva(a.nombre, ESTADOS_PERMITIDOS, MENSAJES_RESTRICCION[ESTADOS_PERMITIDOS]))
                 break
@@ -331,7 +332,7 @@ def prescribir_caso(
     requiere_revision, datos_referencia = False, {}
     if referencia is not None:
         perfil = _perfil_referencia(problema, fila, fijadas, referencia)
-        p_ref = float(referencia.predecir(perfil)[0])
+        p_ref = float(problema.a_clase(referencia.predecir(perfil))[0])
         alcanzado_ref = problema.alcanzado(p_ref)
         requiere_revision = alcanzado_ref != (alcanzado or ya_cumple)
         datos_referencia = {"despues": _a_medida(modelo, p_ref), "alcanzado": alcanzado_ref}
@@ -341,6 +342,7 @@ def prescribir_caso(
         objetivo=modelo.objetivo,
         medida="probabilidad" if modelo.binario else "valor",
         direccion=configuracion.objetivo.direccion,
+        clase_positiva=problema.clase_positiva,
         deseado=deseado,
         antes=antes_medida,
         despues=despues_medida,

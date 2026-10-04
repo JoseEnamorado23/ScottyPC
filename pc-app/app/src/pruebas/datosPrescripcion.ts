@@ -19,7 +19,7 @@ export function configuracion(confirmada = false): Configuracion {
     : SIN_SUPUESTOS;
   return {
     modificables: ["BMI", "Glucose", "BloodPressure"],
-    objetivo: { direccion: "bajar", valor: 0.25 },
+    objetivo: { direccion: "bajar", valor: 0.25, clase_positiva: 1 },
     acciones: {
       BMI: { variable: "BMI", permitida: true, direccion: "ambas", minimo: 18.2, maximo: 67.1, cambio_maximo: 12.2, costo: 1, estados_permitidos: null },
       Glucose: { variable: "Glucose", permitida: true, direccion: "ambas", minimo: 57, maximo: 198, cambio_maximo: 35.25, costo: 1, estados_permitidos: null },
@@ -51,6 +51,7 @@ export function vista(c: Configuracion, guardada: boolean): Esquemas["VistaConfi
     controles: MODELO.controles.filter((x) => x.nombre === "BMI" || x.nombre === "Glucose"),
     variables_grafo: ["Age", "BMI", "Glucose", "BloodPressure", "zona=b", "zona=c"],
     modificables_pc: ["BMI", "Glucose", "BloodPressure"],
+    objetivo: "Outcome",
     medida: "probabilidad",
     umbral_decision: 0.35,
     calibracion: null,
@@ -73,7 +74,7 @@ export const sinPrescriptivas: Problema = {
 
 export const RESULTADO: Esquemas["ResultadoPrescripcion"] = {
   caso: { origen: "test", indice: 7 },
-  objetivo: "Outcome", medida: "probabilidad", direccion: "bajar", deseado: 0.25, antes: 0.62, despues: 0.25,
+  objetivo: "Outcome", medida: "probabilidad", direccion: "bajar", clase_positiva: 1, deseado: 0.25, antes: 0.62, despues: 0.25,
   alcanzado: true, ya_cumple: false, falta: 0,
   acciones: [
     { variable: "Glucose", tipo: "continua", antes: 148, despues: 131, antes_numerico: 148, despues_numerico: 131, cambio: -17, contribucion: 0.22, restriccion_activa: null, extrapolacion: false, mantener: false },
