@@ -1,11 +1,12 @@
-import { AppShell, Group, Title, UnstyledButton, ActionIcon, useMantineColorScheme, useComputedColorScheme } from "@mantine/core";
-import { IconDog, IconMoon, IconSun } from "@tabler/icons-react";
-import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
+import { AppShell, Button, Group, Title, UnstyledButton, ActionIcon, useMantineColorScheme, useComputedColorScheme } from "@mantine/core";
+import { IconDog, IconMathFunction, IconMoon, IconSun } from "@tabler/icons-react";
+import { matchPath, Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
 
 import { Analisis } from "./pantallas/Analisis";
 import { PantallaConfiguracionPc } from "./pantallas/ConfiguracionPc";
 import { PantallaDecisiones } from "./pantallas/Decisiones";
 import { DatosProyecto } from "./pantallas/DatosProyecto";
+import { Formulas } from "./pantallas/Formulas";
 import { Inicio } from "./pantallas/Inicio";
 import { NuevoProyecto } from "./pantallas/NuevoProyecto";
 import { Preparacion } from "./pantallas/Preparacion";
@@ -31,6 +32,7 @@ export function Rutas() {
       <Route path="/proyectos/:id/resultados" element={<Resultados />} />
       <Route path="/proyectos/:id/modelo-causal" element={<ModeloCausal />} />
       <Route path="/proyectos/:id/prescripcion" element={<Prescripcion />} />
+      <Route path="/proyectos/:id/formulas" element={<Formulas />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
@@ -40,6 +42,7 @@ export function App() {
   const navegar = useNavigate();
   const location = useLocation();
   const isProjectRoute = location.pathname.startsWith('/proyectos/');
+  const proyectoId = matchPath("/proyectos/:id/*", location.pathname)?.params.id;
   
   const { setColorScheme } = useMantineColorScheme();
   const computedColorScheme = useComputedColorScheme("light", { getInitialValueInEffect: true });
@@ -63,6 +66,17 @@ export function App() {
             </Group>
           </UnstyledButton>
           
+          <Group gap="sm">
+          {proyectoId && (
+            <Button
+              variant={location.pathname.endsWith("/formulas") ? "light" : "default"}
+              size="compact-md"
+              leftSection={<IconMathFunction size={18} />}
+              onClick={() => navegar(`/proyectos/${proyectoId}/formulas`)}
+            >
+              Explorador de fórmulas
+            </Button>
+          )}
           <ActionIcon
             onClick={toggleColorScheme}
             variant="default"
@@ -72,6 +86,7 @@ export function App() {
           >
             {computedColorScheme === "dark" ? <IconSun size={18} /> : <IconMoon size={18} />}
           </ActionIcon>
+          </Group>
         </Group>
       </AppShell.Header>
       

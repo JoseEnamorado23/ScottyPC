@@ -776,6 +776,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/proyectos/{proyecto_id}/formulas/seleccion-prueba": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cómo se elige la prueba de independencia de PC
+         * @description Solo lectura. 409 si la recomendación no está vigente; 422 ``UMBRAL_INVALIDO`` si un umbral
+         *     está fuera de rango. Los umbrales enviados solo cambian lo que se muestra, no la recomendación.
+         */
+        post: operations["seleccion_prueba_proyectos__proyecto_id__formulas_seleccion_prueba_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/formulas/analisis-pc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cómo las cuentas del bootstrap forman el grafo
+         * @description Solo lectura. 409 si el análisis no está vigente; 404 si la versión no existe; 422
+         *     ``UMBRAL_INVALIDO`` si el umbral no es válido. No guarda nada ni vuelve a ejecutar PC.
+         */
+        post: operations["analisis_pc_proyectos__proyecto_id__formulas_analisis_pc_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/formulas/modelo-causal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cómo se elige y qué calcula cada mecanismo
+         * @description Solo lectura. 409 si el modelo causal no está vigente; 422 ``UMBRAL_INVALIDO`` si un umbral o un
+         *     valor no es válido. No reajusta ni guarda nada.
+         */
+        post: operations["modelo_causal_proyectos__proyecto_id__formulas_modelo_causal_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/formulas/prescripcion/calibracion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cómo se elige μ
+         * @description Solo lectura, sobre la rejilla guardada. 409 si la prescripción no está vigente o μ no se calibró.
+         */
+        post: operations["calibracion_proyectos__proyecto_id__formulas_prescripcion_calibracion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/proyectos/{proyecto_id}/formulas/prescripcion/caso": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Función objetivo de la prescripción de un caso
+         * @description Prescribe el caso igual que ``/prescripcion/caso`` (con otro μ si se indica) y descompone la pérdida.
+         *     No guarda nada. Mismos errores que la prescripción de un caso.
+         */
+        post: operations["caso_prescripcion_proyectos__proyecto_id__formulas_prescripcion_caso_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/trabajos/{trabajo_id}": {
         parameters: {
             query?: never;
@@ -834,6 +938,34 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AccionExplicada */
+        AccionExplicada: {
+            /** Variable */
+            variable: string;
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "continua" | "discreta";
+            /** Cambia */
+            cambia: boolean;
+            /** Antes */
+            antes: string;
+            /** Despues */
+            despues: string;
+            /** D */
+            d: number | null;
+            /** Costo */
+            costo: number;
+            /** Penalizacion */
+            penalizacion: number;
+            /** Contribucion */
+            contribucion: number | null;
+            /** Restriccion Activa */
+            restriccion_activa: string | null;
+            /** Pasos */
+            pasos: components["schemas"]["PasoFormula"][];
+        };
         /** AccionHallazgo */
         AccionHallazgo: {
             /** Accion */
@@ -1015,6 +1147,36 @@ export interface components {
             nota: string;
             /** Calibrada En */
             calibrada_en?: string | null;
+        };
+        /** CambioArista */
+        CambioArista: {
+            /** A */
+            a: string;
+            /** B */
+            b: string;
+            /**
+             * Cambio
+             * @enum {string}
+             */
+            cambio: "nueva" | "quitada";
+            /** Frecuencia */
+            frecuencia: number;
+        };
+        /** CandidatoExplicado */
+        CandidatoExplicado: {
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "simple" | "complejo";
+            /** Familia */
+            familia: string;
+            /** Nombre Familia */
+            nombre_familia: string;
+            /** Puntuacion Cv */
+            puntuacion_cv: number | null;
+            /** Error */
+            error: string | null;
         };
         /** CandidatoMecanismo */
         CandidatoMecanismo: {
@@ -1406,6 +1568,21 @@ export interface components {
             /** Contribucion */
             contribucion: number;
         };
+        /** ControlCaso */
+        ControlCaso: {
+            /** Variable */
+            variable: string;
+            /** Valor */
+            valor: number;
+            /** Minimo */
+            minimo: number;
+            /** Maximo */
+            maximo: number;
+            /** Mediana */
+            mediana: number;
+            /** Original */
+            original: string | null;
+        };
         /** ControlVariable */
         ControlVariable: {
             /** Nombre */
@@ -1709,6 +1886,17 @@ export interface components {
             /** Segundos Estimados Restantes */
             segundos_estimados_restantes: number | null;
         };
+        /** EntradaDecision */
+        EntradaDecision: {
+            /** Nombre */
+            nombre: string;
+            /** Valor */
+            valor: string;
+            /** Usada */
+            usada: boolean;
+            /** Nota */
+            nota: string;
+        };
         /** EstadoPreparacion */
         EstadoPreparacion: {
             /**
@@ -1982,6 +2170,51 @@ export interface components {
             /** Frecuencia Sin Orientar */
             frecuencia_sin_orientar: number[][];
         };
+        /** MecanismoExplicado */
+        MecanismoExplicado: {
+            /** Variable */
+            variable: string;
+            /** Rol */
+            rol: string;
+            /** Tipo */
+            tipo: string;
+            /** Padres */
+            padres: string[];
+            /** Metrica */
+            metrica: string;
+            /** Familia */
+            familia: string;
+            /** Nombre Familia */
+            nombre_familia: string;
+            /** Candidatos */
+            candidatos: components["schemas"]["CandidatoExplicado"][];
+            /** Mejora */
+            mejora: number | null;
+            /**
+             * Elegido
+             * @enum {string}
+             */
+            elegido: "simple" | "complejo";
+            /**
+             * Elegido Guardado
+             * @enum {string}
+             */
+            elegido_guardado: "simple" | "complejo";
+            /** Origen */
+            origen: string;
+            /** Cambiaria */
+            cambiaria: boolean;
+            /** Puntuacion Cv */
+            puntuacion_cv: number | null;
+            /** Puntuacion Test */
+            puntuacion_test: number | null;
+            /** Calidad Suficiente */
+            calidad_suficiente: boolean | null;
+            /** Resumen */
+            resumen: string;
+            /** Pasos */
+            pasos: components["schemas"]["PasoFormula"][];
+        };
         /** MetaEvaluacion */
         MetaEvaluacion: {
             /** Numero */
@@ -2128,6 +2361,36 @@ export interface components {
             /** Filas */
             filas: components["schemas"]["ResultadoPrescripcion"][];
         };
+        /** ParEvaluado */
+        ParEvaluado: {
+            /** A */
+            a: string;
+            /** B */
+            b: string;
+            /**
+             * Estado
+             * @enum {string}
+             */
+            estado: "aceptada" | "debil" | "descartada";
+            /** Frecuencia */
+            frecuencia: number;
+            /** Margen */
+            margen: number;
+            /** Roza Umbral */
+            roza_umbral: boolean;
+            /** Tipo */
+            tipo: ("dirigida" | "sin_orientar" | "manual") | null;
+            /** Origen */
+            origen: string | null;
+            /** Destino */
+            destino: string | null;
+            /** Spearman */
+            spearman: number | null;
+            /** Signo */
+            signo: number | null;
+            /** Pasos */
+            pasos: components["schemas"]["PasoFormula"][];
+        };
         /** ParVariables */
         ParVariables: {
             /** Variable A */
@@ -2138,6 +2401,25 @@ export interface components {
             frecuencia: number;
             /** Con Objetivo */
             con_objetivo: boolean;
+        };
+        /** PasoFormula */
+        PasoFormula: {
+            /** Id */
+            id: string;
+            /** Titulo */
+            titulo: string;
+            /** Formula */
+            formula: string;
+            /** Sustituida */
+            sustituida: string | null;
+            /** Resultado */
+            resultado: string;
+            /** Cumple */
+            cumple: boolean | null;
+            /** Terminos */
+            terminos: components["schemas"]["TerminoFormula"][];
+            /** Nota */
+            nota: string | null;
         };
         /** PasoTraza */
         PasoTraza: {
@@ -2355,6 +2637,21 @@ export interface components {
             /** Filas */
             filas: number;
         };
+        /** PuntoExplicado */
+        PuntoExplicado: {
+            /** Mu */
+            mu: number;
+            /** Tasa */
+            tasa: number | null;
+            /** Exitos */
+            exitos: number;
+            /** Evaluados */
+            evaluados: number;
+            /** Cumple */
+            cumple: boolean;
+            /** Elegido */
+            elegido: boolean;
+        };
         /** PuntoRejilla */
         PuntoRejilla: {
             /** Mu */
@@ -2419,6 +2716,28 @@ export interface components {
             tiempo_estimado_bootstrap_max_k_s: number | null;
             /** Nota Tiempo */
             nota_tiempo: string | null;
+        };
+        /** ReglaDecision */
+        ReglaDecision: {
+            /** Orden */
+            orden: number;
+            /** Titulo */
+            titulo: string;
+            /** Condicion */
+            condicion: string;
+            /** Sustituida */
+            sustituida: string;
+            /** Cumple */
+            cumple: boolean;
+            /**
+             * Estado
+             * @enum {string}
+             */
+            estado: "decide" | "sin_efecto" | "no_cumple";
+            /** Consecuencia */
+            consecuencia: string;
+            /** Detalle */
+            detalle: string | null;
         };
         /** RespuestaConfiguracionPC */
         RespuestaConfiguracionPC: {
@@ -2840,6 +3159,62 @@ export interface components {
              */
             evaluacion?: number | null;
         };
+        /**
+         * SolicitudFormulasAnalisisPC
+         * @description Umbral de frecuencia a probar (por defecto, el de la versión) y versión del resultado.
+         */
+        SolicitudFormulasAnalisisPC: {
+            /** Umbral */
+            umbral?: number | null;
+            /** Version */
+            version?: number | null;
+        };
+        /** SolicitudFormulasCalibracion */
+        SolicitudFormulasCalibracion: {
+            /**
+             * Exito
+             * @description Porcentaje de éxito a probar (por defecto, el guardado).
+             */
+            exito?: number | null;
+        };
+        /** SolicitudFormulasCaso */
+        SolicitudFormulasCaso: {
+            caso: components["schemas"]["CasoEntrada"];
+            /**
+             * Mu
+             * @description μ a probar (por defecto, el efectivo de la prescripción).
+             */
+            mu?: number | null;
+        };
+        /**
+         * SolicitudFormulasModeloCausal
+         * @description Umbrales a probar y valores del caso (unidades preparadas; los que falten, la mediana de train).
+         */
+        SolicitudFormulasModeloCausal: {
+            /** Umbrales */
+            umbrales?: {
+                [key: string]: number;
+            };
+            /** Valores */
+            valores?: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * SolicitudFormulasSeleccionPrueba
+         * @description Umbrales a probar (los que no se envíen conservan su valor por defecto) y |S| para las fórmulas.
+         */
+        SolicitudFormulasSeleccionPrueba: {
+            /** Umbrales */
+            umbrales?: {
+                [key: string]: number;
+            };
+            /**
+             * K
+             * @default 0
+             */
+            k: number;
+        };
         /** SolicitudLote */
         SolicitudLote: {
             /**
@@ -3006,6 +3381,20 @@ export interface components {
             /** Confirmado En */
             confirmado_en?: string | null;
         };
+        /** TerminoFormula */
+        TerminoFormula: {
+            /** Simbolo */
+            simbolo: string;
+            /** Descripcion */
+            descripcion: string;
+            /** Valor */
+            valor: string | null;
+            /**
+             * Origen
+             * @enum {string}
+             */
+            origen: "dataset" | "umbral" | "calculado";
+        };
         /** Trabajo */
         Trabajo: {
             /** Id */
@@ -3062,6 +3451,178 @@ export interface components {
             /** Imputacion */
             imputacion?: ("eliminar_filas" | "mediana" | "multivariada") | null;
         };
+        /** TrazaAnalisisPC */
+        TrazaAnalisisPC: {
+            /** Version */
+            version: number;
+            /** Umbral */
+            umbral: number;
+            /** Umbral Guardado */
+            umbral_guardado: number;
+            /** Corridas Validas */
+            corridas_validas: number;
+            /** Resumen */
+            resumen: string;
+            /** Fundamentos */
+            fundamentos: components["schemas"]["PasoFormula"][];
+            /** Entradas */
+            entradas: components["schemas"]["EntradaDecision"][];
+            /** Pares */
+            pares: components["schemas"]["ParEvaluado"][];
+            /** Pares Omitidos */
+            pares_omitidos: number;
+            /** Variables */
+            variables: components["schemas"]["VariableCaracterizada"][];
+            /** Cambios */
+            cambios: components["schemas"]["CambioArista"][];
+            /** Candidatas */
+            candidatas: string[];
+            /** Candidatas Guardadas */
+            candidatas_guardadas: string[];
+            /** Umbrales */
+            umbrales: components["schemas"]["UmbralExplorador"][];
+            /** Avisos */
+            avisos: string[];
+        };
+        /** TrazaCalibracion */
+        TrazaCalibracion: {
+            /** Mu */
+            mu: number;
+            /** Mu Guardado */
+            mu_guardado: number;
+            /** Cambia */
+            cambia: boolean;
+            /** Exito Requerido */
+            exito_requerido: number;
+            /** Casos */
+            casos: number;
+            /** Ya Cumplen */
+            ya_cumplen: number;
+            /** Alcanzables */
+            alcanzables: number;
+            /** No Alcanzables */
+            no_alcanzables: number;
+            /** Puntos */
+            puntos: components["schemas"]["PuntoExplicado"][];
+            /** Pasos */
+            pasos: components["schemas"]["PasoFormula"][];
+            /** Resumen */
+            resumen: string;
+            /** Advertencia */
+            advertencia: string | null;
+            /** Nota */
+            nota: string | null;
+            /** Umbrales */
+            umbrales: components["schemas"]["UmbralExplorador"][];
+        };
+        /** TrazaCaso */
+        TrazaCaso: {
+            /** Indice */
+            indice: number | null;
+            /** Medida */
+            medida: string;
+            /** Direccion */
+            direccion: string;
+            /** Deseado */
+            deseado: number;
+            /** Antes */
+            antes: number;
+            /** Despues */
+            despues: number;
+            /** Alcanzado */
+            alcanzado: boolean;
+            /** Ya Cumple */
+            ya_cumple: boolean;
+            /** Mu */
+            mu: number;
+            /** Mu Guardado */
+            mu_guardado: number | null;
+            /** Optimizador */
+            optimizador: string;
+            /** Explicacion */
+            explicacion: string;
+            /** Fundamentos */
+            fundamentos: components["schemas"]["PasoFormula"][];
+            /** Perdida */
+            perdida: components["schemas"]["PasoFormula"][];
+            /** Acciones */
+            acciones: components["schemas"]["AccionExplicada"][];
+            /** Entradas */
+            entradas: components["schemas"]["EntradaDecision"][];
+            /** Restricciones */
+            restricciones: string[];
+            /** Avisos */
+            avisos: string[];
+        };
+        /** TrazaModeloCausal */
+        TrazaModeloCausal: {
+            /** Objetivo */
+            objetivo: string;
+            /** Resumen */
+            resumen: string;
+            /** Fundamentos */
+            fundamentos: components["schemas"]["PasoFormula"][];
+            /** Entradas */
+            entradas: components["schemas"]["EntradaDecision"][];
+            /** Mecanismos */
+            mecanismos: components["schemas"]["MecanismoExplicado"][];
+            /** Monotonia */
+            monotonia: components["schemas"]["PasoFormula"][];
+            /** Referencia */
+            referencia: components["schemas"]["PasoFormula"][];
+            /** Controles */
+            controles: components["schemas"]["ControlCaso"][];
+            /** Umbrales */
+            umbrales: components["schemas"]["UmbralExplorador"][];
+            /** Avisos */
+            avisos: string[];
+        };
+        /** TrazaSeleccionPrueba */
+        TrazaSeleccionPrueba: {
+            /** Prueba */
+            prueba: string;
+            /** Prueba Original */
+            prueba_original: string;
+            /** Cambia */
+            cambia: boolean;
+            /** Resumen */
+            resumen: string;
+            /** Entradas */
+            entradas: components["schemas"]["EntradaDecision"][];
+            /** Reglas */
+            reglas: components["schemas"]["ReglaDecision"][];
+            /** Variables */
+            variables: components["schemas"]["VariableExplicada"][];
+            /** Formulas Prueba */
+            formulas_prueba: components["schemas"]["PasoFormula"][];
+            /** Umbrales */
+            umbrales: components["schemas"]["UmbralExplorador"][];
+            /** K */
+            k: number;
+            /** Avisos */
+            avisos: string[];
+        };
+        /** UmbralExplorador */
+        UmbralExplorador: {
+            /** Nombre */
+            nombre: string;
+            /** Simbolo */
+            simbolo: string;
+            /** Descripcion */
+            descripcion: string;
+            /** Valor */
+            valor: number;
+            /** Original */
+            original: number;
+            /** Minimo */
+            minimo: number;
+            /** Maximo */
+            maximo: number;
+            /** Paso */
+            paso: number;
+            /** Entero */
+            entero: boolean;
+        };
         /** ValidacionConfiguracionPC */
         ValidacionConfiguracionPC: {
             /** Valida */
@@ -3113,6 +3674,40 @@ export interface components {
             extrapolacion: boolean;
             /** Observado */
             observado: boolean;
+        };
+        /** VariableCaracterizada */
+        VariableCaracterizada: {
+            /** Nombre */
+            nombre: string;
+            /** Categoria */
+            categoria: string;
+            /** Regla */
+            regla: string;
+            /** Camino */
+            camino: string | null;
+            /** Frecuencia Con Objetivo */
+            frecuencia_con_objetivo: number;
+            /** Modificable */
+            modificable: boolean;
+            /** Candidata */
+            candidata: boolean;
+        };
+        /** VariableExplicada */
+        VariableExplicada: {
+            /** Nombre */
+            nombre: string;
+            /** Tipo Final */
+            tipo_final: string;
+            /** Evaluada */
+            evaluada: boolean;
+            /** No Monotona */
+            no_monotona: boolean | null;
+            /** Criterio */
+            criterio: ("forma_u" | "spearman_debil") | null;
+            /** Resumen */
+            resumen: string;
+            /** Pasos */
+            pasos: components["schemas"]["PasoFormula"][];
         };
         /** VersionResultado */
         VersionResultado: {
@@ -5664,6 +6259,271 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResultadoExportarPrescripcion"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    seleccion_prueba_proyectos__proyecto_id__formulas_seleccion_prueba_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SolicitudFormulasSeleccionPrueba"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrazaSeleccionPrueba"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    analisis_pc_proyectos__proyecto_id__formulas_analisis_pc_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SolicitudFormulasAnalisisPC"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrazaAnalisisPC"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    modelo_causal_proyectos__proyecto_id__formulas_modelo_causal_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SolicitudFormulasModeloCausal"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrazaModeloCausal"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    calibracion_proyectos__proyecto_id__formulas_prescripcion_calibracion_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SolicitudFormulasCalibracion"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrazaCalibracion"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    caso_prescripcion_proyectos__proyecto_id__formulas_prescripcion_caso_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SolicitudFormulasCaso"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrazaCaso"];
                 };
             };
             /** @description No encontrado. */

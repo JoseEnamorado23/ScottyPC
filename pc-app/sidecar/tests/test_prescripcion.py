@@ -116,6 +116,26 @@ def test_mu_automatico_sin_calibrar_y_calibracion(guardada):
     ok(cliente.post(url(proyecto, "/caso"), json={"caso": {"indice_test": casos["filas"][0]["indice"]}}))
 
 
+def test_explorador_de_formulas_de_la_prescripcion(guardada):
+    cliente, proyecto = guardada
+    base = f"/proyectos/{proyecto}/formulas/prescripcion"
+    vista = ok(cliente.get(url(proyecto, "/configuracion")))
+    calibracion = ok(cliente.post(f"{base}/calibracion"))
+    assert calibracion["mu"] == calibracion["mu_guardado"] == vista["calibracion"]["mu"]
+    assert sum(p["elegido"] for p in calibracion["puntos"]) == 1
+    assert ok(cliente.post(f"{base}/calibracion", json={"exito": 0.5}))["exito_requerido"] == 0.5
+    assert cliente.post(f"{base}/calibracion", json={"exito": 2}).status_code == 422
+
+    indice = ok(cliente.get(f"/proyectos/{proyecto}/modelo-causal/casos"))["filas"][0]["indice"]
+    pantalla = ok(cliente.post(url(proyecto, "/caso"), json={"caso": {"indice_test": indice}}))
+    traza = ok(cliente.post(f"{base}/caso", json={"caso": {"indice_test": indice}}))
+    assert traza["despues"] == pantalla["despues"] and traza["mu"] == pantalla["mu"] == traza["mu_guardado"]
+    assert [p["id"] for p in traza["perdida"]] == ["perdida_antes", "perdida_despues"]
+    otro = ok(cliente.post(f"{base}/caso", json={"caso": {"indice_test": indice}, "mu": 0.5}))
+    assert otro["mu"] == 0.5 and otro["mu_guardado"] == traza["mu_guardado"]
+    assert cliente.post(f"{base}/caso", json={"caso": {}}).status_code == 422
+
+
 def test_lotes_de_test_y_de_csv_nuevo(guardada, tmp_path):
     cliente, proyecto = guardada
     trabajo = ok(cliente.post(url(proyecto, "/lote"), json={"origen": "test"}), 202)

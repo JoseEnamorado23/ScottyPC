@@ -83,6 +83,7 @@ from pcapp_servidor.configuracion import ConfiguracionServidor
 from pcapp_servidor.errores import conflicto, invalido, no_encontrado
 from pcapp_servidor.etapas import REQUISITOS, GestorEtapas
 from pcapp_servidor.flujo_causal import ServiciosModeloCausal
+from pcapp_servidor.flujo_formulas import ServiciosFormulas
 from pcapp_servidor.flujo_prescripcion import ServiciosPrescripcion
 from pcapp_servidor.procesos import GrupoProcesos
 from pcapp_servidor.trabajos import REANUDABLES, Contexto, FuncionTrabajo, GestorTrabajos
@@ -153,7 +154,7 @@ def describir_distribucion(serie: pd.Series, columna: str) -> dict[str, Any]:
     return resultado
 
 
-class Servicios(ServiciosModeloCausal, ServiciosPrescripcion):
+class Servicios(ServiciosModeloCausal, ServiciosPrescripcion, ServiciosFormulas):
     def __init__(self, configuracion: ConfiguracionServidor, base: BaseDatos) -> None:
         self.archivos = Archivos(configuracion.datos)
         self.proyectos = RepositorioProyectos(base)

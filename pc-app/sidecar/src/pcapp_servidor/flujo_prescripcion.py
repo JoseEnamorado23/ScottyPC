@@ -255,12 +255,19 @@ class ServiciosPrescripcion:
         proyecto = self.proyecto(proyecto_id)
         modelo, datos, configuracion, contenido, mu = self._preparada(proyecto)
         mu = self._exigir_mu(mu)
+        referencia = referencia_desde_diccionario(contenido["referencia"])
+        caso_nucleo, fila = self._caso_de_solicitud(modelo, datos, caso)
+        resultado = prescribir_caso(modelo, caso_nucleo, configuracion, mu, referencia, fila)
+        return a_diccionario_serializable(resultado)
+
+    @staticmethod
+    def _caso_de_solicitud(modelo, datos, caso: dict[str, Any]):
+        """(caso del núcleo, fila preparada o ``None``) de una fila de test o de valores propios."""
         if (caso.get("indice_test") is None) == (caso.get("valores") is None):
             raise invalido(
                 "CASO_NO_VALIDO", "Indique una fila de test (indice_test) o valores propios (valores), no ambos.",
                 [{"campo": "caso", "mensaje": "Indique indice_test o valores."}],
             )
-        referencia = referencia_desde_diccionario(contenido["referencia"])
         try:
             if caso.get("indice_test") is not None:
                 indice = int(caso["indice_test"])
@@ -272,8 +279,7 @@ class ServiciosPrescripcion:
         except ErrorContrafactual as error:
             detalles = [{"campo": error.campo, "mensaje": str(error)}] if error.campo else None
             raise invalido("CASO_NO_VALIDO", str(error), detalles) from error
-        resultado = prescribir_caso(modelo, caso_nucleo, configuracion, mu, referencia, fila)
-        return a_diccionario_serializable(resultado)
+        return caso_nucleo, fila
 
     # --- Lotes (trabajo) ---------------------------------------------------------------------------
 

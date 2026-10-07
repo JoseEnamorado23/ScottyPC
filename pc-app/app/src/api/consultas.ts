@@ -33,6 +33,14 @@ export const claves = {
   aplicabilidad: (id: string, configuracion: unknown) => ["proyectos", id, "modelo-causal", "aplicabilidad", configuracion] as const,
   modelo: (id: string) => ["proyectos", id, "modelo-causal", "modelo"] as const,
   casos: (id: string, pagina: number) => ["proyectos", id, "modelo-causal", "casos", pagina] as const,
+  formulasSeleccionPrueba: (id: string, umbrales: Record<string, number>, k: number) =>
+    ["proyectos", id, "formulas", "seleccion-prueba", umbrales, k] as const,
+  formulasAnalisisPc: (id: string, umbral: number | null) => ["proyectos", id, "formulas", "analisis-pc", umbral] as const,
+  formulasModeloCausal: (id: string, umbrales: Record<string, number>, valores: Record<string, number>) =>
+    ["proyectos", id, "formulas", "modelo-causal", umbrales, valores] as const,
+  formulasCalibracion: (id: string, exito: number | null) => ["proyectos", id, "formulas", "calibracion", exito] as const,
+  formulasCasoPrescripcion: (id: string, indice: number | null, mu: number | null) =>
+    ["proyectos", id, "formulas", "caso-prescripcion", indice, mu] as const,
   escenario: (id: string, solicitud: unknown) => ["proyectos", id, "modelo-causal", "escenario", solicitud] as const,
 };
 
@@ -256,5 +264,76 @@ export function useTrabajo(trabajoId: string | null) {
     },
     queryFn: () =>
       datos(cliente.GET("/trabajos/{trabajo_id}", { params: { path: { trabajo_id: trabajoId! } } })),
+  });
+}
+
+/** Traza del explorador de fórmulas: cómo se elige la prueba de PC (`null` si no hay recomendación vigente). */
+export function useFormulasSeleccionPrueba(id: string, umbrales: Record<string, number>, k: number) {
+  const { cliente } = useApi();
+  return useQuery({
+    queryKey: claves.formulasSeleccionPrueba(id, umbrales, k),
+    placeholderData: (anterior) => anterior,
+    queryFn: () =>
+      opcional(
+        datos(cliente.POST("/proyectos/{proyecto_id}/formulas/seleccion-prueba", { ...ruta(id), body: { umbrales, k } })),
+      ),
+  });
+}
+
+/** Traza del explorador de fórmulas del análisis de PC (`null` si el análisis no está vigente). */
+export function useFormulasAnalisisPc(id: string, umbral: number | null) {
+  const { cliente } = useApi();
+  return useQuery({
+    queryKey: claves.formulasAnalisisPc(id, umbral),
+    placeholderData: (anterior) => anterior,
+    queryFn: () =>
+      opcional(
+        datos(cliente.POST("/proyectos/{proyecto_id}/formulas/analisis-pc", { ...ruta(id), body: { umbral } })),
+      ),
+  });
+}
+
+/** Traza del explorador de fórmulas del modelo causal (`null` si el modelo no está vigente). */
+export function useFormulasModeloCausal(id: string, umbrales: Record<string, number>, valores: Record<string, number>) {
+  const { cliente } = useApi();
+  return useQuery({
+    queryKey: claves.formulasModeloCausal(id, umbrales, valores),
+    placeholderData: (anterior) => anterior,
+    queryFn: () =>
+      opcional(
+        datos(cliente.POST("/proyectos/{proyecto_id}/formulas/modelo-causal", { ...ruta(id), body: { umbrales, valores } })),
+      ),
+  });
+}
+
+/** Traza de la calibración de μ (`null` si la prescripción no está vigente o μ no se calibró). */
+export function useFormulasCalibracion(id: string, exito: number | null) {
+  const { cliente } = useApi();
+  return useQuery({
+    queryKey: claves.formulasCalibracion(id, exito),
+    placeholderData: (anterior) => anterior,
+    queryFn: () =>
+      opcional(
+        datos(cliente.POST("/proyectos/{proyecto_id}/formulas/prescripcion/calibracion", { ...ruta(id), body: { exito } })),
+      ),
+  });
+}
+
+/** Traza de la prescripción de una fila de test (`null` si no se puede prescribir). Tarda unos segundos. */
+export function useFormulasCasoPrescripcion(id: string, indice: number | null, mu: number | null) {
+  const { cliente } = useApi();
+  return useQuery({
+    queryKey: claves.formulasCasoPrescripcion(id, indice, mu),
+    enabled: indice !== null,
+    placeholderData: (anterior) => anterior,
+    queryFn: () =>
+      opcional(
+        datos(
+          cliente.POST("/proyectos/{proyecto_id}/formulas/prescripcion/caso", {
+            ...ruta(id),
+            body: { caso: { indice_test: indice }, mu },
+          }),
+        ),
+      ),
   });
 }

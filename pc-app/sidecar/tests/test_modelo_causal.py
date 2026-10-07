@@ -156,6 +156,23 @@ def test_contrafactual_no_valido(construido):
     assert texto.status_code == 422 and texto.json()["error"]["detalles"][0]["campo"] == "caso.valores.Age"
 
 
+def test_explorador_de_formulas_del_modelo(construido):
+    cliente, proyecto = construido
+    ruta = f"/proyectos/{proyecto}/formulas/modelo-causal"
+    vista = ok(cliente.get(f"/proyectos/{proyecto}/modelo-causal"))
+    traza = ok(cliente.post(ruta))
+    assert {m["variable"] for m in traza["mecanismos"]} == set(vista["modelo"]["mecanismos"])
+    assert all(m["elegido"] == m["elegido_guardado"] for m in traza["mecanismos"])
+    assert traza["controles"]
+    control = traza["controles"][0]
+    otro = ok(cliente.post(ruta, json={"valores": {control["variable"]: control["maximo"]}, "umbrales": {"umbral_parsimonia": 0.3}}))
+    assert next(c for c in otro["controles"] if c["variable"] == control["variable"])["valor"] == control["maximo"]
+    assert cliente.post(ruta, json={"umbrales": {"umbral_parsimonia": 9}}).status_code == 422
+    assert cliente.post(ruta, json={"valores": {"NoExiste": 1}}).status_code == 422
+    # No se tocó nada.
+    assert ok(cliente.get(f"/proyectos/{proyecto}/modelo-causal"))["modelo"] == vista["modelo"]
+
+
 def test_cambiar_la_version_del_resultado_lo_desactualiza(construido):
     cliente, proyecto = construido
     versiones = ok(cliente.get(f"/proyectos/{proyecto}/resultado/versiones"))

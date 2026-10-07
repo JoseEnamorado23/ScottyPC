@@ -51,6 +51,9 @@ from pcapp_nucleo.preparacion import BINARIA, CONTINUA, INDICADOR, ONE_HOT, ORDI
 
 FISHERZ, CHISQ, MV_FISHERZ, KCI = "fisherz", "chisq", "mv_fisherz", "kci"
 
+# Motivo de una variable cuya curva sube y baja; el explorador de fórmulas lo reconoce por este texto.
+MOTIVO_FORMA_U = "La relación con el objetivo sube y baja (forma de U o de U invertida)."
+
 _VENTAJAS_DESVENTAJAS = {
     FISHERZ: (
         "Muy rápida y con buena potencia si las relaciones son lineales.",
@@ -211,7 +214,7 @@ def diagnosticar_variable(
     fuerte = dependiente and amplitud >= configuracion.efecto_minimo_no_linealidad * escala
     motivo = None
     if dependiente and _sube_y_baja(curva, grupos, binario, escala, configuracion):
-        motivo = "La relación con el objetivo sube y baja (forma de U o de U invertida)."
+        motivo = MOTIVO_FORMA_U
     elif fuerte and abs(rho) < configuracion.spearman_debil:
         motivo = (
             f"La dependencia por intervalos es significativa pero la correlación de Spearman "

@@ -1163,3 +1163,270 @@ class Apagado(BaseModel):
 # Modelos con referencias a clases definidas más abajo.
 for _modelo in (Proyecto, ProyectoCreado, Trabajo):
     _modelo.model_rebuild()
+
+
+# --- Explorador de fórmulas ------------------------------------------------------------------------
+
+
+class SolicitudFormulasSeleccionPrueba(_Entrada):
+    """Umbrales a probar (los que no se envíen conservan su valor por defecto) y |S| para las fórmulas."""
+
+    umbrales: dict[str, float] = Field(default_factory=dict)
+    k: int = Field(0, ge=0, le=50)
+
+
+class TerminoFormula(BaseModel):
+    simbolo: str
+    descripcion: str
+    valor: str | None
+    origen: Literal["dataset", "umbral", "calculado"]
+
+
+class PasoFormula(BaseModel):
+    id: str
+    titulo: str
+    formula: str
+    sustituida: str | None
+    resultado: str
+    cumple: bool | None
+    terminos: list[TerminoFormula]
+    nota: str | None
+
+
+class ReglaDecision(BaseModel):
+    orden: int
+    titulo: str
+    condicion: str
+    sustituida: str
+    cumple: bool
+    estado: Literal["decide", "sin_efecto", "no_cumple"]
+    consecuencia: str
+    detalle: str | None
+
+
+class VariableExplicada(BaseModel):
+    nombre: str
+    tipo_final: str
+    evaluada: bool
+    no_monotona: bool | None
+    criterio: Literal["forma_u", "spearman_debil"] | None
+    resumen: str
+    pasos: list[PasoFormula]
+
+
+class EntradaDecision(BaseModel):
+    nombre: str
+    valor: str
+    usada: bool
+    nota: str
+
+
+class UmbralExplorador(BaseModel):
+    nombre: str
+    simbolo: str
+    descripcion: str
+    valor: float
+    original: float
+    minimo: float
+    maximo: float
+    paso: float
+    entero: bool
+
+
+class TrazaSeleccionPrueba(BaseModel):
+    prueba: str
+    prueba_original: str
+    cambia: bool
+    resumen: str
+    entradas: list[EntradaDecision]
+    reglas: list[ReglaDecision]
+    variables: list[VariableExplicada]
+    formulas_prueba: list[PasoFormula]
+    umbrales: list[UmbralExplorador]
+    k: int
+    avisos: list[str]
+
+
+class SolicitudFormulasAnalisisPC(_Entrada):
+    """Umbral de frecuencia a probar (por defecto, el de la versión) y versión del resultado."""
+
+    umbral: float | None = Field(None, gt=0, le=1)
+    version: int | None = Field(None, ge=1)
+
+
+class ParEvaluado(BaseModel):
+    a: str
+    b: str
+    estado: Literal["aceptada", "debil", "descartada"]
+    frecuencia: float
+    margen: float
+    roza_umbral: bool
+    tipo: Literal["dirigida", "sin_orientar", "manual"] | None
+    origen: str | None
+    destino: str | None
+    spearman: float | None
+    signo: int | None
+    pasos: list[PasoFormula]
+
+
+class VariableCaracterizada(BaseModel):
+    nombre: str
+    categoria: str
+    regla: str
+    camino: str | None
+    frecuencia_con_objetivo: float
+    modificable: bool
+    candidata: bool
+
+
+class CambioArista(BaseModel):
+    a: str
+    b: str
+    cambio: Literal["nueva", "quitada"]
+    frecuencia: float
+
+
+class TrazaAnalisisPC(BaseModel):
+    version: int
+    umbral: float
+    umbral_guardado: float
+    corridas_validas: int
+    resumen: str
+    fundamentos: list[PasoFormula]
+    entradas: list[EntradaDecision]
+    pares: list[ParEvaluado]
+    pares_omitidos: int
+    variables: list[VariableCaracterizada]
+    cambios: list[CambioArista]
+    candidatas: list[str]
+    candidatas_guardadas: list[str]
+    umbrales: list[UmbralExplorador]
+    avisos: list[str]
+
+
+class SolicitudFormulasModeloCausal(_Entrada):
+    """Umbrales a probar y valores del caso (unidades preparadas; los que falten, la mediana de train)."""
+
+    umbrales: dict[str, float] = Field(default_factory=dict)
+    valores: dict[str, float] = Field(default_factory=dict)
+
+
+class ControlCaso(BaseModel):
+    variable: str
+    valor: float
+    minimo: float
+    maximo: float
+    mediana: float
+    original: str | None
+
+
+class CandidatoExplicado(BaseModel):
+    tipo: Literal["simple", "complejo"]
+    familia: str
+    nombre_familia: str
+    puntuacion_cv: float | None
+    error: str | None
+
+
+class MecanismoExplicado(BaseModel):
+    variable: str
+    rol: str
+    tipo: str
+    padres: list[str]
+    metrica: str
+    familia: str
+    nombre_familia: str
+    candidatos: list[CandidatoExplicado]
+    mejora: float | None
+    elegido: Literal["simple", "complejo"]
+    elegido_guardado: Literal["simple", "complejo"]
+    origen: str
+    cambiaria: bool
+    puntuacion_cv: float | None
+    puntuacion_test: float | None
+    calidad_suficiente: bool | None
+    resumen: str
+    pasos: list[PasoFormula]
+
+
+class TrazaModeloCausal(BaseModel):
+    objetivo: str
+    resumen: str
+    fundamentos: list[PasoFormula]
+    entradas: list[EntradaDecision]
+    mecanismos: list[MecanismoExplicado]
+    monotonia: list[PasoFormula]
+    referencia: list[PasoFormula]
+    controles: list[ControlCaso]
+    umbrales: list[UmbralExplorador]
+    avisos: list[str]
+
+
+class SolicitudFormulasCalibracion(_Entrada):
+    exito: float | None = Field(None, gt=0, le=1, description="Porcentaje de éxito a probar (por defecto, el guardado).")
+
+
+class PuntoExplicado(BaseModel):
+    mu: float
+    tasa: float | None
+    exitos: int
+    evaluados: int
+    cumple: bool
+    elegido: bool
+
+
+class TrazaCalibracion(BaseModel):
+    mu: float
+    mu_guardado: float
+    cambia: bool
+    exito_requerido: float
+    casos: int
+    ya_cumplen: int
+    alcanzables: int
+    no_alcanzables: int
+    puntos: list[PuntoExplicado]
+    pasos: list[PasoFormula]
+    resumen: str
+    advertencia: str | None
+    nota: str | None
+    umbrales: list[UmbralExplorador]
+
+
+class SolicitudFormulasCaso(_Entrada):
+    caso: CasoEntrada
+    mu: float | None = Field(None, ge=0, description="μ a probar (por defecto, el efectivo de la prescripción).")
+
+
+class AccionExplicada(BaseModel):
+    variable: str
+    tipo: Literal["continua", "discreta"]
+    cambia: bool
+    antes: str
+    despues: str
+    d: float | None
+    costo: float
+    penalizacion: float
+    contribucion: float | None
+    restriccion_activa: str | None
+    pasos: list[PasoFormula]
+
+
+class TrazaCaso(BaseModel):
+    indice: int | None
+    medida: str
+    direccion: str
+    deseado: float
+    antes: float
+    despues: float
+    alcanzado: bool
+    ya_cumple: bool
+    mu: float
+    mu_guardado: float | None
+    optimizador: str
+    explicacion: str
+    fundamentos: list[PasoFormula]
+    perdida: list[PasoFormula]
+    acciones: list[AccionExplicada]
+    entradas: list[EntradaDecision]
+    restricciones: list[str]
+    avisos: list[str]
