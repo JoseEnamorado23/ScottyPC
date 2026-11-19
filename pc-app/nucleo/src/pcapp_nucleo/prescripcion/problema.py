@@ -278,7 +278,7 @@ class ProblemaPrescripcion:
         return np.clip(D, self.lo, self.hi)
 
     def con_mu(self, mu: float) -> ProblemaPrescripcion:
-        copia = object.__new__(ProblemaPrescripcion)
+        copia = object.__new__(type(self))
         copia.__dict__.update(self.__dict__)
         copia.mu = float(mu)
         return copia

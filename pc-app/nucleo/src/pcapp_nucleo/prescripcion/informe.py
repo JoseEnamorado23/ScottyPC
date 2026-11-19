@@ -51,6 +51,12 @@ def prescripciones_csv(resultados: list[dict[str, Any]]) -> str:
             "restricciones_activas": "; ".join(f"{x['variable']}: {x['restriccion']}" for x in r["restricciones_activas"]),
             "explicacion": r["explicacion"],
         }
+        evidencia = r.get("evidencia")
+        if evidencia:
+            fila["vecinos_con_prescripcion"] = evidencia["prescrita"]["valor"]
+            fila["vecinos_con_valores_actuales"] = evidencia["actual"]["valor"]
+            fila["vecinos_mejora"] = evidencia["mejora"]
+            fila["vecinos_con_respaldo"] = evidencia["prescrita"]["con_respaldo"]
         for a in r["acciones"]:
             fila[f"{a['variable']} antes"] = a["antes"]
             fila[f"{a['variable']} despues"] = a["despues"]
@@ -66,6 +72,55 @@ def _pct(valor: float | None) -> str:
 
 def _num(valor: float | None, formato: str = ".3f") -> str:
     return "—" if valor is None else decimal(valor, formato)
+
+
+def _evidencia_y_comparador(evaluacion: dict[str, Any]) -> list[str]:
+    """Evidencia de vecinos y comparador de métodos (las evaluaciones antiguas no los traen)."""
+    partes: list[str] = []
+    e = evaluacion.get("evidencia_vecinos")
+    valor = _pct if (e or {}).get("medida", "proporcion") == "proporcion" else _num
+    if e:
+        intervalo = e["intervalo_mejora"]
+        partes += [
+            "<h3>Evidencia de vecinos (datos observados)</h3>",
+            f'<div class="aviso">{_e(e["texto"])}</div>',
+            _tabla(
+                ["Métrica", "Valor"],
+                [
+                    ["Vecinos por caso (k)", e["k"]],
+                    ["Prescripciones con respaldo en los datos", f"{e['con_respaldo']} de {e['casos']} ({decimal(e['porcentaje_con_respaldo'], '.1f')} %)"],
+                    ["Resultado observado en los vecinos con la prescripción", valor(e["valor_prescrita_medio"])],
+                    ["Resultado observado en los vecinos con los valores actuales", valor(e["valor_actual_medio"])],
+                    ["Mejora observada media (IC 95 %)",
+                     f"{valor(e['mejora_media'])}" + (f" ({valor(intervalo[0])} a {valor(intervalo[1])})" if intervalo else "")],
+                    ["Casos en que los vecinos mejoran", "—" if e["porcentaje_mejora_positiva"] is None else decimal(e["porcentaje_mejora_positiva"], ".1f") + " %"],
+                    ["Casos en que los vecinos cumplen el objetivo", "—" if e["porcentaje_cumple"] is None else decimal(e["porcentaje_cumple"], ".1f") + " %"],
+                    ["Coincidencia modelo causal / vecinos", "—" if e["coincidencia_modelo"] is None else decimal(e["coincidencia_modelo"], ".1f") + " %"],
+                    ["p (Wilcoxon, prescripción frente a valores actuales)", _num(e["p_valor"], ".4g")],
+                ],
+                {1},
+            ),
+            '<p class="nota">Calculado sobre los casos cuya prescripción tiene respaldo (vecinos tan cercanos como los de un caso típico de train).</p>',
+        ]
+    comparador = evaluacion.get("comparador") or []
+    if comparador:
+        partes += [
+            "<h3>Comparador de métodos (mismos casos, mismas restricciones)</h3>",
+            f'<p class="nota">{_e(evaluacion.get("texto_comparador") or "")}</p>',
+            _tabla(
+                ["Método", "Éxito (modelo causal)", "Éxito (referencia)", "Con respaldo", "Cumple en vecinos",
+                 "Resultado en vecinos", "Mejora en vecinos", "p frente al prescriptor", "Costo medio", "Acciones medias"],
+                [
+                    [m["nombre"], _pct(m["tasa_exito_causal"]), _pct(m["tasa_exito_referencia"]),
+                     "—" if m["porcentaje_con_respaldo"] is None else decimal(m["porcentaje_con_respaldo"], ".1f") + " %",
+                     _pct(m["tasa_cumple_vecinos"]), valor(m["valor_vecinos_medio"]), valor(m["mejora_vecinos_media"]),
+                     _num(m["p_valor_frente_prescriptor"], ".4g"), _num(m["costo_medio"]), _num(m["acciones_medias"], ".2f")]
+                    for m in comparador
+                ],
+                {1, 2, 3, 4, 5, 6, 7, 8, 9},
+            ),
+        ]
+    return partes
 
 
 def informe_prescripcion_html(
@@ -180,15 +235,17 @@ def informe_prescripcion_html(
             f"<p>{_e(evaluacion['mcnemar']['prueba'])}: {evaluacion['mcnemar']['solo_gradiente']} casos solo con "
             f"gradiente proximal, {evaluacion['mcnemar']['solo_genetico']} solo con el genético; p = "
             f"{_e(decimal(evaluacion['mcnemar']['p_valor'], '.4g'))}.</p>",
+            *_evidencia_y_comparador(evaluacion),
         ]
     if resultados:
         partes += [
             f"<h2>Prescripciones ({len(resultados)})</h2>",
             _tabla(
-                ["Caso", "Antes", "Después", "Alcanzado", "Revisión", "Explicación"],
+                ["Caso", "Antes", "Después", "Alcanzado", "Revisión", "Explicación", "Evidencia de vecinos"],
                 [
                     [r["caso"].get("indice"), formato_objetivo(r["antes"]), formato_objetivo(r["despues"]),
-                     "sí" if r["alcanzado"] else "no", "sí" if r["requiere_revision"] else "no", r["explicacion"]]
+                     "sí" if r["alcanzado"] else "no", "sí" if r["requiere_revision"] else "no", r["explicacion"],
+                     (r.get("evidencia") or {}).get("texto", "—")]
                     for r in resultados[:500]
                 ],
                 {1, 2},

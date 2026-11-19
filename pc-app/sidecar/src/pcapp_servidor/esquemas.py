@@ -1046,6 +1046,23 @@ class RestriccionActiva(BaseModel):
     mensaje: str
 
 
+class GrupoVecinos(BaseModel):
+    valor: float = Field(description="Proporción de la clase de interés (binario) o media del objetivo (unidades originales).")
+    distancia_media: float
+    distancia_maxima: float
+    con_respaldo: bool
+    cumple: bool
+
+
+class EvidenciaVecinos(BaseModel):
+    k: int
+    umbral_respaldo: float
+    prescrita: GrupoVecinos
+    actual: GrupoVecinos
+    mejora: float = Field(description="(prescrita − actual) con el signo del objetivo: positiva = los vecinos están mejor.")
+    texto: str
+
+
 class ResultadoPrescripcion(BaseModel):
     caso: dict[str, Any]
     objetivo: str
@@ -1073,6 +1090,7 @@ class ResultadoPrescripcion(BaseModel):
     traza: list[PasoTraza]
     valores: list[ValorContrafactual]
     avisos: list[AvisoContrafactual]
+    evidencia: EvidenciaVecinos | None = None
 
 
 class SolicitudLote(_Entrada):
@@ -1114,6 +1132,39 @@ class ComparacionOptimizadores(BaseModel):
     segundos_medios: float
 
 
+class ResumenEvidencia(BaseModel):
+    k: int
+    umbral_respaldo: float
+    medida: Literal["proporcion", "media"]
+    casos: int
+    con_respaldo: int
+    porcentaje_con_respaldo: float
+    porcentaje_cumple: float | None
+    valor_prescrita_medio: float | None
+    valor_actual_medio: float | None
+    mejora_media: float | None
+    intervalo_mejora: list[float] | None
+    porcentaje_mejora_positiva: float | None
+    p_valor: float | None
+    coincidencia_modelo: float | None
+    texto: str
+
+
+class MetodoComparado(BaseModel):
+    metodo: Literal["prescriptor", "sin_causalidad", "imitar_exitosos", "aleatoria", "sin_intervencion"]
+    nombre: str
+    casos: int
+    tasa_exito_causal: float
+    tasa_exito_referencia: float | None
+    porcentaje_con_respaldo: float | None
+    tasa_cumple_vecinos: float | None
+    valor_vecinos_medio: float | None
+    mejora_vecinos_media: float | None
+    p_valor_frente_prescriptor: float | None
+    costo_medio: float
+    acciones_medias: float
+
+
 class EvaluacionPrescriptor(BaseModel):
     casos: int
     tasa_exito: float
@@ -1128,6 +1179,10 @@ class EvaluacionPrescriptor(BaseModel):
     mcnemar: dict[str, Any]
     mu: float
     texto: str
+    # Las evaluaciones anteriores a la evidencia de vecinos y al comparador no los traen.
+    evidencia_vecinos: ResumenEvidencia | None = None
+    comparador: list[MetodoComparado] = Field(default_factory=list)
+    texto_comparador: str | None = None
 
 
 class MetaEvaluacion(BaseModel):

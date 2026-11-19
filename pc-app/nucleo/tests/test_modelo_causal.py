@@ -466,3 +466,22 @@ def test_categoria_one_hot_se_interviene_como_grupo():
         contrafactual(modelo, caso, [Intervencion("zona", "desplazar", 1)])
     with pytest.raises(ErrorContrafactual, match="categoría"):
         contrafactual(modelo, caso, [Intervencion("zona", "fijar", "z")])
+
+
+def test_calibracion_con_pocas_probabilidades_distintas():
+    """Con un único padre binario el modelo solo da dos probabilidades: la curva de calibración
+    debe tener un punto por cada una (antes el valor más alto se juntaba con el otro)."""
+    rng = np.random.default_rng(14)
+    b = rng.integers(0, 2, 1500)
+    y = (rng.uniform(size=1500) < np.where(b == 1, 0.7, 0.1)).astype(int)
+    datos = preparar_df(pd.DataFrame({"B": b, "Y": y}), "Y")
+    _, evaluacion = construir_modelo(resultado(["B", "Y"], [("B", "Y")]), datos)
+    calibracion = evaluacion["evaluacion_objetivo"]["calibracion"]
+    test = calibracion["test"]
+    assert len(test) == 2
+    assert test[0]["probabilidad_media"] < 0.3 < 0.5 < test[1]["probabilidad_media"]
+    assert sum(p["filas"] for p in test) == len(datos.test)
+    # En validación cruzada cada pliegue da sus dos probabilidades: un punto por valor distinto.
+    cv = calibracion["cv"]
+    assert 2 <= len(cv) <= 10 and sum(p["filas"] for p in cv) == len(datos.train)
+    assert any(p["probabilidad_media"] > 0.5 for p in cv)

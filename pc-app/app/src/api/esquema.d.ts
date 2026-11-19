@@ -2044,6 +2044,43 @@ export interface components {
             mu: number;
             /** Texto */
             texto: string;
+            evidencia_vecinos?: components["schemas"]["ResumenEvidencia"] | null;
+            /** Comparador */
+            comparador?: components["schemas"]["MetodoComparado"][];
+            /** Texto Comparador */
+            texto_comparador?: string | null;
+        };
+        /** EvidenciaVecinos */
+        EvidenciaVecinos: {
+            /** K */
+            k: number;
+            /** Umbral Respaldo */
+            umbral_respaldo: number;
+            prescrita: components["schemas"]["GrupoVecinos"];
+            actual: components["schemas"]["GrupoVecinos"];
+            /**
+             * Mejora
+             * @description (prescrita − actual) con el signo del objetivo: positiva = los vecinos están mejor.
+             */
+            mejora: number;
+            /** Texto */
+            texto: string;
+        };
+        /** GrupoVecinos */
+        GrupoVecinos: {
+            /**
+             * Valor
+             * @description Proporción de la clase de interés (binario) o media del objetivo (unidades originales).
+             */
+            valor: number;
+            /** Distancia Media */
+            distancia_media: number;
+            /** Distancia Maxima */
+            distancia_maxima: number;
+            /** Con Respaldo */
+            con_respaldo: boolean;
+            /** Cumple */
+            cumple: boolean;
         };
         /** Hallazgo */
         Hallazgo: {
@@ -2274,6 +2311,36 @@ export interface components {
             parametros: {
                 [key: string]: unknown;
             };
+        };
+        /** MetodoComparado */
+        MetodoComparado: {
+            /**
+             * Metodo
+             * @enum {string}
+             */
+            metodo: "prescriptor" | "sin_causalidad" | "imitar_exitosos" | "aleatoria" | "sin_intervencion";
+            /** Nombre */
+            nombre: string;
+            /** Casos */
+            casos: number;
+            /** Tasa Exito Causal */
+            tasa_exito_causal: number;
+            /** Tasa Exito Referencia */
+            tasa_exito_referencia: number | null;
+            /** Porcentaje Con Respaldo */
+            porcentaje_con_respaldo: number | null;
+            /** Tasa Cumple Vecinos */
+            tasa_cumple_vecinos: number | null;
+            /** Valor Vecinos Medio */
+            valor_vecinos_medio: number | null;
+            /** Mejora Vecinos Media */
+            mejora_vecinos_media: number | null;
+            /** P Valor Frente Prescriptor */
+            p_valor_frente_prescriptor: number | null;
+            /** Costo Medio */
+            costo_medio: number;
+            /** Acciones Medias */
+            acciones_medias: number;
         };
         /** ModeloCausal */
         ModeloCausal: {
@@ -2947,6 +3014,7 @@ export interface components {
             valores: components["schemas"]["ValorContrafactual"][];
             /** Avisos */
             avisos: components["schemas"]["AvisoContrafactual"][];
+            evidencia?: components["schemas"]["EvidenciaVecinos"] | null;
         };
         /** ResultadoValidacion */
         ResultadoValidacion: {
@@ -2956,6 +3024,42 @@ export interface components {
             errores: components["schemas"]["ProblemaValidacion"][];
             /** Advertencias */
             advertencias: components["schemas"]["ProblemaValidacion"][];
+        };
+        /** ResumenEvidencia */
+        ResumenEvidencia: {
+            /** K */
+            k: number;
+            /** Umbral Respaldo */
+            umbral_respaldo: number;
+            /**
+             * Medida
+             * @enum {string}
+             */
+            medida: "proporcion" | "media";
+            /** Casos */
+            casos: number;
+            /** Con Respaldo */
+            con_respaldo: number;
+            /** Porcentaje Con Respaldo */
+            porcentaje_con_respaldo: number;
+            /** Porcentaje Cumple */
+            porcentaje_cumple: number | null;
+            /** Valor Prescrita Medio */
+            valor_prescrita_medio: number | null;
+            /** Valor Actual Medio */
+            valor_actual_medio: number | null;
+            /** Mejora Media */
+            mejora_media: number | null;
+            /** Intervalo Mejora */
+            intervalo_mejora: number[] | null;
+            /** Porcentaje Mejora Positiva */
+            porcentaje_mejora_positiva: number | null;
+            /** P Valor */
+            p_valor: number | null;
+            /** Coincidencia Modelo */
+            coincidencia_modelo: number | null;
+            /** Texto */
+            texto: string;
         };
         /** ResumenMecanismo */
         ResumenMecanismo: {

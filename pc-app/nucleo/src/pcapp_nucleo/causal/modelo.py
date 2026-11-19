@@ -196,8 +196,14 @@ def _metricas_continuas(y: np.ndarray, p: np.ndarray) -> dict[str, float]:
 
 
 def _calibracion(y: np.ndarray, p: np.ndarray, intervalos: int) -> list[dict[str, float]]:
-    limites = np.unique(np.quantile(p, np.linspace(0, 1, intervalos + 1)))
-    grupo = np.clip(np.searchsorted(limites, p, side="right") - 1, 0, max(len(limites) - 2, 0))
+    distintos = np.unique(p)
+    if len(distintos) <= intervalos:
+        # Pocas probabilidades distintas (p. ej. padres discretos): un punto por valor. Con
+        # intervalos por cuantiles, el valor más alto se juntaría con el anterior.
+        grupo = np.searchsorted(distintos, p)
+    else:
+        limites = np.unique(np.quantile(p, np.linspace(0, 1, intervalos + 1)))
+        grupo = np.clip(np.searchsorted(limites, p, side="right") - 1, 0, max(len(limites) - 2, 0))
     puntos = []
     for g in np.unique(grupo):
         mascara = grupo == g

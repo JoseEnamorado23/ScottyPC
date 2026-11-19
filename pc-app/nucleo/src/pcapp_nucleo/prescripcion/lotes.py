@@ -4,7 +4,9 @@ Ambos reparten los casos en bloques (opcionalmente entre procesos, con ``ejecuto
 resultado de cada caso no depende de los demás, así que es idéntico en paralelo y en secuencial.
 
 La evaluación es INTERNA: mide qué haría el prescriptor según el modelo causal, no el efecto real
-de las intervenciones.
+de las intervenciones. Con ``train`` añade dos pruebas que no dependen solo del modelo: la evidencia
+de vecinos (resultado observado de los casos parecidos con las acciones prescritas) y el comparador
+con otros métodos (``comparador.py``).
 """
 
 from __future__ import annotations
@@ -12,7 +14,7 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 from concurrent.futures import Executor, FIRST_COMPLETED, wait
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import numpy as np
@@ -24,8 +26,13 @@ from pcapp_nucleo.causal.modelo import ModeloCausal, modelo_desde_diccionario
 from pcapp_nucleo.prescripcion.configuracion import (
     GENETICO, GRADIENTE, ConfiguracionPrescripcion, configuracion_desde_diccionario, rango_original,
 )
+from pcapp_nucleo.prescripcion.comparador import (
+    TEXTO_COMPARADOR, MetodoComparado, ResumenEvidencia, comparar_caso, medias_exitosos, resumir_comparador,
+    resumir_evidencia,
+)
+from pcapp_nucleo.prescripcion.evidencia import IndiceVecinos, construir_indice
 from pcapp_nucleo.prescripcion.optimizadores import crear_optimizador
-from pcapp_nucleo.prescripcion.prescriptor import ResultadoPrescripcion, prescribir_caso
+from pcapp_nucleo.prescripcion.prescriptor import ResultadoPrescripcion, prescribir_caso, prescribir_con_solucion
 from pcapp_nucleo.prescripcion.problema import ProblemaPrescripcion
 from pcapp_nucleo.prescripcion.referencia import ModeloReferencia, referencia_desde_diccionario
 from pcapp_nucleo.utilidades import a_diccionario_serializable
@@ -95,12 +102,14 @@ def _argumentos(modelo, configuracion, referencia, ejecutor) -> tuple:
 # --- Lote ------------------------------------------------------------------------------------
 
 
-def _lote_bloque(modelo, configuracion, referencia, mu: float, filas: pd.DataFrame) -> list[dict[str, Any]]:
+def _lote_bloque(
+    modelo, configuracion, referencia, mu: float, vecinos: IndiceVecinos | None, filas: pd.DataFrame
+) -> list[dict[str, Any]]:
     modelo, configuracion, referencia = _materializar(modelo, configuracion, referencia)
     salida = []
     for indice in filas.index:
         caso = caso_desde_test(modelo, filas, int(indice))
-        resultado = prescribir_caso(modelo, caso, configuracion, mu, referencia, filas.loc[[indice]])
+        resultado = prescribir_caso(modelo, caso, configuracion, mu, referencia, filas.loc[[indice]], vecinos=vecinos)
         salida.append(a_diccionario_serializable(resultado))
     return salida
 
@@ -108,11 +117,13 @@ def _lote_bloque(modelo, configuracion, referencia, mu: float, filas: pd.DataFra
 def prescribir_lote(
     modelo: ModeloCausal, filas: pd.DataFrame, configuracion: ConfiguracionPrescripcion, mu: float,
     referencia: ModeloReferencia | None, progreso=None, cancelacion=None, ejecutor: Executor | None = None,
+    train: pd.DataFrame | None = None,
 ) -> list[dict[str, Any]]:
     """Prescripción de cada fila (preparada; el índice identifica el caso). Devuelve los resultados
-    serializados, en el orden de ``filas``."""
+    serializados, en el orden de ``filas``. Con ``train``, cada resultado trae su evidencia de vecinos."""
     filas = filas.drop(columns=[modelo.objetivo], errors="ignore")
-    argumentos = (*_argumentos(modelo, configuracion, referencia, ejecutor), mu)
+    vecinos = construir_indice(modelo, train, configuracion) if train is not None else None
+    argumentos = (*_argumentos(modelo, configuracion, referencia, ejecutor), mu, vecinos)
     return _en_bloques(_lote_bloque, argumentos, filas, ejecutor, progreso, cancelacion)
 
 
@@ -147,8 +158,11 @@ def _resumen_caso(r: ResultadoPrescripcion, segundos: float) -> dict[str, Any]:
     }
 
 
-def _evaluacion_bloque(modelo, configuracion, referencia, mu: float, filas: pd.DataFrame) -> list[dict[str, Any]]:
+def _evaluacion_bloque(
+    modelo, configuracion, referencia, mu: float, vecinos: IndiceVecinos | None, filas: pd.DataFrame
+) -> list[dict[str, Any]]:
     modelo, configuracion, referencia = _materializar(modelo, configuracion, referencia)
+    medias = medias_exitosos(vecinos) if vecinos is not None else None
     variantes: dict[str, tuple[ConfiguracionPrescripcion, float, str]] = {
         "base": (configuracion, mu, configuracion.optimizador),
     }
@@ -164,6 +178,15 @@ def _evaluacion_bloque(modelo, configuracion, referencia, mu: float, filas: pd.D
         fila = filas.loc[[indice]]
         registro = {"indice": int(indice)}
         cache: dict[tuple, dict[str, Any]] = {}
+        # Variante base: también da la solución para el comparador (mismo problema, sin repetir).
+        problema = ProblemaPrescripcion(modelo, caso, configuracion, mu)
+        optimizador_base = crear_optimizador(configuracion.optimizador, configuracion)
+        t = time.perf_counter()
+        r, solucion = prescribir_con_solucion(modelo, caso, configuracion, mu, referencia, fila, optimizador_base, problema)
+        cache[(id(configuracion), mu, configuracion.optimizador)] = _resumen_caso(r, time.perf_counter() - t)
+        registro["comparador"] = comparar_caso(
+            modelo, caso, configuracion, problema, solucion, referencia, fila, vecinos, medias, optimizador_base,
+        )
         for nombre, (c, m, optimizador) in variantes.items():
             clave = (id(c), m, optimizador)
             if clave not in cache:
@@ -198,6 +221,9 @@ class EvaluacionPrescriptor:
     mcnemar: dict[str, Any]
     mu: float
     texto: str = TEXTO_EVALUACION_INTERNA
+    evidencia_vecinos: ResumenEvidencia | None = None
+    comparador: list[MetodoComparado] = field(default_factory=list)
+    texto_comparador: str = TEXTO_COMPARADOR
 
 
 def _tasa(registros, variante) -> float:
@@ -211,11 +237,15 @@ def _costo(registros, variante) -> float:
 def evaluar_prescriptor(
     modelo: ModeloCausal, test: pd.DataFrame, configuracion: ConfiguracionPrescripcion, mu: float,
     referencia: ModeloReferencia | None, progreso=None, cancelacion=None, ejecutor: Executor | None = None,
+    train: pd.DataFrame | None = None,
 ) -> EvaluacionPrescriptor:
-    """Evalúa sobre los casos de test que no cumplen el objetivo (sin reajustar nada)."""
+    """Evalúa sobre los casos de test que no cumplen el objetivo (sin reajustar nada). ``train``
+    (con el objetivo) habilita la evidencia de vecinos y el comparador con otros métodos."""
     casos = que_no_cumplen(modelo, test.drop(columns=[modelo.objetivo], errors="ignore"), configuracion)
-    argumentos = (*_argumentos(modelo, configuracion, referencia, ejecutor), mu)
+    vecinos = construir_indice(modelo, train, configuracion) if train is not None else None
+    argumentos = (*_argumentos(modelo, configuracion, referencia, ejecutor), mu, vecinos)
     registros = _en_bloques(_evaluacion_bloque, argumentos, casos, ejecutor, progreso, cancelacion)
+    comparador = [r["comparador"] for r in registros]
     base = [r["base"] for r in registros]
     cambios: dict[str, list[float]] = {}
     for r in base:
@@ -267,4 +297,6 @@ def evaluar_prescriptor(
         mcnemar={"solo_gradiente": solo_gradiente, "solo_genetico": solo_genetico, "p_valor": p,
                  "prueba": "McNemar exacta (binomial sobre los pares discordantes)"},
         mu=mu,
+        evidencia_vecinos=resumir_evidencia(comparador, vecinos),
+        comparador=resumir_comparador(comparador, vecinos),
     )

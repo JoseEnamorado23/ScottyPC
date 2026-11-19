@@ -21,6 +21,7 @@ from pcapp_nucleo.causal.contrafactuales import (
 )
 from pcapp_nucleo.causal.modelo import INTERMEDIA, ModeloCausal
 from pcapp_nucleo.prescripcion.configuracion import BAJAR, ConfiguracionPrescripcion, SUBIR
+from pcapp_nucleo.prescripcion.evidencia import EvidenciaVecinos, IndiceVecinos, evidencia_caso, valores_de_columnas
 from pcapp_nucleo.prescripcion.optimizadores import Optimizador, Solucion, crear_optimizador, optimizar_caso
 from pcapp_nucleo.prescripcion.problema import CAMBIO_MAXIMO, DIRECCION, LIMITE, ProblemaPrescripcion
 from pcapp_nucleo.prescripcion.referencia import ModeloReferencia
@@ -89,6 +90,7 @@ class ResultadoPrescripcion:
     traza: list[PasoTraza] = field(default_factory=list)
     valores: list[ValorContrafactual] = field(default_factory=list)
     avisos: list[AvisoContrafactual] = field(default_factory=list)
+    evidencia: EvidenciaVecinos | None = None
 
 
 def semilla_de_caso(modelo: ModeloCausal, caso: Caso) -> np.random.SeedSequence:
@@ -260,6 +262,38 @@ def _perfil_referencia(
     return base
 
 
+def resolver(
+    problema: ProblemaPrescripcion, optimizador: Optimizador, semilla: np.random.SeedSequence
+) -> tuple[Solucion, bool, float]:
+    """(solución, ya cumple, segundos). Si el objetivo no se alcanza con el costo, devuelve la
+    solución que más se acerca sin penalizarlo."""
+    ceros = Solucion(np.zeros(problema.k), problema.actual, 0.0, 0.0)
+    if problema.alcanzado(_exacta(problema, ceros)):
+        return ceros, True, 0.0
+    solucion, segundos = optimizar_caso(problema, optimizador, semilla)
+    if not problema.alcanzado(_exacta(problema, solucion)):
+        # Mejor solución posible: sin penalizar el costo.
+        sin_costo = problema.con_mu(0.0)
+        alternativa, extra = optimizar_caso(sin_costo, optimizador, semilla, solucion)
+        segundos += extra
+        if problema.brecha(np.array([_exacta(problema, alternativa)]))[0] < problema.brecha(
+            np.array([_exacta(problema, solucion)])
+        )[0] - 1e-12:
+            solucion = alternativa
+    return solucion, False, segundos
+
+
+def fijadas_de(problema: ProblemaPrescripcion, solucion: Solucion) -> dict[str, float]:
+    """Columnas preparadas que la solución cambia, con su nuevo valor."""
+    return _fijadas(problema, solucion)[0]
+
+
+def valores_actuales(problema: ProblemaPrescripcion) -> dict[str, float]:
+    """Valores preparados del caso antes de intervenir (las variables del modelo)."""
+    modelo = problema.modelo
+    return valores_de_columnas(problema.abduccion.antes, [v for v in modelo.variables if v != modelo.objetivo])
+
+
 def prescribir_caso(
     modelo: ModeloCausal,
     caso: Caso,
@@ -269,29 +303,31 @@ def prescribir_caso(
     fila: pd.DataFrame | None = None,
     optimizador: Optimizador | None = None,
     problema: ProblemaPrescripcion | None = None,
+    vecinos: IndiceVecinos | None = None,
 ) -> ResultadoPrescripcion:
     """Prescripción de ``caso`` con ``mu``. ``fila`` (todas las columnas preparadas del caso)
-    permite evaluar el modelo de referencia sobre el perfil propagado."""
+    permite evaluar el modelo de referencia sobre el perfil propagado; ``vecinos`` (train), la
+    evidencia de los casos parecidos."""
+    return prescribir_con_solucion(modelo, caso, configuracion, mu, referencia, fila, optimizador, problema, vecinos)[0]
+
+
+def prescribir_con_solucion(
+    modelo: ModeloCausal,
+    caso: Caso,
+    configuracion: ConfiguracionPrescripcion,
+    mu: float,
+    referencia: ModeloReferencia | None = None,
+    fila: pd.DataFrame | None = None,
+    optimizador: Optimizador | None = None,
+    problema: ProblemaPrescripcion | None = None,
+    vecinos: IndiceVecinos | None = None,
+) -> tuple[ResultadoPrescripcion, Solucion]:
+    """Como ``prescribir_caso``, devolviendo también la solución (d y estados) del optimizador."""
     optimizador = optimizador or crear_optimizador(configuracion.optimizador, configuracion)
     problema = problema or ProblemaPrescripcion(modelo, caso, configuracion, mu)
     semilla = semilla_de_caso(modelo, caso)
-    ceros = Solucion(np.zeros(problema.k), problema.actual, 0.0, 0.0)
-    p_antes = _exacta(problema, ceros)
-    segundos = 0.0
-    if problema.alcanzado(p_antes):
-        solucion, ya_cumple = ceros, True
-    else:
-        ya_cumple = False
-        solucion, segundos = optimizar_caso(problema, optimizador, semilla)
-        if not problema.alcanzado(_exacta(problema, solucion)):
-            # Mejor solución posible: sin penalizar el costo.
-            sin_costo = problema.con_mu(0.0)
-            alternativa, extra = optimizar_caso(sin_costo, optimizador, semilla, solucion)
-            segundos += extra
-            if problema.brecha(np.array([_exacta(problema, alternativa)]))[0] < problema.brecha(
-                np.array([_exacta(problema, solucion)])
-            )[0] - 1e-12:
-                solucion = alternativa
+    p_antes = _exacta(problema, Solucion(np.zeros(problema.k), problema.actual, 0.0, 0.0))
+    solucion, ya_cumple, segundos = resolver(problema, optimizador, semilla)
     p_despues = _exacta(problema, solucion)
     alcanzado = problema.alcanzado(p_despues)
     fijadas, nombres = _fijadas(problema, solucion)
@@ -337,6 +373,10 @@ def prescribir_caso(
         requiere_revision = alcanzado_ref != (alcanzado or ya_cumple)
         datos_referencia = {"despues": _a_medida(modelo, p_ref), "alcanzado": alcanzado_ref}
     costo = float(problema.con_mu(1.0).penalizacion(*problema.matrices([solucion.d], [solucion.estado]))[0])
+    evidencia = (
+        evidencia_caso(vecinos, valores_actuales(problema), fijadas, modelo.objetivo, problema.clase_positiva)
+        if vecinos is not None else None
+    )
     resultado = ResultadoPrescripcion(
         caso={"origen": caso.origen, "indice": caso.indice},
         objetivo=modelo.objetivo,
@@ -364,8 +404,9 @@ def prescribir_caso(
         traza=contrafactual.traza,
         valores=contrafactual.valores,
         avisos=contrafactual.avisos,
+        evidencia=evidencia,
     )
-    return _con_explicacion(resultado)
+    return _con_explicacion(resultado), solucion
 
 
 def _con_explicacion(r: ResultadoPrescripcion) -> ResultadoPrescripcion:

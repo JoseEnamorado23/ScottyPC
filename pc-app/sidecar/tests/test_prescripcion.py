@@ -98,6 +98,13 @@ def test_guardar_caso_y_candidatas_en_resultados(guardada):
     assert r["medida"] == "probabilidad" and r["explicacion"]
     assert {a["variable"] for a in r["acciones"]} <= {"BMI", "Glucose"}
     assert r["mu"] == 0.01
+    # Evidencia de vecinos de train: los mismos dos grupos si no hay cambios.
+    e = r["evidencia"]
+    assert e["k"] == 20 and 0 <= e["prescrita"]["valor"] <= 1 and "casos de train" in e["texto"]
+    if not r["acciones"]:
+        assert e["prescrita"] == e["actual"] and e["mejora"] == 0
+    propio = ok(cliente.post(url(proyecto, "/caso"), json={"caso": {"valores": casos["filas"][0]["valores"]}}))
+    assert propio["evidencia"]["actual"] == e["actual"]
 
 
 def test_mu_automatico_sin_calibrar_y_calibracion(guardada):
@@ -176,12 +183,20 @@ def test_evaluacion_y_exportacion(guardada, tmp_path):
     assert "INTERNA" in informe["texto"]
     assert [c["optimizador"] for c in informe["comparacion_optimizadores"]] == ["gradiente_proximal", "genetico"]
     assert [s["fraccion_rango"] for s in informe["sensibilidad_cambio_maximo"]] == [0.1, 0.25, 0.4]
+    if informe["casos"]:
+        assert [m["metodo"] for m in informe["comparador"]] == [
+            "prescriptor", "sin_causalidad", "imitar_exitosos", "aleatoria", "sin_intervencion",
+        ]
+        assert informe["comparador"][-1]["tasa_exito_causal"] == 0
+        assert informe["evidencia_vecinos"]["medida"] == "proporcion" and "OBSERVACIONAL" in informe["evidencia_vecinos"]["texto"]
     lotes = ok(cliente.get(url(proyecto, "/lotes")))
     exportado = ok(cliente.post(url(proyecto, "/exportar"), json={
         "carpeta_destino": str(tmp_path), "evaluacion": numero, "lote": lotes[0]["numero"] if lotes else None,
     }))
     html = (tmp_path / exportado["carpeta"].split("\\")[-1].split("/")[-1] / "informe_prescripcion.html").read_text("utf-8")
     assert "Recomendaciones basadas en datos observacionales" in html and "Declaración de supuestos" in html
+    if informe["casos"]:
+        assert "Evidencia de vecinos" in html and "Comparador de métodos" in html
 
 
 def test_reconstruir_el_modelo_desactualiza_la_prescripcion(guardada):

@@ -119,6 +119,9 @@ export function Lotes({ proyectoId, bloqueado, enCurso }: { proyectoId: string; 
                           : r.alcanzado ? <Badge size="xs" color="green" variant="light">alcanzado</Badge>
                             : <Badge size="xs" color="red" variant="light">no alcanzable</Badge>}
                         {r.requiere_revision && <Badge size="xs" color="orange" variant="light">revisión</Badge>}
+                        {r.evidencia && !r.evidencia.prescrita.con_respaldo && r.acciones.length > 0 && (
+                          <Badge size="xs" color="orange" variant="light">poco respaldo</Badge>
+                        )}
                       </Group>
                     </Table.Td>
                     <Table.Td><Text size="xs">{r.acciones.map((a) => a.variable).join(", ") || "—"}</Text></Table.Td>

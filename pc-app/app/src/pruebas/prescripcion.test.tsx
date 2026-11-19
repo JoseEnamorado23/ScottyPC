@@ -100,6 +100,10 @@ describe("Prescripción: pantalla", () => {
     expect(within(tarjeta).getByTestId("prescripcion-despues")).toHaveTextContent("25,0 %");
     expect(within(tarjeta).getByTestId("explicacion")).toHaveTextContent("Reducir Glucose de 148 a 131");
     expect(within(tarjeta).getByText("Requiere revisión")).toBeInTheDocument();
+    const evidencia = within(tarjeta).getByTestId("evidencia-caso");
+    expect(within(evidencia).getByText("Con respaldo en los datos")).toBeInTheDocument();
+    expect(within(evidencia).getByText("35,0 %")).toBeInTheDocument();
+    expect(within(evidencia).getByText("+25 pp")).toBeInTheDocument();
     const filas = within(within(tarjeta).getByTestId("acciones-prescritas")).getAllByRole("row").slice(1);
     expect(filas.map((f) => within(f).getAllByRole("cell")[0].textContent)).toEqual(["Glucose", "BMI"]);
     expect(peticionesA(sidecar.peticiones, "POST", "/proyectos/p1/prescripcion/caso")[0].cuerpo).toEqual({ caso: { indice_test: 7 } });
@@ -134,5 +138,29 @@ describe("Prescripción: pantalla", () => {
     expect(within(comparacion).getByText("Genético")).toBeInTheDocument();
     expect(within(comparacion).getByText(/McNemar exacta/)).toHaveTextContent("p = 1");
     expect(within(panel).getByRole("img", { name: "Éxito según el cambio máximo (% del rango)" })).toBeInTheDocument();
+  });
+
+  it("evaluación: evidencia de vecinos y comparador de métodos; las antiguas avisan que no los tienen", async () => {
+    const usuario = userEvent.setup();
+    renderizar("/proyectos/p1/prescripcion", simulacionPrescripcion());
+    await usuario.click(await screen.findByRole("tab", { name: "Evaluación" }));
+    const vecinos = await screen.findByTestId("evidencia-vecinos");
+    expect(within(vecinos).getByText("83,2 %")).toBeInTheDocument();
+    expect(within(vecinos).getByText("+21 pp")).toBeInTheDocument();
+    expect(within(vecinos).getByText("IC 95 %: +17 pp a +25 pp")).toBeInTheDocument();
+    expect(within(vecinos).getByText("< 0,0001")).toBeInTheDocument();
+    const comparador = screen.getByTestId("comparador-metodos");
+    const filas = within(comparador).getAllByRole("row").slice(1);
+    expect(filas.map((f) => within(f).getAllByRole("cell")[0].textContent)).toEqual([
+      "Prescriptor causal", "Sin causalidad (modelo de referencia)", "Sin intervención",
+    ]);
+    // El gráfico no dibuja «sin intervención» (es el 0 de la escala).
+    expect(within(comparador).getByRole("img", { name: "Mejora observada en los vecinos por método" })).toBeInTheDocument();
+    expect(within(comparador).getByTestId("barra-sin_causalidad")).toHaveTextContent("−4 pp");
+    expect(within(comparador).queryByTestId("barra-sin_intervencion")).toBeNull();
+
+    await usuario.click(screen.getByRole("combobox", { name: "Evaluación" }));
+    await usuario.click(await screen.findByRole("option", { name: /Evaluación 1/, hidden: true }));
+    expect(await screen.findByTestId("sin-evidencia")).toBeInTheDocument();
   });
 });

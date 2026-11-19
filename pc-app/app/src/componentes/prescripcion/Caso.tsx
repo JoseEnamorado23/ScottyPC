@@ -1,7 +1,7 @@
 // Prescripción de un caso: selector (fila de test o valores propios), acciones ordenadas por
 // contribución, probabilidad antes y después, marcas, restricciones activas, explicación y la
-// propagación por el grafo. «Probar una variante» abre el explorador de escenarios con la
-// prescripción precargada.
+// propagación por el grafo y la evidencia de los casos parecidos de train. «Probar una variante»
+// abre el explorador de escenarios con la prescripción precargada.
 import {
   Alert, Badge, Button, Card, Grid, Group, NumberInput, Paper, SegmentedControl, Select, Stack, Table, Text, Title,
 } from "@mantine/core";
@@ -16,6 +16,7 @@ import { cambio, numero, porcentaje, textoValor } from "../../estado/modeloCausa
 import { intervencionesDe, type VarianteEscenario } from "../../estado/prescripcion";
 import { MensajeError } from "../MensajeError";
 import { GrafoPropagacion } from "../modelo_causal/GrafoPropagacion";
+import { EvidenciaCaso } from "./Evidencia";
 
 type Resultado = Esquemas["ResultadoPrescripcion"];
 type CasoTest = Esquemas["CasoTest"];
@@ -68,6 +69,8 @@ export function TarjetaPrescripcion({ r, proyectoId, indiceTest }: { r: Resultad
           </Card>
         </Grid.Col>
       </Grid>
+
+      {r.evidencia && <EvidenciaCaso e={r.evidencia} medida={r.medida} objetivo={r.objetivo} clasePositiva={r.clase_positiva} />}
 
       {r.acciones.length > 0 && (
         <Table verticalSpacing={4} data-testid="acciones-prescritas">

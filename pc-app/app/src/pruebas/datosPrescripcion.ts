@@ -87,6 +87,12 @@ export const RESULTADO: Esquemas["ResultadoPrescripcion"] = {
   explicacion: "Reducir Glucose de 148 a 131 (−17) y reducir BMI de 34,2 a 30,1 (−4,1). Con esto, la probabilidad baja de 0,62 a 0,25.",
   costo_total: 0.2, optimizador: "gradiente_proximal", mu: 0.01, segundos: 0.1,
   traza: [], valores: [], avisos: [],
+  evidencia: {
+    k: 20, umbral_respaldo: 0.17, mejora: 0.25,
+    prescrita: { valor: 0.35, distancia_media: 0.08, distancia_maxima: 0.12, con_respaldo: true, cumple: false },
+    actual: { valor: 0.6, distancia_media: 0.07, distancia_maxima: 0.1, con_respaldo: true, cumple: false },
+    texto: "De los 20 casos de train más parecidos que ya tenían valores cercanos a los prescritos, el 35 % tuvo Outcome=1.",
+  },
 };
 
 const meta = {
@@ -119,6 +125,31 @@ export const EVALUACION: Esquemas["InformeEvaluacion"] = {
   },
 };
 
+export const EVALUACION_CON_EVIDENCIA: Esquemas["InformeEvaluacion"] = {
+  meta: { ...EVALUACION.meta, numero: 2 },
+  evaluacion: {
+    ...EVALUACION.evaluacion,
+    evidencia_vecinos: {
+      k: 20, umbral_respaldo: 0.17, medida: "proporcion", casos: 113, con_respaldo: 94, porcentaje_con_respaldo: 83.2,
+      porcentaje_cumple: 61.7, valor_prescrita_medio: 0.41, valor_actual_medio: 0.62, mejora_media: 0.21,
+      intervalo_mejora: [0.17, 0.25], porcentaje_mejora_positiva: 88.3, p_valor: 0.00001, coincidencia_modelo: 71.3,
+      texto: "Evidencia OBSERVACIONAL: compara el resultado real de casos de train parecidos.",
+    },
+    comparador: [
+      { metodo: "prescriptor", nombre: "Prescriptor causal", casos: 113, tasa_exito_causal: 0.796, tasa_exito_referencia: 0.6,
+        porcentaje_con_respaldo: 83.2, tasa_cumple_vecinos: 0.52, valor_vecinos_medio: 0.41, mejora_vecinos_media: 0.21,
+        p_valor_frente_prescriptor: null, costo_medio: 0.275, acciones_medias: 1.4 },
+      { metodo: "sin_causalidad", nombre: "Sin causalidad (modelo de referencia)", casos: 113, tasa_exito_causal: 0.3,
+        tasa_exito_referencia: 0.9, porcentaje_con_respaldo: 90, tasa_cumple_vecinos: 0.2, valor_vecinos_medio: 0.66,
+        mejora_vecinos_media: -0.04, p_valor_frente_prescriptor: 0.0002, costo_medio: 0.2, acciones_medias: 1.1 },
+      { metodo: "sin_intervencion", nombre: "Sin intervención", casos: 113, tasa_exito_causal: 0, tasa_exito_referencia: 0.1,
+        porcentaje_con_respaldo: 95, tasa_cumple_vecinos: 0.05, valor_vecinos_medio: 0.62, mejora_vecinos_media: 0,
+        p_valor_frente_prescriptor: 0.00001, costo_medio: 0, acciones_medias: 0 },
+    ],
+    texto_comparador: "Todos los métodos usan las mismas acciones, límites y costos.",
+  },
+};
+
 export function simulacionPrescripcion({ guardada = true, confirmada = true, problemas = [] as Problema[] } = {}) {
   const etapas = guardada ? { ...ETAPAS_CON_MODELO, prescripcion: "vigente" as const } : ETAPAS_CON_MODELO;
   return {
@@ -136,7 +167,8 @@ export function simulacionPrescripcion({ guardada = true, confirmada = true, pro
       const filas = p.consulta.filtro === "no_alcanzable" ? [NO_ALCANZABLE] : [RESULTADO, NO_ALCANZABLE];
       return { meta, total: filas.length, pagina: 1, por_pagina: 50, filas };
     },
-    "GET /proyectos/p1/prescripcion/evaluaciones": [EVALUACION.meta],
+    "GET /proyectos/p1/prescripcion/evaluaciones": [EVALUACION.meta, EVALUACION_CON_EVIDENCIA.meta],
     "GET /proyectos/p1/prescripcion/evaluaciones/1": EVALUACION,
+    "GET /proyectos/p1/prescripcion/evaluaciones/2": EVALUACION_CON_EVIDENCIA,
   };
 }

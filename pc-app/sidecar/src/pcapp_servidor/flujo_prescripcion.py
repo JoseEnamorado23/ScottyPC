@@ -41,6 +41,7 @@ from pcapp_nucleo.prescripcion import (
     referencia_desde_diccionario,
     variables_prescriptivas,
 )
+from pcapp_nucleo.prescripcion.evidencia import construir_indice
 from pcapp_nucleo.utilidades import a_diccionario_serializable
 
 from pcapp_servidor.almacenamiento.base_datos import ahora
@@ -257,8 +258,18 @@ class ServiciosPrescripcion:
         mu = self._exigir_mu(mu)
         referencia = referencia_desde_diccionario(contenido["referencia"])
         caso_nucleo, fila = self._caso_de_solicitud(modelo, datos, caso)
-        resultado = prescribir_caso(modelo, caso_nucleo, configuracion, mu, referencia, fila)
+        vecinos = self._indice_vecinos(proyecto, modelo, datos, configuracion, contenido)
+        resultado = prescribir_caso(modelo, caso_nucleo, configuracion, mu, referencia, fila, vecinos=vecinos)
         return a_diccionario_serializable(resultado)
+
+    def _indice_vecinos(self, proyecto, modelo, datos, configuracion, contenido):
+        """Índice de vecinos de train, reutilizado mientras no cambien el modelo ni la configuración."""
+        clave = (proyecto.id, modelo.datos["huella"], contenido.get("guardada_en"))
+        cache = self.__dict__.setdefault("_cache_vecinos", {})
+        if clave not in cache:
+            cache.clear()
+            cache[clave] = construir_indice(modelo, datos.train, configuracion)
+        return cache[clave]
 
     @staticmethod
     def _caso_de_solicitud(modelo, datos, caso: dict[str, Any]):
@@ -317,7 +328,7 @@ class ServiciosPrescripcion:
                     resultados = prescribir_lote(
                         modelo, filas, configuracion, mu, referencia,
                         progreso=lambda hechos, total: contexto.reportar(completadas=hechos, total=total),
-                        cancelacion=contexto.cancelacion, ejecutor=ejecutor,
+                        cancelacion=contexto.cancelacion, ejecutor=ejecutor, train=datos.train,
                     )
             except LoteCancelado:
                 return None
@@ -393,7 +404,7 @@ class ServiciosPrescripcion:
                     evaluacion = evaluar_prescriptor(
                         modelo, datos.test, configuracion, mu, referencia,
                         progreso=lambda hechos, total: contexto.reportar(completadas=hechos, total=total),
-                        cancelacion=contexto.cancelacion, ejecutor=ejecutor,
+                        cancelacion=contexto.cancelacion, ejecutor=ejecutor, train=datos.train,
                     )
             except LoteCancelado:
                 return None

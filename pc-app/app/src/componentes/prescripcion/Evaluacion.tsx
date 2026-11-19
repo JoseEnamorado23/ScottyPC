@@ -1,5 +1,6 @@
 // Evaluación del prescriptor sobre test (interna, según el modelo): métricas, sensibilidad al
-// cambio máximo y a μ, y comparación de los dos optimizadores con la prueba de McNemar.
+// cambio máximo y a μ, comparación de los dos optimizadores con la prueba de McNemar y, con los
+// datos de train, la evidencia de vecinos y el comparador de métodos.
 import { Alert, Box, Button, Card, Group, Paper, Select, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
 import { IconChartLine, IconInfoCircle } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
@@ -7,6 +8,7 @@ import { useEffect, useState } from "react";
 import { useAccionesPrescripcion, useEvaluacion, useEvaluaciones } from "../../api/prescripcion";
 import { decimalFijo, numero, porcentaje } from "../../estado/modeloCausal";
 import { MensajeError } from "../MensajeError";
+import { EvidenciaYComparador } from "./Evidencia";
 
 const NOMBRE_OPTIMIZADOR: Record<string, string> = { gradiente_proximal: "Gradiente proximal", genetico: "Genético" };
 
@@ -138,6 +140,8 @@ export function EvaluacionPrescriptor({ proyectoId, bloqueado, enCurso }: { proy
               {String(e.mcnemar.solo_genetico)} solo con el genético; p = {numero(Number(e.mcnemar.p_valor), 4)}.
             </Text>
           </Card>
+          <EvidenciaYComparador evidencia={e.evidencia_vecinos} metodos={e.comparador ?? []} texto={e.texto_comparador}
+            medida={e.evidencia_vecinos?.medida === "media" ? "valor" : "probabilidad"} />
         </Stack>
       )}
       <MensajeError error={acciones.evaluar.error ?? informe.error} titulo="No se pudo evaluar" />
