@@ -9,7 +9,7 @@ description = "Sidecar local (FastAPI) que expone el núcleo de pc-app por HTTP.
 requires-python = ">=3.11"
 # pcapp_nucleo no está en PyPI: se instala antes, en modo editable (pip install -e ../nucleo).
 dependencies = [
-    "pcapp_nucleo",
+    "pcapp_nucleo[entrenamiento]",
     "fastapi>=0.110",
     "uvicorn>=0.29",
     "pydantic>=2.6",

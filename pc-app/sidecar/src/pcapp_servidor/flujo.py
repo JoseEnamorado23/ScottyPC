@@ -109,6 +109,7 @@ MAXIMO_CATEGORIAS = 20
 _ETAPA_DEL_TRABAJO = {
     "pc": "analisis", "recomendacion": "recomendacion", "modelo_causal": "modelo_causal",
     "calibracion_mu": "prescripcion", "lote_prescripcion": "prescripcion", "evaluacion_prescripcion": "prescripcion",
+    "exportacion_artefacto": "prescripcion",
 }
 # Categorías de la caracterización que cuentan como candidatas prescriptivas.
 _CATEGORIAS_CANDIDATAS = ("causa_directa", "causa_indirecta")
@@ -665,6 +666,8 @@ class Servicios(ServiciosModeloCausal, ServiciosPrescripcion, ServiciosFormulas)
             )
         elif trabajo.tipo == "evaluacion_prescripcion":
             funcion = self._funcion_evaluacion(trabajo.proyecto_id)
+        elif trabajo.tipo == "exportacion_artefacto":
+            funcion = self._funcion_artefacto(trabajo.proyecto_id, trabajo.parametros.get("carpeta_destino", ""))
         else:
             self.etapas.exigir(trabajo.proyecto_id, "recomendacion")
             funcion = self._funcion_recomendacion(trabajo.proyecto_id, trabajo.parametros.get("estimar_tiempo", True))

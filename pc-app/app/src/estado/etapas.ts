@@ -55,6 +55,7 @@ export function rutaDeProyecto(proyecto: Proyecto): string {
     const rutas = {
       recomendacion: "recomendacion", pc: "analisis", modelo_causal: "modelo-causal",
       calibracion_mu: "prescripcion", lote_prescripcion: "prescripcion", evaluacion_prescripcion: "prescripcion",
+      exportacion_artefacto: "prescripcion",
     } as const;
     return `${base}/${rutas[ultimo?.tipo ?? "pc"]}`;
   }

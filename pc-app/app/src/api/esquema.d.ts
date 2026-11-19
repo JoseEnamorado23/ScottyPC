@@ -653,6 +653,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/proyectos/{proyecto_id}/prescripcion/exportar-artefacto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Exporta el artefacto .scotty (trabajo)
+         * @description Escribe ``<proyecto>_v<versión>_<fecha>.scotty`` en la carpeta indicada. El mensaje del trabajo
+         *     completado trae la ruta; si no se cumplen las condiciones, el trabajo falla con el motivo.
+         */
+        post: operations["exportar_artefacto_proyectos__proyecto_id__prescripcion_exportar_artefacto_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/proyectos/{proyecto_id}/prescripcion/lote": {
         parameters: {
             query?: never;
@@ -3163,7 +3184,7 @@ export interface components {
              * Tipo
              * @enum {string}
              */
-            tipo: "recomendacion" | "pc" | "modelo_causal" | "calibracion_mu" | "lote_prescripcion" | "evaluacion_prescripcion";
+            tipo: "recomendacion" | "pc" | "modelo_causal" | "calibracion_mu" | "lote_prescripcion" | "evaluacion_prescripcion" | "exportacion_artefacto";
             /**
              * Estado
              * @enum {string}
@@ -3247,6 +3268,14 @@ export interface components {
              * @description Versión que se exporta (por defecto, la actual).
              */
             version?: number | null;
+        };
+        /** SolicitudExportarArtefacto */
+        SolicitudExportarArtefacto: {
+            /**
+             * Carpeta Destino
+             * @description Carpeta donde se escribe <proyecto>_v<versión>_<fecha>.scotty.
+             */
+            carpeta_destino: string;
         };
         /** SolicitudExportarPrescripcion */
         SolicitudExportarPrescripcion: {
@@ -3509,7 +3538,7 @@ export interface components {
              * Tipo
              * @enum {string}
              */
-            tipo: "recomendacion" | "pc" | "modelo_causal" | "calibracion_mu" | "lote_prescripcion" | "evaluacion_prescripcion";
+            tipo: "recomendacion" | "pc" | "modelo_causal" | "calibracion_mu" | "lote_prescripcion" | "evaluacion_prescripcion" | "exportacion_artefacto";
             /**
              * Estado
              * @enum {string}
@@ -6006,6 +6035,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResultadoPrescripcion"];
+                };
+            };
+            /** @description No encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Falta una etapa previa o hay un trabajo en curso. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+            /** @description Datos no válidos (detalles por campo). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespuestaError"];
+                };
+            };
+        };
+    };
+    exportar_artefacto_proyectos__proyecto_id__prescripcion_exportar_artefacto_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proyecto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SolicitudExportarArtefacto"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trabajo"];
                 };
             };
             /** @description No encontrado. */

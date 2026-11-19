@@ -166,6 +166,11 @@ def construir_parser() -> argparse.ArgumentParser:
         "--reanudar", action="store_true",
         help="Continuar un análisis interrumpido desde su punto de control.",
     )
+
+    texto = "Exporta un proyecto con prescripción a un artefacto .scotty para servirlo sin reentrenar."
+    artefacto = comandos.add_parser("exportar-artefacto", help=texto, description=texto)
+    artefacto.add_argument("carpeta_proyecto", help="Carpeta del proyecto (<datos>/proyectos/<id>).")
+    artefacto.add_argument("destino", help="Carpeta de destino, o ruta que termine en .scotty. No sobrescribe.")
     return parser
 
 
@@ -185,6 +190,11 @@ def main(argumentos: list[str] | None = None) -> int:
         return SALIDA_ERROR
     if opciones.comando == "revisar":
         return ejecutar_revisar(Path(opciones.archivo), opciones.objetivo, opciones.hoja)
+
+    if opciones.comando == "exportar-artefacto":
+        from pcapp_nucleo import cli_artefacto
+
+        return cli_artefacto.ejecutar_exportar_artefacto(Path(opciones.carpeta_proyecto), Path(opciones.destino))
 
     from pcapp_nucleo import cli_preparacion  # importación diferida: carga scikit-learn y causal-learn
 

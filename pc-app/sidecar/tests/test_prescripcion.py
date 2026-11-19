@@ -123,6 +123,24 @@ def test_mu_automatico_sin_calibrar_y_calibracion(guardada):
     ok(cliente.post(url(proyecto, "/caso"), json={"caso": {"indice_test": casos["filas"][0]["indice"]}}))
 
 
+def test_exportar_artefacto_como_trabajo(guardada, tmp_path):
+    from pcapp_nucleo.artefacto.cargar import cargar_artefacto
+    from pcapp_nucleo.artefacto.golden import verificar_golden
+
+    cliente, proyecto = guardada
+    falta = cliente.post(url(proyecto, "/exportar-artefacto"), json={"carpeta_destino": str(tmp_path / "no_existe")})
+    assert falta.status_code == 422 and falta.json()["error"]["codigo"] == "CARPETA_NO_ENCONTRADA"
+    trabajo = ok(cliente.post(url(proyecto, "/exportar-artefacto"), json={"carpeta_destino": str(tmp_path)}), 202)
+    assert trabajo["tipo"] == "exportacion_artefacto"
+    final = esperar_trabajo(cliente, trabajo["id"], 600)
+    assert final["estado"] == "completado", final
+    [archivo] = tmp_path.glob("*.scotty")
+    assert final["mensaje"].endswith(str(archivo)) and final["completadas"] == final["total"]
+    artefacto = cargar_artefacto(archivo)
+    assert verificar_golden(artefacto).correcto
+    assert artefacto.manifest.prescripcion.mu == ok(cliente.get(url(proyecto, "/configuracion")))["mu_efectivo"]
+
+
 def test_explorador_de_formulas_de_la_prescripcion(guardada):
     cliente, proyecto = guardada
     base = f"/proyectos/{proyecto}/formulas/prescripcion"
@@ -218,3 +236,13 @@ def test_migracion_del_esquema_a_la_version_3(tmp_path):
                 "INSERT INTO trabajos (id, proyecto_id, tipo, estado, actualizado_en) VALUES (?, 'p', ?, 'completado', 't')",
                 (tipo, tipo),
             )
+
+
+def test_exportar_artefacto_con_condiciones_sin_cumplir_falla_con_el_motivo(guardada, tmp_path):
+    cliente, proyecto = guardada
+    vista = ok(cliente.get(url(proyecto, "/configuracion")))
+    # Al guardar de nuevo, los supuestos quedan sin confirmar y μ sin calibrar: no se puede exportar.
+    ok(cliente.put(url(proyecto, "/configuracion"), json={**vista["configuracion"], "mu": "automatico"}))
+    trabajo = ok(cliente.post(url(proyecto, "/exportar-artefacto"), json={"carpeta_destino": str(tmp_path)}), 202)
+    final = esperar_trabajo(cliente, trabajo["id"], 120)
+    assert final["estado"] == "fallido" and ("calibr" in final["error"] or "supuestos" in final["error"]) and not list(tmp_path.glob("*"))

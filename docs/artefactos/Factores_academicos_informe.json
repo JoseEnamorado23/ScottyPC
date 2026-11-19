@@ -1,0 +1,51 @@
+{
+ "proyecto": "factores",
+ "exportacion": {
+  "correcta": true,
+  "archivo": "Factores_academicos_v2_20261119-001413.scotty",
+  "bytes": 45991,
+  "segundos": 20.7,
+  "advertencias": [
+   "MODIFICABLES_SIN_CAMINO"
+  ]
+ },
+ "comparacion_scotty_pc": {
+  "casos": 20,
+  "acuerdo_alcanzado": 1.0,
+  "acuerdo_acciones": 1.0,
+  "acuerdo_requiere_revision": 1.0,
+  "diferencia_media_despues": 0.0010572949197545534,
+  "diferencia_maxima_despues": 0.015955152202952294,
+  "filas_con_preparacion_distinta": [],
+  "nota": "Informativa. La semilla del optimizador depende en el artefacto de los valores del caso y en Scotty PC de su índice de test, por lo que pueden diferir algunas prescripciones."
+ },
+ "carga": {
+  "segundos": 0.02,
+  "rss_mb_antes": 194,
+  "rss_mb_despues": 194
+ },
+ "verificar_golden": {
+  "correcto": true,
+  "casos": 20,
+  "maxima_diferencia": 0.0,
+  "diferencias": [],
+  "segundos": 7.5
+ },
+ "tiempos": {
+  "predecir": {
+   "media_s": 0.02,
+   "maximo_s": 0.021,
+   "casos": 20
+  },
+  "prescribir": {
+   "media_s": 0.328,
+   "maximo_s": 0.768,
+   "casos": 20
+  },
+  "contrafactual": {
+   "media_s": 0.018,
+   "maximo_s": 0.021,
+   "casos": 20
+  }
+ }
+}

@@ -1,0 +1,7 @@
+{
+ "proyecto": "xapi",
+ "exportacion": {
+  "correcta": false,
+  "mensaje": "No se puede exportar: Con estos datos no hay variables prescriptivas: una variable prescriptiva debe ser a la vez ancestro del objetivo y modificable, y no hay ninguna variable marcada como modificable."
+ }
+}

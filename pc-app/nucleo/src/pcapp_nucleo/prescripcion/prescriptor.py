@@ -93,9 +93,13 @@ class ResultadoPrescripcion:
     evidencia: EvidenciaVecinos | None = None
 
 
-def semilla_de_caso(modelo: ModeloCausal, caso: Caso) -> np.random.SeedSequence:
-    """Semilla derivada de la del modelo y del caso (índice de la fila o sus valores)."""
-    if caso.indice is not None:
+def semilla_de_caso(modelo: ModeloCausal, caso: Caso, por_valores: bool = False) -> np.random.SeedSequence:
+    """Semilla derivada de la del modelo y del caso (índice de la fila o sus valores).
+
+    Con ``por_valores`` ignora el índice y usa solo los valores del caso: así una fila nueva (cuyo
+    índice es su posición en el archivo subido, sin significado) obtiene siempre la misma
+    prescripción, venga en la posición que venga."""
+    if caso.indice is not None and not por_valores:
         clave = int(caso.indice)
     else:
         texto = json.dumps({k: (None if v != v else round(v, 12)) for k, v in sorted(caso.valores.items())})
@@ -304,11 +308,14 @@ def prescribir_caso(
     optimizador: Optimizador | None = None,
     problema: ProblemaPrescripcion | None = None,
     vecinos: IndiceVecinos | None = None,
+    semilla_por_valores: bool = False,
 ) -> ResultadoPrescripcion:
     """Prescripción de ``caso`` con ``mu``. ``fila`` (todas las columnas preparadas del caso)
     permite evaluar el modelo de referencia sobre el perfil propagado; ``vecinos`` (train), la
-    evidencia de los casos parecidos."""
-    return prescribir_con_solucion(modelo, caso, configuracion, mu, referencia, fila, optimizador, problema, vecinos)[0]
+    evidencia de los casos parecidos. ``semilla_por_valores``: ver ``semilla_de_caso``."""
+    return prescribir_con_solucion(
+        modelo, caso, configuracion, mu, referencia, fila, optimizador, problema, vecinos, semilla_por_valores
+    )[0]
 
 
 def prescribir_con_solucion(
@@ -321,11 +328,12 @@ def prescribir_con_solucion(
     optimizador: Optimizador | None = None,
     problema: ProblemaPrescripcion | None = None,
     vecinos: IndiceVecinos | None = None,
+    semilla_por_valores: bool = False,
 ) -> tuple[ResultadoPrescripcion, Solucion]:
     """Como ``prescribir_caso``, devolviendo también la solución (d y estados) del optimizador."""
     optimizador = optimizador or crear_optimizador(configuracion.optimizador, configuracion)
     problema = problema or ProblemaPrescripcion(modelo, caso, configuracion, mu)
-    semilla = semilla_de_caso(modelo, caso)
+    semilla = semilla_de_caso(modelo, caso, semilla_por_valores)
     p_antes = _exacta(problema, Solucion(np.zeros(problema.k), problema.actual, 0.0, 0.0))
     solucion, ya_cumple, segundos = resolver(problema, optimizador, semilla)
     p_despues = _exacta(problema, solucion)

@@ -24,6 +24,7 @@ const NOMBRES = {
   calibracion_mu: "La calibración de μ",
   lote_prescripcion: "El lote de prescripciones",
   evaluacion_prescripcion: "La evaluación del prescriptor",
+  exportacion_artefacto: "La exportación del artefacto .scotty",
 } as const;
 
 export function avisoDeFin(trabajo: Trabajo): { titulo: string; mensaje: string; color: string } {

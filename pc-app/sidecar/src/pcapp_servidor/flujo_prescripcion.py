@@ -482,6 +482,42 @@ class ServiciosPrescripcion:
         archivos.append("informe_prescripcion.html")
         return {"carpeta": str(salida), "archivos": archivos}
 
+    # --- Artefacto .scotty (trabajo) ----------------------------------------------------------------
+
+    def _funcion_artefacto(self, proyecto_id: str, carpeta_destino: str) -> FuncionTrabajo:
+        def ejecutar(contexto: Contexto) -> str | None:
+            from pcapp_nucleo.artefacto.exportar import ErrorExportacion, ExportacionCancelada, exportar_artefacto_completo
+
+            self.proyecto(proyecto_id)
+            try:
+                resultado = exportar_artefacto_completo(
+                    self.archivos.carpeta(proyecto_id), carpeta_destino,
+                    progreso=lambda hechos, total, _mensaje: contexto.reportar(completadas=hechos, total=total),
+                    cancelacion=contexto.cancelacion,
+                )
+            except ExportacionCancelada:
+                return None
+            except ErrorExportacion as error:
+                raise conflicto("EXPORTACION_NO_DISPONIBLE", str(error)) from error
+            return f"Artefacto exportado: {resultado.ruta}"
+
+        return ejecutar
+
+    def lanzar_exportacion_artefacto(self, proyecto_id: str, carpeta_destino: str):
+        self.proyecto(proyecto_id)
+        self.trabajos.exigir_sin_activo(proyecto_id)
+        destino = Path(carpeta_destino).expanduser()
+        if not destino.is_dir():
+            raise invalido(
+                "CARPETA_NO_ENCONTRADA", f"La carpeta '{destino}' no existe.",
+                [{"campo": "carpeta_destino", "mensaje": "La carpeta no existe."}],
+            )
+        self.etapas.exigir_vigente(proyecto_id, "prescripcion")
+        return self.trabajos.iniciar(
+            proyecto_id, "exportacion_artefacto", self._funcion_artefacto(proyecto_id, str(destino)),
+            {"carpeta_destino": str(destino)},
+        )
+
 
 def _cumple_filtro(r: dict[str, Any], filtro: str | None) -> bool:
     if filtro is None:

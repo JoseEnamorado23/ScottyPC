@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from importlib import resources
 from pathlib import Path
 
-VERSION_ESQUEMA = 3
+VERSION_ESQUEMA = 4
 
 
 def _recrear_trabajos(tipos: tuple[str, ...]) -> str:
@@ -57,6 +57,11 @@ _MIGRACIONES = {
     # 2 → 3: trabajos de la prescripción.
     2: _recrear_trabajos((
         "recomendacion", "pc", "modelo_causal", "calibracion_mu", "lote_prescripcion", "evaluacion_prescripcion",
+    )),
+    # 3 → 4: exportación del artefacto .scotty.
+    3: _recrear_trabajos((
+        "recomendacion", "pc", "modelo_causal", "calibracion_mu", "lote_prescripcion", "evaluacion_prescripcion",
+        "exportacion_artefacto",
     )),
 }
 

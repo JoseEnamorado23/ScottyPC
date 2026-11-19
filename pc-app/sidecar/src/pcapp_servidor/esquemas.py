@@ -403,7 +403,8 @@ class RespuestaConfiguracionPC(BaseModel):
 # --- Trabajos -----------------------------------------------------------------------------------
 
 TipoTrabajo = Literal[
-    "recomendacion", "pc", "modelo_causal", "calibracion_mu", "lote_prescripcion", "evaluacion_prescripcion"
+    "recomendacion", "pc", "modelo_causal", "calibracion_mu", "lote_prescripcion", "evaluacion_prescripcion",
+    "exportacion_artefacto",
 ]
 EstadoTrabajo = Literal["pendiente", "en_curso", "completado", "cancelado", "fallido", "interrumpido"]
 
@@ -1204,6 +1205,10 @@ class SolicitudExportarPrescripcion(_Entrada):
     carpeta_destino: str
     lote: int | None = Field(None, description="Lote cuyas prescripciones se exportan en CSV.")
     evaluacion: int | None = Field(None, description="Evaluación que se incluye en el informe.")
+
+
+class SolicitudExportarArtefacto(_Entrada):
+    carpeta_destino: str = Field(description="Carpeta donde se escribe <proyecto>_v<versión>_<fecha>.scotty.")
 
 
 class ResultadoExportarPrescripcion(BaseModel):

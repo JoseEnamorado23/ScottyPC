@@ -165,5 +165,11 @@ export function useAccionesPrescripcion(id: string) {
       datos(cliente.POST("/proyectos/{proyecto_id}/prescripcion/exportar", { ...ruta(id), body: solicitud })),
   });
 
-  return { guardar, calibrar, lote, evaluar, exportar };
+  const exportarArtefacto = useMutation({
+    mutationFn: (solicitud: Esquemas["SolicitudExportarArtefacto"]) =>
+      datos(cliente.POST("/proyectos/{proyecto_id}/prescripcion/exportar-artefacto", { ...ruta(id), body: solicitud })),
+    onSuccess: alIniciar,
+  });
+
+  return { guardar, calibrar, lote, evaluar, exportar, exportarArtefacto };
 }

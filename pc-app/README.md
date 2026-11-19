@@ -424,6 +424,7 @@ python -m pcapp_nucleo preparar <archivo> --objetivo <columna> --decisiones <jso
 python -m pcapp_nucleo sugerir-prueba <receta.json> [--sin-estimacion]
 python -m pcapp_nucleo plantilla-pc <receta.json>
 python -m pcapp_nucleo pc <receta.json> --config <pc.json> [--procesos N] [--modo adaptativo|secuencial|paralelo] [--reanudar]
+python -m pcapp_nucleo exportar-artefacto <carpeta_proyecto> <destino>
 ```
 
 Ejemplo completo con un dataset real:
@@ -472,10 +473,39 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-Dependencias: `pandas`, `numpy`, `openpyxl`, `scipy`, `scikit-learn`, `causal-learn`
-(que incluye `matplotlib` y `networkx`) y `pygam` 0.12.0 (fijado, porque el modelo causal
-guarda sus parámetros internos); `pytest` para desarrollo. pyGAM 0.12 exige `scipy<1.17`,
-por eso scipy queda acotado.
+Dependencias (el entorno de desarrollo instala todas con `.[dev]`):
+
+| Para | Paquetes |
+|---|---|
+| **Servir** un artefacto `.scotty` (`pcapp_nucleo.artefacto`) | `pandas`, `numpy`, `openpyxl`, `pyarrow`, `scipy`, `scikit-learn`, `pygam==0.12.0` |
+| **Entrenar** (descubrimiento causal con PC) | lo anterior más `causal-learn` (extra `entrenamiento`; incluye `matplotlib` y `networkx`) |
+| Desarrollo | `pytest` (extra `dev`, que incluye `entrenamiento`) |
+
+pyGAM se fija en 0.12.0 porque el modelo causal guarda sus parámetros internos; pyGAM 0.12
+exige `scipy<1.17`, por eso scipy queda acotado. `causal-learn` solo se importa dentro de
+las funciones que ejecutan PC, así que un servidor que solo carga artefactos no lo necesita.
+
+## Instalar el núcleo como paquete (para servir un artefacto)
+
+El núcleo vive en el subdirectorio `pc-app/nucleo` del repositorio. Una aplicación que solo
+sirve artefactos (por ejemplo, un servicio FastAPI) lo instala sin dependencias de entrenamiento:
+
+```bash
+pip install "git+https://github.com/JoseEnamorado23/ScottyPC.git@<tag>#subdirectory=pc-app/nucleo"
+# con lo necesario para entrenar también:
+pip install "pcapp_nucleo[entrenamiento] @ git+https://github.com/JoseEnamorado23/ScottyPC.git@<tag>#subdirectory=pc-app/nucleo"
+```
+
+Use siempre una etiqueta (`<tag>`) fija: el artefacto guarda la versión del núcleo y de las
+librerías con que se creó (ver [`docs/artefacto.md`](../docs/artefacto.md)).
+
+```python
+from pcapp_nucleo.artefacto import cargar_artefacto, verificar_golden
+
+art = cargar_artefacto("proyecto_v1_20261119-101500.scotty")
+assert verificar_golden(art).correcto          # al arrancar; si falla, no sirva
+art.predecir(fila); art.prescribir(fila); art.contrafactual(fila, [...])
+```
 
 ## Pruebas
 

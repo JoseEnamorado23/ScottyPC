@@ -30,6 +30,7 @@ const EXPLICACION_CANCELAR = {
   calibracion_mu: "La calibración de μ no guarda avance parcial: al reanudarla se repite desde el principio.",
   lote_prescripcion: "El lote no guarda avance parcial: al reanudarlo se repite desde el principio.",
   evaluacion_prescripcion: "La evaluación no guarda avance parcial: al reanudarla se repite desde el principio.",
+  exportacion_artefacto: "La exportación no guarda avance parcial: al reanudarla se repite desde el principio.",
 } as const;
 
 interface Props {

@@ -25,7 +25,8 @@ CREATE TABLE trabajos (
     id TEXT PRIMARY KEY,
     proyecto_id TEXT NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
     tipo TEXT NOT NULL CHECK (tipo IN (
-        'recomendacion', 'pc', 'modelo_causal', 'calibracion_mu', 'lote_prescripcion', 'evaluacion_prescripcion'
+        'recomendacion', 'pc', 'modelo_causal', 'calibracion_mu', 'lote_prescripcion', 'evaluacion_prescripcion',
+        'exportacion_artefacto'
     )),
     estado TEXT NOT NULL CHECK (
         estado IN ('pendiente', 'en_curso', 'completado', 'cancelado', 'fallido', 'interrumpido')

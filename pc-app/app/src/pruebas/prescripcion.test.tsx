@@ -128,6 +128,27 @@ describe("Prescripción: pantalla", () => {
     expect(peticionesA(sidecar.peticiones, "GET", "/proyectos/p1/prescripcion/lotes/1").at(-1)?.consulta.filtro).toBe("no_alcanzable");
   });
 
+  it("«Exportar para producción (.scotty)» pide la carpeta e inicia el trabajo de exportación", async () => {
+    const usuario = userEvent.setup();
+    vi.spyOn(window, "prompt").mockReturnValue("C:/destino");
+    const trabajo = {
+      id: "t9", proyecto_id: "p1", tipo: "exportacion_artefacto", estado: "en_curso", completadas: 0, total: 25, fallidas: 0,
+      segundos_transcurridos: 0, segundos_restantes_estimados: null, mensaje: null, error: null, parametros: {},
+      detalles: null, inicio: "2026-11-19T10:00:00+00:00", fin: null,
+    };
+    const sidecar = renderizar("/proyectos/p1/prescripcion", {
+      ...simulacionPrescripcion(),
+      "POST /proyectos/p1/prescripcion/exportar-artefacto": trabajo,
+      "GET /trabajos/t9": trabajo,
+    });
+    await usuario.click(await screen.findByRole("tab", { name: "Lote" }));
+    await usuario.click(await screen.findByRole("button", { name: "Exportar para producción (.scotty)" }));
+    await waitFor(() => expect(peticionesA(sidecar.peticiones, "POST", "/proyectos/p1/prescripcion/exportar-artefacto")).toHaveLength(1));
+    expect(peticionesA(sidecar.peticiones, "POST", "/proyectos/p1/prescripcion/exportar-artefacto")[0].cuerpo).toEqual({
+      carpeta_destino: "C:/destino",
+    });
+  });
+
   it("evaluación: métricas, comparación de optimizadores y aviso de evaluación interna", async () => {
     const usuario = userEvent.setup();
     renderizar("/proyectos/p1/prescripcion", simulacionPrescripcion());

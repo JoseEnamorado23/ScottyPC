@@ -26,7 +26,7 @@ import { AVISO_PRESCRIPCION, completarCon, erroresPorCampo, mismaConfiguracion }
 import { useVigilancia } from "../estado/trabajos";
 
 export const RETARDO_VALIDACION_PRESCRIPCION_MS = 300;
-const TIPOS_TRABAJO = ["calibracion_mu", "lote_prescripcion", "evaluacion_prescripcion"];
+const TIPOS_TRABAJO = ["calibracion_mu", "lote_prescripcion", "evaluacion_prescripcion", "exportacion_artefacto"];
 /** Sección de la configuración donde se resuelve cada problema. */
 const SECCION_DEL_PROBLEMA: Record<string, string> = {
   SUPUESTOS_SIN_CONFIRMAR: "seccion-supuestos",

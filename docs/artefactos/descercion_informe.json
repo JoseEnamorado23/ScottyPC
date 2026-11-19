@@ -1,0 +1,65 @@
+{
+ "proyecto": "descercion",
+ "exportacion": {
+  "correcta": true,
+  "archivo": "descercion_v2_20261119-001612.scotty",
+  "bytes": 153266,
+  "segundos": 40.1,
+  "advertencias": [
+   "MODIFICABLES_SIN_CAMINO",
+   "COSTO_PARSIMONIA",
+   "INTERMEDIAS_BINARIAS",
+   "SIN_EVALUACION_PRESCRIPTOR"
+  ]
+ },
+ "comparacion_scotty_pc": {
+  "casos": 20,
+  "acuerdo_alcanzado": 1.0,
+  "acuerdo_acciones": 1.0,
+  "acuerdo_requiere_revision": 1.0,
+  "diferencia_media_despues": 4.1739466932921855e-06,
+  "diferencia_maxima_despues": 1.9698972060111508e-05,
+  "filas_con_preparacion_distinta": [],
+  "nota": "Informativa. La semilla del optimizador depende en el artefacto de los valores del caso y en Scotty PC de su índice de test, por lo que pueden diferir algunas prescripciones."
+ },
+ "carga": {
+  "segundos": 0.05,
+  "rss_mb_antes": 202,
+  "rss_mb_despues": 206
+ },
+ "verificar_golden": {
+  "correcto": true,
+  "casos": 20,
+  "maxima_diferencia": 0.0,
+  "diferencias": [],
+  "segundos": 13.7
+ },
+ "tiempos": {
+  "predecir": {
+   "media_s": 0.095,
+   "maximo_s": 0.103,
+   "casos": 20
+  },
+  "prescribir": {
+   "media_s": 0.534,
+   "maximo_s": 1.015,
+   "casos": 20
+  },
+  "contrafactual": {
+   "media_s": 0.049,
+   "maximo_s": 0.051,
+   "casos": 20
+  }
+ },
+ "lote": {
+  "filas": 1000,
+  "resultados": 1000,
+  "no_preparadas": 0,
+  "procesos": 1,
+  "tamano_bloque": 50,
+  "segundos": 495.8,
+  "rss_mb_inicio": 206,
+  "rss_mb_maximo": 215,
+  "rss_mb_final": 215
+ }
+}

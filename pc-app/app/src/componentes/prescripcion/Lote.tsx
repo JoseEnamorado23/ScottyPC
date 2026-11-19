@@ -46,6 +46,10 @@ export function Lotes({ proyectoId, bloqueado, enCurso }: { proyectoId: string; 
       { onSuccess: (r) => notifications.show({ color: "green", message: `Exportado en ${r.carpeta}.` }) },
     );
   };
+  const exportarProduccion = async () => {
+    const carpeta = await elegirCarpeta();
+    if (carpeta) acciones.exportarArtefacto.mutate({ carpeta_destino: carpeta });
+  };
   const totalPaginas = datos.data ? Math.max(1, Math.ceil(datos.data.total / datos.data.por_pagina)) : 1;
 
   return (
@@ -62,6 +66,16 @@ export function Lotes({ proyectoId, bloqueado, enCurso }: { proyectoId: string; 
           <Text size="xs" c="dimmed">El CSV debe tener las columnas ORIGINALES del dataset; se le aplica la receta completa.</Text>
         </Group>
         <MensajeError error={acciones.lote.error} titulo="No se pudo iniciar el lote" />
+        <Group mt="sm" align="center">
+          <Button variant="default" leftSection={<IconFileExport size={16} />} onClick={exportarProduccion}
+            loading={acciones.exportarArtefacto.isPending} disabled={bloqueado || enCurso}>
+            Exportar para producción (.scotty)
+          </Button>
+          <Text size="xs" c="dimmed">
+            Un archivo autocontenido para predecir y prescribir casos nuevos desde otra aplicación, sin reentrenar.
+          </Text>
+        </Group>
+        <MensajeError error={acciones.exportarArtefacto.error} titulo="No se pudo iniciar la exportación" />
       </Card>
 
       {lista.length === 0 ? (

@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, Query
 
 from pcapp_servidor.esquemas import (
+    SolicitudExportarArtefacto,
     RESPUESTAS_ERROR,
     CondicionesPrescripcion,
     ConfiguracionPrescripcion,
@@ -60,6 +61,17 @@ def caso(proyecto_id: str, solicitud: SolicitudCasoPrescripcion, s: Servicios = 
     """409 ``MU_SIN_CALIBRAR`` si μ es automático y no se calibró; 409 ``PRESCRIPCION_BLOQUEADA`` con
     los problemas si hay bloqueantes."""
     return s.prescribir_caso_api(proyecto_id, solicitud.caso.model_dump())
+
+
+@router.post(
+    "/exportar-artefacto", response_model=Trabajo, status_code=202, summary="Exporta el artefacto .scotty (trabajo)"
+)
+def exportar_artefacto(
+    proyecto_id: str, solicitud: SolicitudExportarArtefacto, s: Servicios = Depends(servicios)
+) -> dict:
+    """Escribe ``<proyecto>_v<versión>_<fecha>.scotty`` en la carpeta indicada. El mensaje del trabajo
+    completado trae la ruta; si no se cumplen las condiciones, el trabajo falla con el motivo."""
+    return s.vista_trabajo(s.lanzar_exportacion_artefacto(proyecto_id, solicitud.carpeta_destino))
 
 
 @router.post("/lote", response_model=Trabajo, status_code=202, summary="Prescripción por lote (trabajo)")
