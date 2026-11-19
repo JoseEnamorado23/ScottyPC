@@ -438,6 +438,103 @@ def test_las_versiones_del_entorno_solo_avisan_en_el_formato_2(exportado):
     assert error.value.codigo == "VERSIONES"
 
 
+# --- Golden por resultado equivalente ------------------------------------------------------------------------------------
+
+
+def verificar_con_alternativa(art, monkeypatch, indice, modificar, **tolerancias):
+    """``verificar_golden`` donde el caso ``indice`` devuelve una prescripción alternativa (copia de la guardada, modificada)."""
+    original = g.calcular_caso
+
+    def alterado(a, fila):
+        caso = next(c for c in a.golden["casos"] if c["fila_original"] == fila)
+        if caso["indice_test"] != indice:
+            return original(a, fila)
+        obtenido = {k: copy.deepcopy(caso[k]) for k in ("predecir", "prescribir", "contrafactual")}
+        modificar(obtenido["prescribir"])
+        return obtenido
+
+    monkeypatch.setattr(g, "calcular_caso", alterado)
+    return g.verificar_golden(art, **tolerancias)
+
+
+def mover(prescripcion, variable, delta):
+    accion = next(a for a in prescripcion["acciones"] if a["variable"] == variable)
+    accion["cambio"] += delta
+    accion["despues_numerico"] += delta
+    accion["despues"] = accion["despues_numerico"]
+
+
+def test_golden_normal_es_identico_en_todos_los_casos(art):
+    informe = g.verificar_golden(art)
+    assert informe.correcto and (informe.casos_identicos, informe.casos_equivalentes, informe.casos_fallidos) == (informe.casos, 0, 0)
+    assert informe.campos_fallidos == {} and {t["resultado"] for t in informe.trayectorias} == {"identica"}
+
+
+def test_una_solucion_alternativa_valida_dentro_de_tolerancia_pasa(art, monkeypatch):
+    def alternativa(p):
+        mover(p, TAB, 0.1)  # 0,5 % del rango de train de Horas (20), con más margen sobre el objetivo
+        p["costo_total"] *= 1.01
+        p["despues"] += 0.001
+
+    indice = 7
+    informe = verificar_con_alternativa(art, monkeypatch, indice, alternativa)
+    assert informe.correcto, informe.diferencias
+    assert (informe.casos_identicos, informe.casos_equivalentes, informe.casos_fallidos) == (informe.casos - 1, 1, 0)
+    caso = next(t for t in informe.trayectorias if t["indice_test"] == indice)
+    assert caso["resultado"] == "equivalente"
+    assert 0.0099 < caso["costo_relativo"] < 0.0101 and caso["despues_absoluto"] == pytest.approx(0.001)
+    assert caso["cambio_relativo_rango"] == pytest.approx(0.1 / 20, rel=0.2)
+    assert informe.a_diccionario()["casos_equivalentes"] == 1
+
+
+def test_un_conjunto_distinto_de_variables_falla(art, monkeypatch):
+    informe = verificar_con_alternativa(art, monkeypatch, 12, lambda p: p["acciones"].pop())
+    assert not informe.correcto and informe.casos_fallidos == 1 and informe.casos_distintos == [12]
+    assert informe.campos_fallidos["prescribir.acciones"] == [12]
+    assert any("variables con cambio" in d for d in informe.diferencias)
+
+
+def test_una_solucion_que_viola_el_cambio_maximo_falla(art, monkeypatch):
+    # El caso 2 ya está en el cambio máximo de Horas (5): +0,1 queda dentro de la tolerancia (0,5 % del rango) pero no es válido.
+    informe = verificar_con_alternativa(art, monkeypatch, 2, lambda p: mover(p, TAB, 0.1))
+    assert not informe.correcto and informe.casos_distintos == [2]
+    assert any("supera el cambio máximo" in d for d in informe.diferencias)
+    assert "prescribir.acciones[].cambio" in informe.campos_fallidos
+
+
+def test_una_solucion_con_costo_5_por_ciento_mayor_falla(art, monkeypatch):
+    informe = verificar_con_alternativa(art, monkeypatch, 7, lambda p: p.update(costo_total=p["costo_total"] * 1.05))
+    assert not informe.correcto and informe.campos_fallidos == {"prescribir.costo_total": [7]}
+    # Las tolerancias son parámetros.
+    informe = verificar_con_alternativa(art, monkeypatch, 7, lambda p: p.update(costo_total=p["costo_total"] * 1.05), costo_relativo=0.06)
+    assert informe.correcto and informe.casos_equivalentes == 1
+
+
+def test_un_cambio_de_marca_exacta_o_de_despues_fuera_de_tolerancia_falla(art, monkeypatch):
+    informe = verificar_con_alternativa(art, monkeypatch, 7, lambda p: p.update(requiere_revision=not p["requiere_revision"]))
+    assert informe.campos_fallidos == {"prescribir.requiere_revision": [7]}
+    informe = verificar_con_alternativa(art, monkeypatch, 7, lambda p: p.update(despues=p["despues"] + 0.05))
+    assert "prescribir.despues" in informe.campos_fallidos
+
+
+def test_se_ignoran_traza_evidencia_referencia_y_explicacion(art, monkeypatch):
+    def otra(p):
+        mover(p, TAB, 0.05)
+        p["traza"], p["evidencia"], p["explicacion"] = [], None, "otra"
+        p["referencia"] = {"despues": 0.123, "alcanzado": p["referencia"].get("alcanzado")}
+
+    informe = verificar_con_alternativa(art, monkeypatch, 7, otra)
+    assert informe.correcto, informe.diferencias
+
+
+def test_la_solucion_guardada_es_valida_segun_las_comprobaciones(art):
+    """Las comprobaciones de validez no rechazan las soluciones reales del golden (todas las del proyecto)."""
+    for caso in art.golden["casos"]:
+        diferencias = []
+        g._validar_solucion(art, caso["fila_original"], caso["prescribir"], f"caso {caso['indice_test']}.prescribir", diferencias)
+        assert diferencias == [], diferencias
+
+
 # --- Semilla por valores -------------------------------------------------------------------------------------------
 
 

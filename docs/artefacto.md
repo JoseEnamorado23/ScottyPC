@@ -119,8 +119,7 @@ art.informe_carga.mecanismos    # por mecanismo: filas, filas_distintas, filas_f
 ```
 
 Una carga equivalente agrega un aviso a `art.avisos_carga`. Las predicciones guardadas solo valen de referencia si
-su sha256 está en el manifest y reproducen la huella guardada del modelo. `verificar_golden` no cambia: exacto en lo
-discreto y 1e-9 en los números. Scotty PC de escritorio sigue exigiendo igualdad bit a bit
+su sha256 está en el manifest y reproducen la huella guardada del modelo. Scotty PC de escritorio sigue exigiendo igualdad bit a bit
 (`modelo_desde_diccionario`). Los artefactos del formato 1 se siguen leyendo, con la comprobación estricta de siempre
 (huella bit a bit y todas las librerías del manifest idénticas).
 
@@ -165,9 +164,29 @@ un grupo, se completa con el otro). Cada caso trae `fila_original` (convertida a
 permitido). Se calculan con la API de carga sobre el archivo recién escrito. `manifest.golden_sha256` es el
 sha256 del JSON canónico (claves ordenadas, sin espacios) de los resultados.
 
-`verificar_golden(art) -> InformeGolden` recalcula cada caso y compara: **igualdad exacta** en lo
-discreto (textos, booleanos, enteros, claves y longitudes) y **≤ 1e-9** en los números. También comprueba
-el sha256. Un microservicio debe llamarlo al arrancar y negarse a servir si `correcto` es falso.
+`verificar_golden(art) -> InformeGolden` recalcula cada caso y compara. `predecir` y `contrafactual`: **igualdad
+exacta** en lo discreto (textos, booleanos, enteros, claves y longitudes) y **≤ 1e-9** en los números. También
+comprueba el sha256. Un microservicio debe llamarlo al arrancar y negarse a servir si `correcto` es falso.
+
+`prescribir` se verifica por **resultado equivalente**. El optimizador usa arranques aleatorios y, si alguno no
+converge (llega al tope de 300 iteraciones en un valle plano), 1 ULP de diferencia entre plataformas se amplifica
+hasta ~1e-6 y el mínimo entre arranques puede elegir otro ganador, igual de válido. Por eso:
+
+- Si el resultado coincide como antes (exacto en lo discreto, 1e-9 en los números), la trayectoria es **idéntica**.
+- Si no, se acepta como **equivalente** cuando:
+  - **Exacto:** `alcanzado`, `ya_cumple`, `requiere_revision`, `extrapolacion`, `aproximado`, los campos que solo
+    dependen del caso (`antes`, `deseado`, `mu`…) y el **conjunto** de variables con cambio distinto de cero.
+  - **Con tolerancia** (parámetros de `verificar_golden`, con estos valores por defecto): `costo_total` relativo
+    ≤ 2 % (`costo_relativo`); `despues` (y `falta`) absoluto ≤ 0,01 (`despues_absoluto`); el `cambio` de cada acción
+    ≤ 1,5 % del rango de train de su variable (`cambio_relativo_rango`).
+  - **Válida:** la solución recalculada tiene cada valor final dentro de `[minimo, maximo]`, `|cambio| ≤
+    cambio_maximo`, la dirección respetada, estados permitidos, y `alcanzado` con el motor exacto.
+  - **No se comparan:** `traza`, `evidencia`, `referencia.despues`, `explicacion` ni `restricciones_activas`.
+
+`InformeGolden` dice cuántos casos fueron `casos_identicos`, `casos_equivalentes` y `casos_fallidos`, en qué campo
+falló cada uno (`campos_fallidos`: campo → índices de test) y, por caso, `trayectorias` (`resultado` y las
+diferencias máximas `costo_relativo`, `despues_absoluto`, `cambio_relativo_rango`). El formato de `golden.json` no
+cambia.
 
 Además, al exportar se compara, de forma informativa y sin bloquear, con el flujo de Scotty PC
 (`comparar_con_scotty_pc`): tasa de acuerdo en `alcanzado`, en las acciones y en `requiere_revision`, y
