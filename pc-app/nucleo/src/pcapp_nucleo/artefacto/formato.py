@@ -10,6 +10,7 @@ para predecir, prescribir y calcular contrafactuales sin reentrenar nada:
 ``modelo_causal.json``    modelo causal por parámetros (mecanismos, GAM incluido)
 ``prescripcion.json``     configuración, modelo de referencia, calibración de μ y semilla
 ``train.parquet``         train preparado (índice y dtypes), para la huella y la evidencia
+``predicciones_train.parquet``  (formato 2) eta de cada mecanismo sobre train: lo que resume la huella
 ``esquema_entrada.json``  lo que debe traer una fila nueva, en unidades originales
 ``controles.json``        variables prescriptivas y sus restricciones, para la interfaz
 ``evaluacion.json``       métricas del modelo causal y última evaluación del prescriptor
@@ -25,8 +26,10 @@ los problemas en ``ErrorFormatoArtefacto.problemas``) y se escriben con ``a_dicc
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
 import json
 import math
+import platform
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -35,7 +38,10 @@ from typing import Any
 from pcapp_nucleo.utilidades import a_diccionario_serializable
 
 FORMATO = "scotty-artefacto"
-VERSION_FORMATO = 1
+VERSION_FORMATO = 2
+# Formatos que ``cargar_artefacto`` sabe leer. El 1 no trae ``predicciones_train.parquet`` y se carga con la
+# comprobación estricta (huella bit a bit y todas las librerías idénticas).
+VERSIONES_SOPORTADAS = (1, 2)
 EXTENSION = ".scotty"
 
 MANIFEST = "manifest.json"
@@ -46,9 +52,21 @@ TRAIN = "train.parquet"
 ESQUEMA_ENTRADA = "esquema_entrada.json"
 CONTROLES = "controles.json"
 EVALUACION = "evaluacion.json"
+PREDICCIONES_TRAIN = "predicciones_train.parquet"
 GOLDEN = "golden.json"
 # Archivos cuyo sha256 queda en el manifest (todos menos el propio manifest).
-ARCHIVOS_CONTENIDO = (RECETA, MODELO_CAUSAL, PRESCRIPCION, TRAIN, ESQUEMA_ENTRADA, CONTROLES, EVALUACION, GOLDEN)
+ARCHIVOS_CONTENIDO = (
+    RECETA, MODELO_CAUSAL, PRESCRIPCION, TRAIN, PREDICCIONES_TRAIN, ESQUEMA_ENTRADA, CONTROLES, EVALUACION, GOLDEN,
+)
+ARCHIVOS_CONTENIDO_V1 = tuple(n for n in ARCHIVOS_CONTENIDO if n != PREDICCIONES_TRAIN)
+# Librerías cuya versión debe coincidir exactamente al cargar un artefacto (los parámetros del modelo dependen de
+# ellas). Las demás versiones del manifest (python, pandas, pyarrow, networkx) solo avisan si difieren.
+LIBRERIAS_ESTRICTAS = ("pygam", "scikit-learn", "numpy", "scipy")
+
+
+def archivos_de_version(version: int) -> tuple[str, ...]:
+    """Archivos de contenido (con sha256 en el manifest) de un artefacto del formato ``version``."""
+    return ARCHIVOS_CONTENIDO_V1 if version < 2 else ARCHIVOS_CONTENIDO
 
 # Tipos de variable (esquema de entrada y controles).
 CONTINUA, BINARIA, ORDINAL, CATEGORICA = "continua", "binaria", "ordinal", "categorica"
@@ -78,6 +96,16 @@ def json_canonico(valor: Any) -> bytes:
     return json.dumps(
         a_diccionario_serializable(valor), sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
     ).encode("utf-8")
+
+
+def version_instalada(paquete: str) -> str | None:
+    """Versión instalada de ``paquete`` (``"python"`` es el intérprete), o ``None`` si no está instalado."""
+    if paquete == "python":
+        return platform.python_version()
+    try:
+        return importlib.metadata.version(paquete)
+    except importlib.metadata.PackageNotFoundError:
+        return None
 
 
 def sha256_bytes(contenido: bytes) -> str:
@@ -294,8 +322,8 @@ def manifest_desde_diccionario(datos: Any) -> Manifest:
     if formato is not None and formato != FORMATO:
         v.error("formato", f"Debe ser '{FORMATO}'.")
     version = v.campo(d, "version_formato", "", "entero")
-    if version is not None and version != VERSION_FORMATO:
-        v.error("version_formato", f"Esta versión solo lee el formato {VERSION_FORMATO} (el archivo es el {version}).")
+    if version is not None and version not in VERSIONES_SOPORTADAS:
+        v.error("version_formato", f"Esta versión solo lee los formatos {', '.join(map(str, VERSIONES_SOPORTADAS))} (el archivo es el {version}).")
     creado = v.campo(d, "creado_en", "", "fecha")
     version_nucleo = v.campo(d, "version_nucleo", "", "texto")
     libs = v.campo(d, "versiones_librerias", "", "dict") or {}
@@ -444,8 +472,8 @@ def esquema_entrada_desde_diccionario(datos: Any) -> EsquemaEntrada:
     v = _Lector(problemas)
     d = v.objeto(datos, "", {"version_formato", "columnas"})
     version = v.campo(d, "version_formato", "", "entero")
-    if version is not None and version != VERSION_FORMATO:
-        v.error("version_formato", f"Esta versión solo lee el formato {VERSION_FORMATO}.")
+    if version is not None and version not in VERSIONES_SOPORTADAS:
+        v.error("version_formato", f"Esta versión solo lee los formatos {', '.join(map(str, VERSIONES_SOPORTADAS))}.")
     columnas: list[ColumnaEntrada] = []
     nombres: set[str] = set()
     campos = {f for f in ColumnaEntrada.__dataclass_fields__}
@@ -527,8 +555,8 @@ def controles_desde_diccionario(datos: Any) -> Controles:
     v = _Lector(problemas)
     d = v.objeto(datos, "", {"version_formato", "controles"})
     version = v.campo(d, "version_formato", "", "entero")
-    if version is not None and version != VERSION_FORMATO:
-        v.error("version_formato", f"Esta versión solo lee el formato {VERSION_FORMATO}.")
+    if version is not None and version not in VERSIONES_SOPORTADAS:
+        v.error("version_formato", f"Esta versión solo lee los formatos {', '.join(map(str, VERSIONES_SOPORTADAS))}.")
     controles: list[ControlVariable] = []
     nombres: set[str] = set()
     campos = {f for f in ControlVariable.__dataclass_fields__}

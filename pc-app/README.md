@@ -477,8 +477,8 @@ Dependencias (el entorno de desarrollo instala todas con `.[dev]`):
 
 | Para | Paquetes |
 |---|---|
-| **Servir** un artefacto `.scotty` (`pcapp_nucleo.artefacto`) | `pandas`, `numpy`, `openpyxl`, `pyarrow`, `scipy`, `scikit-learn`, `pygam==0.12.0` |
-| **Entrenar** (descubrimiento causal con PC) | lo anterior más `causal-learn` (extra `entrenamiento`; incluye `matplotlib` y `networkx`) |
+| **Servir** un artefacto `.scotty` (`pcapp_nucleo.artefacto`) | `pandas`, `numpy`, `openpyxl`, `pyarrow`, `networkx`, `scipy`, `scikit-learn`, `pygam==0.12.0` |
+| **Entrenar** (descubrimiento causal con PC) | lo anterior más `causal-learn` (extra `entrenamiento`; incluye `matplotlib`) |
 | Desarrollo | `pytest` (extra `dev`, que incluye `entrenamiento`) |
 
 pyGAM se fija en 0.12.0 porque el modelo causal guarda sus parámetros internos; pyGAM 0.12

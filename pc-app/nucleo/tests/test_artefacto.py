@@ -18,6 +18,7 @@ import pytest
 from scipy.special import expit
 
 from pcapp_nucleo.artefacto import formato as f
+from pcapp_nucleo.artefacto import cargar as cargar_mod
 from pcapp_nucleo.artefacto import golden as g
 from pcapp_nucleo.artefacto.cargar import Artefacto, ErrorArtefacto, ErrorSolicitud, cargar_artefacto
 from pcapp_nucleo.artefacto.exportar import (
@@ -25,6 +26,7 @@ from pcapp_nucleo.artefacto.exportar import (
     exportar_artefacto, exportar_artefacto_completo,
 )
 from pcapp_nucleo.causal import caso_desde_test, construir_modelo, modelo_desde_diccionario, sha256_train
+from pcapp_nucleo.causal import modelo as modelo_mod
 from pcapp_nucleo.preparacion import Codificacion, DecisionesUsuario, TratamientoColumna, preparar, receta_a_diccionario
 from pcapp_nucleo.prescripcion import (
     LoteCancelado, ObjetivoDeseado, ajustar_referencia, configuracion_por_defecto, confirmar_supuestos,
@@ -142,7 +144,7 @@ def test_nombre_y_contenido_del_archivo(exportado):
 
 def test_el_manifest_resume_el_proyecto(art, proyecto):
     m = art.manifest
-    assert m.formato == "scotty-artefacto" and m.version_formato == 1
+    assert m.formato == "scotty-artefacto" and m.version_formato == 2
     assert m.objetivo.columna == "Y" and m.objetivo.tipo == "binario" and m.objetivo.medida == "probabilidad"
     assert m.objetivo.clase_positiva == ["Si"] and m.objetivo.clase_objetivo == 1
     assert (m.objetivo.direccion, m.objetivo.deseado) == ("subir", 0.8)
@@ -151,7 +153,8 @@ def test_el_manifest_resume_el_proyecto(art, proyecto):
     assert m.variables_prescriptivas == [TAB, "Tutoria"]
     assert set(m.supuestos_confirmados) == {TAB, "Tutoria"}
     assert m.modelo.huella == proyecto.modelo_causal["huella"] and m.modelo.train_sha256 == proyecto.modelo_causal["train_sha256"]
-    assert m.versiones_librerias == proyecto.modelo_causal["versiones"]
+    assert {k: m.versiones_librerias[k] for k in proyecto.modelo_causal["versiones"]} == proyecto.modelo_causal["versiones"]
+    assert {"python", "pandas", "pyarrow", "networkx"} <= set(m.versiones_librerias)
     assert m.proyecto.sha256_dataset == "c" * 64
     assert m.aviso.startswith("Recomendaciones basadas en datos observacionales")
     assert "SIN_EVALUACION_PRESCRIPTOR" in {a.codigo for a in m.advertencias}
@@ -289,7 +292,7 @@ def test_formato_no_valido(exportado, tmp_path):
     with pytest.raises(ErrorArtefacto, match="Faltan archivos"):
         cargar_artefacto(reempaquetar(ruta, quitar=(f.CONTROLES,)))
     with pytest.raises(ErrorArtefacto, match="version_formato"):
-        cargar_artefacto(reempaquetar(ruta, manifest=lambda m: m.update(version_formato=2)))
+        cargar_artefacto(reempaquetar(ruta, manifest=lambda m: m.update(version_formato=3)))
     with pytest.raises(ErrorArtefacto, match="formato"):
         cargar_artefacto(reempaquetar(ruta, manifest=lambda m: m.update(formato="otro")))
     destino = io.BytesIO()
@@ -318,6 +321,121 @@ def test_el_golden_es_obligatorio_salvo_al_exportar(exportado):
     with pytest.raises(ErrorArtefacto):
         cargar_artefacto(sin_golden)
     assert cargar_artefacto(sin_golden, permitir_sin_golden=True).golden is None
+
+
+# --- Carga equivalente (formato 2) -------------------------------------------------------------------------------------
+
+
+def predicciones_perturbadas(delta=None):
+    """``predicciones_train`` con una fila de un mecanismo desplazada: 1 ULP (``delta=None``) o ``delta``.
+    Simula otro BLAS/LAPACK: el modelo recalculado no reproduce bit a bit la huella guardada."""
+    original = modelo_mod.predicciones_train
+
+    def falsa(modelo, train):
+        predicciones = original(modelo, train)
+        variable = next(iter(predicciones))
+        eta = predicciones[variable].copy()
+        eta[3] = np.nextafter(eta[3], np.inf) if delta is None else eta[3] + delta
+        predicciones[variable] = eta
+        return predicciones
+
+    return falsa
+
+
+def test_el_artefacto_guarda_las_predicciones_de_train(exportado, art):
+    with zipfile.ZipFile(exportado[0].ruta) as z:
+        predicciones = pd.read_parquet(io.BytesIO(z.read(f.PREDICCIONES_TRAIN)))
+    assert list(predicciones.columns) == list(modelo_mod.predicciones_train(art.modelo, art.train))
+    assert len(predicciones) == len(art.train)
+    huella = modelo_mod.huella_de_predicciones({c: predicciones[c].to_numpy() for c in predicciones.columns})
+    assert huella == art.manifest.modelo.huella
+    assert art.manifest.archivos[f.PREDICCIONES_TRAIN]
+
+
+def test_la_carga_normal_es_exacta(art):
+    assert art.informe_carga.tipo == "exacta" and art.informe_carga.exacta and art.informe_carga.mecanismos == []
+    assert (art.informe_carga.rtol, art.informe_carga.atol) == (1e-10, 1e-12)
+
+
+def test_una_diferencia_de_un_ulp_carga_como_equivalente(exportado, monkeypatch):
+    monkeypatch.setattr(cargar_mod, "predicciones_train", predicciones_perturbadas())
+    equivalente = cargar_artefacto(exportado[0].ruta)
+    informe = equivalente.informe_carga
+    assert informe.tipo == "equivalente" and not informe.exacta
+    por_variable = {d.variable: d for d in informe.mecanismos}
+    assert set(por_variable) == set(modelo_mod.predicciones_train(equivalente.modelo, equivalente.train))
+    distintos = [d for d in informe.mecanismos if d.filas_distintas]
+    assert len(distintos) == 1 and distintos[0].filas_distintas == 1 and distintos[0].filas_fuera_de_tolerancia == 0
+    assert 0 < distintos[0].diferencia_maxima_absoluta < 1e-12 and 0 < distintos[0].diferencia_maxima_relativa < 1e-14
+    assert all(d.filas == len(equivalente.train) for d in informe.mecanismos)
+    assert any("equivalente" in a for a in equivalente.avisos_carga)
+    assert informe.a_diccionario()["tipo"] == "equivalente"
+    assert g.verificar_golden(equivalente).correcto  # el golden tolera 1e-9 en los números
+
+
+def test_una_diferencia_de_1e6_no_carga(exportado, monkeypatch):
+    monkeypatch.setattr(cargar_mod, "predicciones_train", predicciones_perturbadas(1e-6))
+    with pytest.raises(ErrorArtefacto, match="superan la tolerancia") as error:
+        cargar_artefacto(exportado[0].ruta)
+    assert error.value.codigo == "MODELO"
+
+
+def test_la_tolerancia_es_un_parametro(exportado, monkeypatch):
+    monkeypatch.setattr(cargar_mod, "predicciones_train", predicciones_perturbadas(1e-6))
+    assert cargar_artefacto(exportado[0].ruta, atol=1e-3).informe_carga.tipo == "equivalente"
+    monkeypatch.setattr(cargar_mod, "predicciones_train", predicciones_perturbadas())
+    with pytest.raises(ErrorArtefacto, match="superan la tolerancia"):
+        cargar_artefacto(exportado[0].ruta, rtol=0, atol=0)
+
+
+def test_unas_predicciones_guardadas_alteradas_no_se_cargan(exportado):
+    def alterar(contenido):
+        tabla = pd.read_parquet(io.BytesIO(contenido))
+        tabla.iloc[0, 0] += 1e-14
+        salida = io.BytesIO()
+        tabla.to_parquet(salida, index=False)
+        return salida.getvalue()
+
+    cambiado = reempaquetar(exportado[0].ruta, archivos={f.PREDICCIONES_TRAIN: alterar})
+    with pytest.raises(ErrorArtefacto, match="no coincide con su sha256"):
+        cargar_artefacto(cambiado)
+
+
+def como_formato_1(ruta, **cambios_versiones) -> bytes:
+    def manifest(m):
+        m["version_formato"] = 1
+        m["archivos"].pop(f.PREDICCIONES_TRAIN)
+        m["versiones_librerias"].update(cambios_versiones)
+
+    return reempaquetar(ruta, manifest=manifest, quitar=(f.PREDICCIONES_TRAIN,))
+
+
+def test_el_formato_1_se_sigue_cargando_con_la_comprobacion_estricta(exportado, monkeypatch):
+    v1 = como_formato_1(exportado[0].ruta)
+    antiguo = cargar_artefacto(v1)
+    assert antiguo.manifest.version_formato == 1 and antiguo.informe_carga.tipo == "exacta"
+    with pytest.raises(ErrorArtefacto, match="archivos desconocidos"):  # el 1 no lleva predicciones guardadas
+        cargar_artefacto(reempaquetar(exportado[0].ruta, manifest=lambda m: m.update(version_formato=1)))
+    # 1 ULP: en el formato 1 es un error (huella bit a bit), no una carga equivalente.
+    monkeypatch.setattr(modelo_mod, "predicciones_train", predicciones_perturbadas())
+    with pytest.raises(ErrorArtefacto, match="no se reproduce") as error:
+        cargar_artefacto(v1)
+    assert error.value.codigo == "MODELO"
+
+
+def test_las_versiones_del_entorno_solo_avisan_en_el_formato_2(exportado):
+    cambiado = reempaquetar(exportado[0].ruta, manifest=lambda m: m["versiones_librerias"].update(
+        python="3.0.0", pandas="0.0.1", pyarrow="0.0.1", networkx="0.0.1"))
+    aviso = cargar_artefacto(cambiado).avisos_carga[0]
+    assert all(p in aviso for p in ("python 3.0.0", "pandas 0.0.1", "pyarrow 0.0.1", "networkx 0.0.1"))
+    for paquete in ("scikit-learn", "numpy", "scipy"):  # estrictas
+        with pytest.raises(ErrorArtefacto, match=paquete) as error:
+            cargar_artefacto(reempaquetar(exportado[0].ruta, manifest=lambda m: m["versiones_librerias"].update({paquete: "0.0.1"})))
+        assert error.value.codigo == "VERSIONES"
+    # En el formato 1 cualquier librería del manifest es estricta, como antes.
+    with pytest.raises(ErrorArtefacto, match="pandas 0.0.1") as error:
+        cargar_artefacto(como_formato_1(exportado[0].ruta, pandas="0.0.1"))
+    assert error.value.codigo == "VERSIONES"
 
 
 # --- Semilla por valores -------------------------------------------------------------------------------------------

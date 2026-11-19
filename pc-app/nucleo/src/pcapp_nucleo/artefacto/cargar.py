@@ -14,7 +14,6 @@ caso (no de su posición en el archivo): la misma fila da el mismo resultado ven
 from __future__ import annotations
 
 import gc
-import importlib.metadata
 import io
 import json
 import zipfile
@@ -31,11 +30,12 @@ from pcapp_nucleo import __version__
 from pcapp_nucleo.artefacto import formato as f
 from pcapp_nucleo.configuracion import ConfiguracionValidacion
 from pcapp_nucleo.causal import (
-    ErrorContrafactual, ErrorModeloCausal, Intervencion, caso_desde_test, contrafactual, descripcion_variables,
-    modelo_desde_diccionario, sha256_train,
+    ErrorContrafactual, ErrorModeloCausal, Intervencion, ModeloCausal, caso_desde_test, contrafactual,
+    descripcion_variables, modelo_desde_diccionario, sha256_train,
 )
 from pcapp_nucleo.causal.aplicabilidad import BLOQUEANTE
 from pcapp_nucleo.causal.contrafactuales import AvisoContrafactual, Caso, _en_rango, contrafactual_preparado
+from pcapp_nucleo.causal.modelo import huella_de_predicciones, predicciones_train
 from pcapp_nucleo.causal.unidades import GRUPO
 from pcapp_nucleo.preparacion import (
     ErrorPreparacion, NuevosPreparados, Receta, _mismo_valor, preparar_nuevos, receta_desde_diccionario,
@@ -51,6 +51,11 @@ from pcapp_nucleo.utilidades import a_diccionario_serializable
 
 BLOQUE_LOTE = 20
 TAMANO_MAXIMO = 1 << 30  # 1 GiB descomprimido: un artefacto real pesa megas
+# Tolerancia con la que un artefacto de formato 2 se carga como "equivalente" cuando la huella exacta no coincide
+# (BLAS/LAPACK distintos entre plataformas dan diferencias de 1 ULP, ~1e-16 relativo).
+RTOL_CARGA = 1e-10
+ATOL_CARGA = 1e-12
+CARGA_EXACTA, CARGA_EQUIVALENTE = "exacta", "equivalente"
 
 
 class ErrorArtefacto(Exception):
@@ -118,6 +123,36 @@ class ResultadoLote:
         return a_diccionario_serializable(self)
 
 
+@dataclass
+class DiferenciaMecanismo:
+    """Diferencia entre las predicciones de train recalculadas y las guardadas en el artefacto, de un mecanismo."""
+
+    variable: str
+    filas: int
+    filas_distintas: int  # difieren en algún bit
+    filas_fuera_de_tolerancia: int
+    diferencia_maxima_absoluta: float
+    diferencia_maxima_relativa: float  # |a − b| / |b| sobre las filas con b ≠ 0
+
+
+@dataclass
+class InformeCarga:
+    """Cómo se reprodujo el modelo causal al cargar: ``exacta`` (la huella sha256 coincide, o formato 1) o
+    ``equivalente`` (la huella difiere pero las predicciones están dentro de ``rtol``/``atol``)."""
+
+    tipo: str
+    rtol: float
+    atol: float
+    mecanismos: list[DiferenciaMecanismo] = field(default_factory=list)  # vacío si la carga es exacta
+
+    @property
+    def exacta(self) -> bool:
+        return self.tipo == CARGA_EXACTA
+
+    def a_diccionario(self) -> dict[str, Any]:
+        return {**a_diccionario_serializable(self), "exacta": self.exacta}
+
+
 # --- Lectura del zip ---------------------------------------------------------------------------------------------
 
 
@@ -167,34 +202,110 @@ def mu_efectivo(prescripcion: dict[str, Any]) -> tuple[float | None, str]:
 
 
 def _comprobar_versiones(manifest: f.Manifest) -> list[str]:
-    """Error si alguna librería de los mecanismos no coincide exactamente; devuelve avisos."""
-    distintas = []
+    """Error si no coincide exactamente alguna librería de las que dependen los mecanismos (formato 1: todas las
+    del manifest; formato 2: pygam, scikit-learn, numpy y scipy); la diferencia en las demás solo avisa."""
+    distintas, avisos = [], []
     for paquete, esperada in manifest.versiones_librerias.items():
-        try:
-            instalada = importlib.metadata.version(paquete)
-        except importlib.metadata.PackageNotFoundError:
-            instalada = None
-        if instalada != esperada:
-            distintas.append(f"{paquete} {esperada} (instalada: {instalada or 'ninguna'})")
+        instalada = f.version_instalada(paquete)
+        if instalada == esperada:
+            continue
+        texto = f"{paquete} {esperada} (instalada: {instalada or 'ninguna'})"
+        if manifest.version_formato < 2 or paquete in f.LIBRERIAS_ESTRICTAS:
+            distintas.append(texto)
+        else:
+            avisos.append(texto)
     if distintas:
         raise ErrorArtefacto(
             "Las librerías instaladas no coinciden con las del artefacto, y sus resultados dependen de ellas: "
             + ", ".join(distintas) + ". Instale exactamente esas versiones.",
             "VERSIONES",
         )
+    resultado = []
+    if avisos:
+        resultado.append("Versiones distintas de las del artefacto (no afectan a los mecanismos): " + ", ".join(avisos) + ".")
     if manifest.version_nucleo != __version__:
-        return [
+        resultado.append(
             f"El artefacto se exportó con pcapp_nucleo {manifest.version_nucleo} y está instalada la {__version__}: "
             "verifique el golden (verificar_golden) antes de servirlo."
-        ]
-    return []
+        )
+    return resultado
+
+
+def _leer_predicciones(contenido: bytes) -> pd.DataFrame:
+    try:
+        return pd.read_parquet(io.BytesIO(contenido), engine="pyarrow")
+    except Exception as error:  # pyarrow lanza varios tipos
+        raise ErrorArtefacto(f"{f.PREDICCIONES_TRAIN} no se puede leer: {error}", "INTEGRIDAD") from error
+
+
+def _comparar(
+    variable: str, recalculada: np.ndarray, guardada: np.ndarray, rtol: float, atol: float
+) -> tuple[DiferenciaMecanismo, bool]:
+    """Compara el eta recalculado con el guardado (referencia): (diferencias, dentro de la tolerancia)."""
+    a, b = np.asarray(recalculada, dtype=float), np.asarray(guardada, dtype=float)
+    iguales = (a == b) | (np.isnan(a) & np.isnan(b))
+    fuera = ~np.isclose(a, b, rtol=rtol, atol=atol, equal_nan=True)
+    finitas = np.isfinite(a) & np.isfinite(b)
+    absoluta = np.abs(a - b)[finitas]
+    base = np.abs(b)[finitas]
+    relativa = absoluta[base > 0] / base[base > 0]
+    diferencia = DiferenciaMecanismo(
+        variable, len(a), int((~iguales).sum()), int(fuera.sum()),
+        float(absoluta.max()) if len(absoluta) else 0.0, float(relativa.max()) if len(relativa) else 0.0,
+    )
+    return diferencia, not bool(fuera.any())
+
+
+def _cargar_modelo_v2(
+    modelo_json: dict[str, Any], train: pd.DataFrame, contenido_predicciones: bytes, rtol: float, atol: float
+) -> tuple[ModeloCausal, InformeCarga]:
+    """Modelo causal de un artefacto de formato 2: carga ``exacta`` si la huella sha256 de las predicciones sobre
+    train coincide; si no, ``equivalente`` si las predicciones recalculadas están dentro de la tolerancia de las
+    guardadas al exportar. Fuera de ella, ``ErrorArtefacto``."""
+    try:
+        modelo = ModeloCausal(modelo_json)
+        recalculadas = predicciones_train(modelo, train)
+    except ErrorModeloCausal as error:
+        raise ErrorArtefacto(f"El modelo causal no se reproduce: {error}", "MODELO") from error
+    if huella_de_predicciones(recalculadas) == modelo_json.get("huella"):
+        return modelo, InformeCarga(CARGA_EXACTA, rtol, atol)
+    guardadas = _leer_predicciones(contenido_predicciones)
+    if list(guardadas.columns) != list(recalculadas) or len(guardadas) != len(train):
+        raise ErrorArtefacto(
+            f"{f.PREDICCIONES_TRAIN} no corresponde a los mecanismos o al train del artefacto.", "INTEGRIDAD"
+        )
+    referencia = {v: guardadas[v].to_numpy(dtype=float) for v in guardadas.columns}
+    if huella_de_predicciones(referencia) != modelo_json.get("huella"):
+        raise ErrorArtefacto(f"{f.PREDICCIONES_TRAIN} no corresponde a la huella del modelo causal.", "INTEGRIDAD")
+    diferencias, fuera = [], []
+    for variable, eta in recalculadas.items():
+        diferencia, dentro = _comparar(variable, eta, referencia[variable], rtol, atol)
+        diferencias.append(diferencia)
+        if not dentro:
+            fuera.append(diferencia)
+    if fuera:
+        detalle = "; ".join(
+            f"{d.variable}: {d.filas_fuera_de_tolerancia} de {d.filas} filas (diferencia máxima {d.diferencia_maxima_absoluta:.3g}, "
+            f"relativa {d.diferencia_maxima_relativa:.3g})" for d in fuera
+        )
+        raise ErrorArtefacto(
+            f"El modelo causal no se reproduce: las predicciones sobre train superan la tolerancia (rtol={rtol:g}, atol={atol:g}) "
+            f"en {detalle}.", "MODELO",
+        )
+    return modelo, InformeCarga(CARGA_EQUIVALENTE, rtol, atol, diferencias)
 
 
 # --- Carga -----------------------------------------------------------------------------------------------------------
 
 
-def cargar_artefacto(origen: str | Path | bytes, *, permitir_sin_golden: bool = False) -> Artefacto:
+def cargar_artefacto(
+    origen: str | Path | bytes, *, permitir_sin_golden: bool = False, rtol: float = RTOL_CARGA, atol: float = ATOL_CARGA,
+) -> Artefacto:
     """Abre y verifica un artefacto. ``permitir_sin_golden`` solo lo usa la exportación (el artefacto aún no lo tiene).
+
+    El modelo causal se carga ``exacta`` si la huella sha256 de sus predicciones sobre train coincide; en el formato 2,
+    si no coincide, se carga ``equivalente`` cuando las predicciones recalculadas están dentro de ``rtol``/``atol``
+    de las guardadas en el artefacto (``Artefacto.informe_carga`` lo registra). El formato 1 exige igualdad exacta.
 
     Raises:
         ErrorArtefacto: formato, integridad (sha256), versiones de librerías o modelo no reproducible.
@@ -203,7 +314,11 @@ def cargar_artefacto(origen: str | Path | bytes, *, permitir_sin_golden: bool = 
     if f.MANIFEST not in archivos:
         raise ErrorArtefacto(f"Falta {f.MANIFEST}: no es un artefacto .scotty.")
     manifest = _envolver(f.manifest_desde_diccionario, _json(f.MANIFEST, archivos[f.MANIFEST]))
-    esperados = [n for n in f.ARCHIVOS_CONTENIDO if not (n == f.GOLDEN and permitir_sin_golden)]
+    archivos_formato = f.archivos_de_version(manifest.version_formato)
+    sobran = [n for n in archivos if n != f.MANIFEST and n not in archivos_formato]
+    if sobran:
+        raise ErrorArtefacto(f"El artefacto trae archivos desconocidos: {', '.join(sobran)}.")
+    esperados = [n for n in archivos_formato if not (n == f.GOLDEN and permitir_sin_golden)]
     faltan = [n for n in esperados if n not in archivos or n not in manifest.archivos]
     if faltan:
         raise ErrorArtefacto(f"Faltan archivos del artefacto: {', '.join(faltan)}.")
@@ -236,10 +351,21 @@ def cargar_artefacto(origen: str | Path | bytes, *, permitir_sin_golden: bool = 
         raise ErrorArtefacto("La huella del modelo causal no coincide entre el manifest, el modelo y la prescripción.", "INTEGRIDAD")
     if not (manifest.modelo.train_sha256 == modelo_json.get("train_sha256") == sha256_train(train)):
         raise ErrorArtefacto("El train del artefacto no es el usado para construir el modelo causal.", "INTEGRIDAD")
-    try:
-        modelo = modelo_desde_diccionario(modelo_json, train)
-    except ErrorModeloCausal as error:
-        raise ErrorArtefacto(f"El modelo causal no se reproduce: {error}", "MODELO") from error
+    if manifest.version_formato < 2:  # comprobación estricta: huella bit a bit
+        informe_carga = InformeCarga(CARGA_EXACTA, rtol, atol)
+        try:
+            modelo = modelo_desde_diccionario(modelo_json, train)
+        except ErrorModeloCausal as error:
+            raise ErrorArtefacto(f"El modelo causal no se reproduce: {error}", "MODELO") from error
+    else:
+        modelo, informe_carga = _cargar_modelo_v2(modelo_json, train, archivos[f.PREDICCIONES_TRAIN], rtol, atol)
+        if not informe_carga.exacta:
+            peor = max(informe_carga.mecanismos, key=lambda d: d.diferencia_maxima_absoluta)
+            avisos.append(
+                "El modelo causal se cargó como equivalente, no exacto: las predicciones sobre train difieren de las del "
+                f"equipo que exportó (diferencia máxima {peor.diferencia_maxima_absoluta:.3g} en '{peor.variable}'), dentro de "
+                f"rtol={rtol:g} y atol={atol:g}. Detalle en informe_carga."
+            )
     try:
         configuracion = completar(modelo, configuracion_desde_diccionario(prescripcion["configuracion"]))
         receta = receta_desde_diccionario(receta_json)
@@ -263,7 +389,7 @@ def cargar_artefacto(origen: str | Path | bytes, *, permitir_sin_golden: bool = 
     indice = construir_indice(modelo, train, configuracion)
     return Artefacto(
         manifest, esquema, controles, evaluacion, golden, receta, modelo, configuracion, referencia, mu, indice, train,
-        avisos, datos,
+        avisos, datos, informe_carga,
     )
 
 
@@ -277,11 +403,13 @@ class Artefacto:
         self, manifest: f.Manifest, esquema_entrada: f.EsquemaEntrada, controles: f.Controles, evaluacion: dict[str, Any],
         golden: dict[str, Any] | None, receta: Receta, modelo, configuracion: ConfiguracionPrescripcion, referencia: ModeloReferencia,
         mu: float, indice: IndiceVecinos | None, train: pd.DataFrame, avisos_carga: list[str], datos: bytes,
+        informe_carga: InformeCarga,
     ) -> None:
         self.manifest, self.esquema_entrada, self.controles, self.evaluacion, self.golden = manifest, esquema_entrada, controles, evaluacion, golden
         self.receta, self.modelo, self.configuracion, self.referencia, self.mu = receta, modelo, configuracion, referencia, mu
         self.indice, self.train, self.avisos_carga = indice, train, avisos_carga
         self._datos = datos
+        self.informe_carga = informe_carga
         self._centinelas = set(ConfiguracionValidacion().valores_centinela_faltantes)
         self._controles = {d["nombre"]: d for d in descripcion_variables(modelo)}
         self._tipicos = self._valores_tipicos()
@@ -583,7 +711,7 @@ class Artefacto:
                 del informe, nuevos, resultados
                 gc.collect()
             return
-        with ProcessPoolExecutor(max_workers=procesos, initializer=_iniciar_trabajador, initargs=(self._datos,)) as ejecutor:
+        with ProcessPoolExecutor(max_workers=procesos, initializer=_iniciar_trabajador, initargs=(self._datos, self.informe_carga.rtol, self.informe_carga.atol)) as ejecutor:
             pendientes: list[tuple[int, list[ProblemaEntrada], Future]] = []
             siguientes = iter(bloques)
 
@@ -625,9 +753,9 @@ class Artefacto:
 _TRABAJADOR: Artefacto | None = None
 
 
-def _iniciar_trabajador(datos: bytes) -> None:
+def _iniciar_trabajador(datos: bytes, rtol: float, atol: float) -> None:
     global _TRABAJADOR
-    _TRABAJADOR = cargar_artefacto(datos)
+    _TRABAJADOR = cargar_artefacto(datos, rtol=rtol, atol=atol)
 
 
 def _prescribir_en_trabajador(preparadas: pd.DataFrame | None) -> list[dict[str, Any]]:

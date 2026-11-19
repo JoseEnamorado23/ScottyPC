@@ -115,14 +115,26 @@ def sha256_train(train: pd.DataFrame) -> str:
     return hashlib.sha256(valores.tobytes() + ",".join(map(str, train.columns)).encode("utf-8")).hexdigest()
 
 
+def predicciones_train(modelo: ModeloCausal, train: pd.DataFrame) -> dict[str, np.ndarray]:
+    """eta de cada mecanismo sobre las filas de train (el vector que resume la huella), en el orden del modelo."""
+    return {
+        variable: modelo.mecanismos[variable].eta(modelo.matriz(variable, train))
+        for variable in modelo.variables if variable in modelo.mecanismos
+    }
+
+
+def huella_de_predicciones(predicciones: dict[str, np.ndarray]) -> str:
+    """sha256 de las predicciones (nombre de cada mecanismo y sus bytes, en el orden dado)."""
+    resumen = hashlib.sha256()
+    for variable, eta in predicciones.items():
+        resumen.update(variable.encode("utf-8"))
+        resumen.update(np.ascontiguousarray(eta).tobytes())
+    return resumen.hexdigest()
+
+
 def huella(modelo: ModeloCausal, train: pd.DataFrame) -> str:
     """sha256 de las predicciones de todos los mecanismos sobre las filas de train."""
-    resumen = hashlib.sha256()
-    for variable in modelo.variables:
-        if variable in modelo.mecanismos:
-            resumen.update(variable.encode("utf-8"))
-            resumen.update(np.ascontiguousarray(modelo.mecanismos[variable].eta(modelo.matriz(variable, train))).tobytes())
-    return resumen.hexdigest()
+    return huella_de_predicciones(predicciones_train(modelo, train))
 
 
 # --- Construcción -----------------------------------------------------------------------------

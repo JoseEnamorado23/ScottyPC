@@ -2,9 +2,9 @@
  "proyecto": "factores",
  "exportacion": {
   "correcta": true,
-  "archivo": "Factores_academicos_v2_20261119-001413.scotty",
-  "bytes": 45991,
-  "segundos": 20.7,
+  "archivo": "Factores_academicos_v2_20261119-073908.scotty",
+  "bytes": 49822,
+  "segundos": 29.7,
   "advertencias": [
    "MODIFICABLES_SIN_CAMINO"
   ]
@@ -20,31 +20,57 @@
   "nota": "Informativa. La semilla del optimizador depende en el artefacto de los valores del caso y en Scotty PC de su índice de test, por lo que pueden diferir algunas prescripciones."
  },
  "carga": {
-  "segundos": 0.02,
+  "segundos": 0.04,
   "rss_mb_antes": 194,
-  "rss_mb_despues": 194
+  "rss_mb_despues": 194,
+  "tipo": "exacta",
+  "avisos": []
+ },
+ "manifest": {
+  "version_formato": 2,
+  "versiones_librerias": {
+   "pygam": "0.12.0",
+   "scikit-learn": "1.9.1",
+   "numpy": "2.5.3",
+   "scipy": "1.16.3",
+   "python": "3.13.9",
+   "pandas": "3.0.6",
+   "pyarrow": "26.0.1",
+   "networkx": "3.7"
+  },
+  "archivos": [
+   "controles.json",
+   "esquema_entrada.json",
+   "evaluacion.json",
+   "golden.json",
+   "modelo_causal.json",
+   "predicciones_train.parquet",
+   "prescripcion.json",
+   "receta.json",
+   "train.parquet"
+  ]
  },
  "verificar_golden": {
   "correcto": true,
   "casos": 20,
   "maxima_diferencia": 0.0,
   "diferencias": [],
-  "segundos": 7.5
+  "segundos": 10.8
  },
  "tiempos": {
   "predecir": {
-   "media_s": 0.02,
-   "maximo_s": 0.021,
+   "media_s": 0.028,
+   "maximo_s": 0.034,
    "casos": 20
   },
   "prescribir": {
-   "media_s": 0.328,
-   "maximo_s": 0.768,
+   "media_s": 0.488,
+   "maximo_s": 1.139,
    "casos": 20
   },
   "contrafactual": {
-   "media_s": 0.018,
-   "maximo_s": 0.021,
+   "media_s": 0.026,
+   "maximo_s": 0.034,
    "casos": 20
   }
  }

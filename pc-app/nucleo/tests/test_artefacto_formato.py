@@ -116,7 +116,7 @@ def test_manifest_golden_provisional_es_valido():
     "cambio, campo",
     [
         (lambda d: d.update(formato="otro"), "formato"),
-        (lambda d: d.update(version_formato=2), "version_formato"),
+        (lambda d: d.update(version_formato=3), "version_formato"),
         (lambda d: d.update(creado_en="ayer"), "creado_en"),
         (lambda d: d.pop("version_nucleo"), "version_nucleo"),
         (lambda d: d["versiones_librerias"].update(pygam=""), "versiones_librerias.pygam"),

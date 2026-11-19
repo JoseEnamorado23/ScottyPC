@@ -48,6 +48,7 @@ Un zip con fechas fijas (1980-01-01), de modo que el mismo contenido da el mismo
 | `modelo_causal.json` | El modelo estructural (mecanismos por parámetros, huella, `train_sha256`). |
 | `prescripcion.json` | Configuración, modelo de referencia y calibración de μ. |
 | `train.parquet` | El train preparado, con índice y tipos (zstd). |
+| `predicciones_train.parquet` | (formato 2) `eta` de cada mecanismo sobre train, sin pérdida: el mismo vector que resume la huella. Sirve de referencia para cargar en otra plataforma (ver «Carga exacta y equivalente»). |
 | `esquema_entrada.json` | Columnas **originales** (nombres exactos, también con tabuladores). |
 | `controles.json` | Qué se puede modificar y dentro de qué límites. |
 | `evaluacion.json` | Evaluación del modelo y, si es vigente, del prescriptor. |
@@ -55,8 +56,8 @@ Un zip con fechas fijas (1980-01-01), de modo que el mismo contenido da el mismo
 
 ### `manifest.json`
 
-`formato = "scotty-artefacto"`, `version_formato = 1`, `creado_en`, `version_nucleo`,
-`versiones_librerias`, `proyecto` (id, nombre, archivo, sha256 del dataset), `objetivo` (columna, tipo,
+`formato = "scotty-artefacto"`, `version_formato = 2`, `creado_en`, `version_nucleo`,
+`versiones_librerias` (pygam, scikit-learn, numpy, scipy, y desde el formato 2 también python, pandas, pyarrow y networkx), `proyecto` (id, nombre, archivo, sha256 del dataset), `objetivo` (columna, tipo,
 `clase_positiva`, `clase_objetivo`, medida, dirección, deseado, `umbral_decision`), `prescripcion` (`mu`,
 `mu_origen` = `manual` | `automatico`, optimizador), `modelo` (`huella`, `train_sha256`,
 `version_resultado_pc`), `variables_prescriptivas`, `supuestos_confirmados`, `resumen_evaluacion`,
@@ -89,12 +90,39 @@ if not informe.correcto:
 
 `cargar_artefacto` comprueba, en este orden: que sea un zip con los archivos esperados (ni más ni
 menos, sin duplicados), el `formato` y la `version_formato`, el sha256 de cada archivo, las versiones de
-las librerías (**una diferencia es un error**; pyGAM está fijado en 0.12.0), la versión del núcleo (una
-diferencia solo agrega un aviso a `art.avisos_carga`), que `sha256_train(train)` sea el del modelo,
-que el modelo reconstruido reproduzca su huella, y que μ y las variables prescriptivas coincidan con el
+las librerías (**una diferencia en pygam, scikit-learn, numpy o scipy es un error**; pyGAM está fijado en
+0.12.0; en python, pandas, pyarrow y networkx solo agrega un aviso a `art.avisos_carga`), la versión del
+núcleo (también solo un aviso), que `sha256_train(train)` sea el del modelo, que el modelo reconstruido
+reproduzca su huella (exacta o equivalente, ver abajo), y que μ y las variables prescriptivas coincidan con el
 manifest. Después construye una sola vez el modelo, la configuración, la referencia y el índice de vecinos.
 Los errores son `ErrorArtefacto(mensaje, codigo)`, con `codigo` en `FORMATO`, `INTEGRIDAD`, `VERSIONES`
 o `MODELO`.
+
+### Carga exacta y equivalente
+
+La huella del modelo es el sha256 de las predicciones (`eta`) de cada mecanismo sobre train. BLAS/LAPACK
+distintos (por ejemplo Windows y Linux/Docker) pueden dar 1 ULP (~1e-16) de diferencia con las mismas versiones
+de librerías, y entonces la huella no coincide aunque el modelo sea el mismo. Por eso un artefacto de formato 2
+guarda en `predicciones_train.parquet` las predicciones del equipo que lo exportó y `cargar_artefacto` hace lo
+siguiente:
+
+1. Si la huella sha256 coincide: carga **exacta**.
+2. Si no, compara las predicciones recalculadas con las guardadas con `rtol=1e-10` y `atol=1e-12`
+   (`|a − b| ≤ atol + rtol·|b|`): si todas están dentro, carga **equivalente**; si alguna no, `ErrorArtefacto`
+   (`MODELO`) con el mecanismo y la diferencia.
+
+```python
+art = cargar_artefacto("ruta.scotty", rtol=1e-10, atol=1e-12)   # la tolerancia es un parámetro
+art.informe_carga.tipo          # "exacta" | "equivalente"
+art.informe_carga.mecanismos    # por mecanismo: filas, filas_distintas, filas_fuera_de_tolerancia,
+                                # diferencia_maxima_absoluta, diferencia_maxima_relativa
+```
+
+Una carga equivalente agrega un aviso a `art.avisos_carga`. Las predicciones guardadas solo valen de referencia si
+su sha256 está en el manifest y reproducen la huella guardada del modelo. `verificar_golden` no cambia: exacto en lo
+discreto y 1e-9 en los números. Scotty PC de escritorio sigue exigiendo igualdad bit a bit
+(`modelo_desde_diccionario`). Los artefactos del formato 1 se siguen leyendo, con la comprobación estricta de siempre
+(huella bit a bit y todas las librerías del manifest idénticas).
 
 Todo se expresa en **unidades originales** (las del dataset tras la conversión de unidades de la
 receta). Las filas son diccionarios `{nombre_exacto_de_columna: valor}`; los marcadores `NA`, `?`, `-`, `""`
@@ -157,8 +185,9 @@ difieren y conviene revisar antes de publicar.
 - **`permitida`.** Un control puede estar declarado pero desactivado; las prescripciones lo respetan.
 - **Unidades.** Los límites del esquema y de los controles están en unidades originales; las conversiones
   de la receta se aplican al preparar.
-- **Versiones.** Cualquier cambio de librería es un error (los parámetros del modelo dependen de ellas); un
-  cambio de versión del núcleo es un aviso.
+- **Versiones.** Un cambio en pygam, scikit-learn, numpy o scipy es un error (los parámetros del modelo dependen
+  de ellas); un cambio en python, pandas, pyarrow, networkx o en la versión del núcleo es un aviso. En el formato 1
+  toda librería del manifest es estricta.
 - **Archivos desconocidos.** Un zip con archivos de más se rechaza, y también uno con campos
   desconocidos en el manifest, el esquema o los controles.
 

@@ -28,6 +28,7 @@ from pcapp_nucleo.artefacto import formato as f
 from pcapp_nucleo.artefacto.cargar import ErrorArtefacto, cargar_artefacto, mu_efectivo
 from pcapp_nucleo.carga import ErrorCarga, cargar_dataset
 from pcapp_nucleo.causal import ErrorModeloCausal, descripcion_variables, modelo_desde_diccionario, sha256_train
+from pcapp_nucleo.causal.modelo import huella_de_predicciones, predicciones_train
 from pcapp_nucleo.causal.aplicabilidad import ADVERTENCIA, BLOQUEANTE
 from pcapp_nucleo.causal.modelo import INTERMEDIA, ModeloCausal
 from pcapp_nucleo.causal.unidades import GRUPO, NUMERICA, ORDINAL, Unidades
@@ -45,7 +46,8 @@ ARCHIVO_RECETA = "receta.json"
 ARCHIVO_MODELO = "modelo_causal/modelo_causal.json"
 ARCHIVO_EVALUACION_MODELO = "modelo_causal/evaluacion.json"
 ARCHIVO_PRESCRIPCION = "prescripcion/prescripcion.json"
-LIBRERIAS = ("pygam", "scikit-learn", "numpy", "scipy")
+# Además de las librerías del modelo, el manifest registra estas (solo avisan si difieren al cargar).
+LIBRERIAS_ENTORNO = ("python", "pandas", "pyarrow", "networkx")
 FECHA_ZIP = (1980, 1, 1, 0, 0, 0)  # fija: el zip no depende del momento en que se escribe
 
 
@@ -413,6 +415,14 @@ def _sha256_dataframe(df: pd.DataFrame) -> str:
     return f.sha256_bytes(valores.tobytes() + ",".join(map(str, df.columns)).encode("utf-8"))
 
 
+def _versiones_manifest(datos_modelo: dict[str, Any]) -> dict[str, str]:
+    """Versiones de las librerías del modelo (las que se exigen al cargar) y del entorno de exportación."""
+    versiones = dict(datos_modelo["versiones"])
+    for paquete in LIBRERIAS_ENTORNO:
+        versiones[paquete] = f.version_instalada(paquete) or "desconocida"
+    return versiones
+
+
 def _json_bytes(valor: Any) -> bytes:
     return json.dumps(a_diccionario_serializable(valor), ensure_ascii=False, indent=2, allow_nan=False).encode("utf-8")
 
@@ -423,13 +433,25 @@ def _parquet_bytes(train: pd.DataFrame) -> bytes:
     return buffer.getvalue()
 
 
+def _predicciones_parquet(v: "_Validado", huella_modelo: str) -> bytes:
+    """eta de cada mecanismo sobre train (el vector que resume la huella), sin pérdida, para cargar en otra plataforma."""
+    predicciones = predicciones_train(v.modelo, v.train)
+    buffer = io.BytesIO()
+    pd.DataFrame(predicciones).to_parquet(buffer, engine="pyarrow", index=False, compression="zstd")
+    contenido = buffer.getvalue()
+    releidas = pd.read_parquet(io.BytesIO(contenido), engine="pyarrow")
+    if huella_de_predicciones({c: releidas[c].to_numpy(dtype=float) for c in releidas.columns}) != huella_modelo:
+        raise ErrorExportacion("El Parquet no conserva exactamente las predicciones de train de los mecanismos.")
+    return contenido
+
+
 def _manifest(proyecto: ProyectoParaExportar, v: _Validado, contenidos: dict[str, bytes], resumen: f.ResumenEvaluacion,
               advertencias: list[f.AdvertenciaManifest], golden_sha256: str | None) -> f.Manifest:
     datos_modelo = proyecto.modelo_causal
     objetivo = v.configuracion.objetivo
     return f.Manifest(
         formato=f.FORMATO, version_formato=f.VERSION_FORMATO, creado_en=datetime.now().isoformat(timespec="seconds"),
-        version_nucleo=__version__, versiones_librerias=dict(datos_modelo["versiones"]),
+        version_nucleo=__version__, versiones_librerias=_versiones_manifest(datos_modelo),
         proyecto=f.ProyectoManifest(
             id=proyecto.id, nombre=proyecto.nombre, archivo_original=proyecto.archivo_original,
             sha256_dataset=(proyecto.receta.get("origen") or {}).get("sha256") or _sha256_dataframe(proyecto.original),
@@ -538,6 +560,7 @@ def exportar_artefacto_completo(
         f.MODELO_CAUSAL: _json_bytes(proyecto.modelo_causal),
         f.PRESCRIPCION: _json_bytes(proyecto.prescripcion),
         f.TRAIN: train_parquet,
+        f.PREDICCIONES_TRAIN: _predicciones_parquet(v, proyecto.modelo_causal["huella"]),
         f.ESQUEMA_ENTRADA: _json_bytes(derivar_esquema_entrada(v.receta, v.modelo, v.train, v.prescriptivas).a_diccionario()),
         f.CONTROLES: _json_bytes(derivar_controles(v.modelo, v.configuracion, v.train).a_diccionario()),
         f.EVALUACION: _json_bytes(evaluacion),
