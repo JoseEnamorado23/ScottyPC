@@ -1,0 +1,70 @@
+{
+ "mu": 0.003162,
+ "casos": 44,
+ "variantes": [
+  {
+   "variante": "A: sin rejilla (ordinales como continuas, sin paso), cambio máx. 1 nivel",
+   "casos": 44,
+   "alcanzados": 44,
+   "tasa_exito": 1.0,
+   "cambio_medio_abs_por_accion": 0.6112,
+   "acciones_por_caso": 1.455,
+   "valores_fuera_de_rejilla": 62,
+   "valores_prescritos": 64,
+   "sobrepaso_meta_todos": {
+    "media": -0.0,
+    "mediana": -0.0,
+    "p10": -0.0,
+    "p90": 0.0372,
+    "max": 0.0655,
+    "min": -0.0
+   },
+   "sobrepaso_meta_alcanzados": {
+    "media": 0.0115,
+    "mediana": -0.0,
+    "p10": -0.0,
+    "p90": 0.0372,
+    "max": 0.0655
+   },
+   "costo_medio": 0.3459,
+   "requiere_revision_pct": 54.5,
+   "evidencia_casos": 44,
+   "evidencia_con_respaldo_pct": 93.2,
+   "evidencia_mejora_media_pp": 14.97,
+   "solo_con_cambios_intermedios": 0,
+   "segundos": 27.2
+  },
+  {
+   "variante": "B: con rejilla (ordinales + paso), cambio máx. 1 nivel",
+   "casos": 44,
+   "alcanzados": 44,
+   "tasa_exito": 1.0,
+   "cambio_medio_abs_por_accion": 1.0,
+   "acciones_por_caso": 1.455,
+   "valores_fuera_de_rejilla": 0,
+   "valores_prescritos": 64,
+   "sobrepaso_meta_todos": {
+    "media": 0.1997,
+    "mediana": 0.3121,
+    "p10": 0.0648,
+    "p90": 0.3158,
+    "max": 0.3158,
+    "min": 0.0609
+   },
+   "sobrepaso_meta_alcanzados": {
+    "media": 0.1997,
+    "mediana": 0.3121,
+    "p10": 0.0648,
+    "p90": 0.3158,
+    "max": 0.3158
+   },
+   "costo_medio": 1.1818,
+   "requiere_revision_pct": 29.5,
+   "evidencia_casos": 44,
+   "evidencia_con_respaldo_pct": 97.7,
+   "evidencia_mejora_media_pp": 42.78,
+   "solo_con_cambios_intermedios": 0,
+   "segundos": 8.7
+  }
+ ]
+}
