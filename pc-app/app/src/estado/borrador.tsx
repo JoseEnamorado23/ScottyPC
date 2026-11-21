@@ -30,6 +30,9 @@ export interface Borrador {
   ediciones: Ediciones;
 }
 
+/** Identificador de la elección que marca (o quita) una columna como ordinal sin que haya un hallazgo. */
+export const marcaOrdinal = (columna: string) => `ordinal_manual:${columna}`;
+
 export const BORRADOR_VACIO: Borrador = {
   elecciones: {},
   confirmadas: {},
@@ -46,7 +49,17 @@ export function borradorDesdeGuardadas(decisiones: Decisiones): Borrador {
   }
   const ediciones: Ediciones = { ordenes: {}, grupos: {}, conversiones: {} };
   for (const [columna, codificacion] of Object.entries(decisiones.codificaciones)) {
-    if (codificacion.tipo === "ordinal" && codificacion.orden) ediciones.ordenes[columna] = codificacion.orden;
+    if (codificacion.tipo === "ordinal" && codificacion.orden) {
+      ediciones.ordenes[columna] = codificacion.orden;
+      // Una ordinal que ningún hallazgo propone se marcó a mano: la marca se restituye al reabrir.
+      const deHallazgo = [`posible_variable_ordinal:${columna}`, `variable_categorica:${columna}`].some(
+        (id) => id in decisiones.acciones_hallazgos,
+      );
+      if (!deHallazgo) {
+        elecciones[marcaOrdinal(columna)] = "marcar";
+        confirmadas[marcaOrdinal(columna)] = true;
+      }
+    }
     if (codificacion.tipo === "agrupacion" && codificacion.grupos) ediciones.grupos[columna] = codificacion.grupos as Record<string, number>;
   }
   for (const c of decisiones.conversiones) {

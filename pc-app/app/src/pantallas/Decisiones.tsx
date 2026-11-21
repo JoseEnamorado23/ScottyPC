@@ -1,4 +1,4 @@
-import { Alert, Badge, Button, Card, Center, Group, List, Loader, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
+import { Alert, Badge, Button, Card, Center, Group, List, Loader, MultiSelect, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { IconDeviceFloppy, IconArrowRight } from "@tabler/icons-react";
@@ -8,6 +8,7 @@ import { datos, ErrorApi, type Esquemas } from "../api/cliente";
 import { claves, useDatosHoja, useProyecto } from "../api/consultas";
 import { useApi } from "../api/contexto";
 import { useConfirmarInvalidacion } from "../componentes/ConfirmarInvalidacion";
+import { marcaOrdinal } from "../estado/borrador";
 import { EditorAgrupacion, EditorConversion, EditorOrden } from "../componentes/EditoresDecisiones";
 
 import { MensajeError } from "../componentes/MensajeError";
@@ -29,7 +30,7 @@ export function PantallaDecisiones() {
   const consultas = useQueryClient();
   const navegar = useNavigate();
   const proyecto = useProyecto(id);
-  const { revision, borrador, editar, pendientes, previsualizacion, decisiones } = useElecciones(id);
+  const { revision, borrador, elegir, editar, pendientes, previsualizacion, decisiones } = useElecciones(id);
   const muestras = useDatosHoja(id, proyecto.data?.hoja ?? null);
   const { confirmar, modal } = useConfirmarInvalidacion();
 
@@ -60,6 +61,24 @@ export function PantallaDecisiones() {
   const codificaciones = Object.entries(decisiones?.codificaciones ?? {});
   const columnaDe = (columna: string) =>
     (muestras.data?.vista_previa ?? []).map((fila) => fila[columna]).filter((v) => v !== null && v !== undefined);
+
+  // Columnas numéricas que pueden ser ordinales aunque ningún hallazgo lo haya sugerido.
+  const candidatasOrdinal = (revision.data?.perfiles_columnas ?? [])
+    .filter(
+      (p) =>
+        p.tipo_detectado === "numerica" &&
+        p.nombre !== revision.data?.objetivo &&
+        p.valores_unicos >= 2 &&
+        p.valores_unicos <= 100 &&
+        !(decisiones?.columnas_excluidas ?? []).includes(p.nombre) &&
+        (decisiones?.codificaciones[p.nombre] === undefined || decisiones.codificaciones[p.nombre].tipo === "ordinal"),
+    )
+    .map((p) => p.nombre);
+  const ordinales = candidatasOrdinal.filter((c) => decisiones?.codificaciones[c]?.tipo === "ordinal");
+  const cambiarOrdinales = (nuevas: string[]) => {
+    for (const c of nuevas.filter((x) => !ordinales.includes(x))) elegir(marcaOrdinal(c), "marcar");
+    for (const c of ordinales.filter((x) => !nuevas.includes(x))) elegir(marcaOrdinal(c), "quitar");
+  };
 
   return (
     <Stack>
@@ -106,6 +125,17 @@ export function PantallaDecisiones() {
         </Center>
       ) : (
         <>
+          <MultiSelect
+            label="Variables ordinales"
+            description="Marque como ordinal una columna numérica con pocos valores ordenados (p. ej. estrato, créditos): se codifica por su posición y, al prescribir, solo toma valores que existen. Quite la marca para tratarla como numérica."
+            placeholder={ordinales.length ? undefined : "Ninguna marcada"}
+            data={candidatasOrdinal}
+            value={ordinales}
+            onChange={cambiarOrdinales}
+            searchable
+            clearable
+            nothingFoundMessage="Sin columnas candidatas"
+          />
           {(decisiones.conversiones.length > 0 ||
             codificaciones.some(([, c]) => c.tipo === "ordinal" || c.tipo === "agrupacion")) && (
             <>

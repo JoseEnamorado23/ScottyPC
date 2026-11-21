@@ -191,3 +191,50 @@ describe("comoNumero", () => {
     expect(comoNumero("1/0")).toBe("1/0");
   });
 });
+
+describe("Decisiones: marcar una columna como ordinal a mano", () => {
+  // Doble del núcleo: refleja las marcas `ordinal_manual:<columna>` (la lógica real está en Python).
+  const conMarcas = (p: Peticion) => {
+    const elecciones = (p.cuerpo as { elecciones: Record<string, string> }).elecciones;
+    const base = decisionesPara(elecciones);
+    for (const [id, accion] of Object.entries(elecciones)) {
+      if (id.startsWith("ordinal_manual:") && accion === "marcar") {
+        base.codificaciones[id.slice("ordinal_manual:".length)] = { tipo: "ordinal", orden: [18, 20, 86] };
+      }
+    }
+    return base;
+  };
+
+  it("ofrece las columnas numéricas, envía la marca y muestra el editor de orden", async () => {
+    const usuario = userEvent.setup();
+    const sidecar = renderizar("/proyectos/p1/decisiones", {
+      ...simulacionBase({ revision: "vigente", decisiones: "vigente" }),
+      "POST /proyectos/p1/decisiones/previsualizar": conMarcas,
+    });
+
+    const control = (await screen.findAllByLabelText("Variables ordinales"))[0];
+    await usuario.click(control);
+    await usuario.click(await screen.findByRole("option", { name: "temp", hidden: true }));
+
+    expect(await screen.findByText("Orden de «temp»")).toBeInTheDocument();
+    const enviada = sidecar.peticiones
+      .filter((p) => p.ruta.endsWith("/previsualizar"))
+      .map((p) => (p.cuerpo as { elecciones: Record<string, string> }).elecciones);
+    expect(enviada.at(-1)).toMatchObject({ "ordinal_manual:temp": "marcar" });
+  });
+
+  it("al reabrir decisiones guardadas con una ordinal sin hallazgo, conserva la marca", async () => {
+    const guardadas = decisionesPara({ "mezcla:temp": "conservar", "ceros:glucosa": "conservar" });
+    guardadas.codificaciones = { temp: { tipo: "ordinal", orden: [18, 20, 86] } };
+    const sidecar = renderizar("/proyectos/p1/decisiones", {
+      ...simulacionBase({ revision: "vigente", decisiones: "vigente" }, guardadas),
+      "POST /proyectos/p1/decisiones/previsualizar": conMarcas,
+    });
+
+    expect(await screen.findByText("Orden de «temp»")).toBeInTheDocument();
+    const ultima = sidecar.peticiones.filter((p) => p.ruta.endsWith("/previsualizar")).at(-1)!;
+    expect((ultima.cuerpo as { elecciones: Record<string, string> }).elecciones).toMatchObject({
+      "ordinal_manual:temp": "marcar",
+    });
+  });
+});

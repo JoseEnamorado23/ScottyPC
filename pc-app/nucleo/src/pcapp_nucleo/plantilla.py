@@ -24,7 +24,9 @@ Criterios de las acciones sugeridas:
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+
+import pandas as pd
 
 from pcapp_nucleo.configuracion import ConfiguracionValidacion
 from pcapp_nucleo.modelos import Hallazgo, InformeRevision, TipoColumna, TipoHallazgo
@@ -314,13 +316,19 @@ def _categorica(d: _Decisiones, h: Hallazgo) -> _Especificacion:
 def _ordinal(d: _Decisiones, h: Hallazgo) -> _Especificacion:
     columna = h.columnas_involucradas[0]
 
+    def usar_orden() -> None:
+        # Crea la codificación ordinal con el orden sugerido (también para columnas enteras, que
+        # no tienen otra codificación). Respeta lo ya decidido para la columna y no toca al objetivo.
+        if columna != d.objetivo and columna not in d.codificaciones:
+            d.codificaciones[columna] = Codificacion("ordinal", orden=list(h.evidencia["orden_sugerido"]))
+
     def sin_orden() -> None:
         codificacion = d.codificaciones.get(columna)
         if codificacion is not None and codificacion.tipo == "ordinal":
             d.codificaciones[columna] = Codificacion("one_hot")
 
     return _Especificacion(
-        "usar_orden_sugerido", {"usar_orden_sugerido": _nada, "sin_orden": sin_orden},
+        "usar_orden_sugerido", {"usar_orden_sugerido": usar_orden, "sin_orden": sin_orden},
         f"Orden sugerido: {h.evidencia['orden_sugerido']}.",
     )
 
@@ -458,3 +466,84 @@ def _excluir_no_numericas(d: _Decisiones) -> None:
                 f"La columna '{columna}' ({perfil.tipo_detectado}) no tiene una codificación "
                 "elegida y se excluye; puede codificarla editando 'codificaciones'."
             )
+
+
+# --- Marcas manuales de variables ordinales ----------------------------------------------
+
+PREFIJO_MARCA_ORDINAL = "ordinal_manual:"
+MARCAR_ORDINAL = "marcar"
+QUITAR_ORDINAL = "quitar"
+MAXIMO_NIVELES_MARCA_MANUAL = 100
+
+
+def separar_marcas_ordinales(elecciones: dict[str, str]) -> tuple[dict[str, str], dict[str, str]]:
+    """Divide ``elecciones`` en (acciones de hallazgos, marcas ``{columna: marcar|quitar}``).
+
+    Una marca es una elección con identificador ``ordinal_manual:<columna>``: permite marcar (o
+    desmarcar) como ordinal cualquier columna numérica, aunque ningún hallazgo la haya sugerido.
+    """
+    hallazgos: dict[str, str] = {}
+    marcas: dict[str, str] = {}
+    for identificador, accion in elecciones.items():
+        if identificador.startswith(PREFIJO_MARCA_ORDINAL):
+            marcas[identificador[len(PREFIJO_MARCA_ORDINAL):]] = accion
+        else:
+            hallazgos[identificador] = accion
+    return hallazgos, marcas
+
+
+def aplicar_marcas_ordinales(
+    decisiones: DecisionesUsuario, datos: pd.DataFrame, marcas: dict[str, str]
+) -> DecisionesUsuario:
+    """Aplica las marcas manuales sobre unas decisiones ya calculadas.
+
+    ``marcar`` crea la codificación ordinal con los valores presentes en orden ascendente (si la
+    columna ya es ordinal conserva su orden). ``quitar`` elimina la codificación ordinal y la
+    columna vuelve a usarse como numérica. Solo se admiten columnas numéricas del dataset que
+    no sean el objetivo ni estén excluidas; las de texto se codifican con las opciones de su hallazgo.
+
+    Raises:
+        ErrorEleccion: si la columna o la acción no son válidas.
+    """
+    if not marcas:
+        return decisiones
+    codificaciones = dict(decisiones.codificaciones)
+    for columna, accion in marcas.items():
+        identificador = PREFIJO_MARCA_ORDINAL + columna
+        if accion not in (MARCAR_ORDINAL, QUITAR_ORDINAL):
+            raise ErrorEleccion(
+                identificador, f"La acción '{accion}' no es válida; opciones: {MARCAR_ORDINAL}, {QUITAR_ORDINAL}."
+            )
+        if columna not in datos.columns:
+            raise ErrorEleccion(identificador, f"No existe la columna '{columna}'.")
+        actual = codificaciones.get(columna)
+        if accion == MARCAR_ORDINAL and actual is not None and actual.tipo == "ordinal":
+            continue  # ya es ordinal (p. ej. por un hallazgo): se conserva su orden
+        serie = datos[columna]
+        if not pd.api.types.is_numeric_dtype(serie.dtype) or pd.api.types.is_bool_dtype(serie.dtype):
+            raise ErrorEleccion(
+                identificador,
+                f"'{columna}' no es numérica: elija su codificación en el hallazgo de variable categórica.",
+            )
+        if columna in decisiones.columnas_excluidas:
+            raise ErrorEleccion(identificador, f"'{columna}' está excluida; no puede marcarse como ordinal.")
+        if accion == QUITAR_ORDINAL:
+            if actual is not None and actual.tipo == "ordinal":
+                del codificaciones[columna]
+            continue
+        if actual is not None:
+            raise ErrorEleccion(
+                identificador, f"'{columna}' ya tiene una codificación '{actual.tipo}'; quítela antes de marcarla ordinal."
+            )
+        valores = sorted(serie.dropna().unique())
+        if len(valores) < 2 or len(valores) > MAXIMO_NIVELES_MARCA_MANUAL:
+            raise ErrorEleccion(
+                identificador,
+                f"'{columna}' tiene {len(valores)} valores distintos; una ordinal necesita entre 2 y "
+                f"{MAXIMO_NIVELES_MARCA_MANUAL}.",
+            )
+        entera = all(float(v).is_integer() for v in valores)
+        codificaciones[columna] = Codificacion(
+            "ordinal", orden=[int(v) if entera else float(v) for v in valores]
+        )
+    return replace(decisiones, codificaciones=codificaciones)

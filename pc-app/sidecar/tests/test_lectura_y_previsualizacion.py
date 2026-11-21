@@ -137,3 +137,23 @@ def test_decisiones_de_la_app_coinciden_con_las_de_la_terminal(cliente, diabetes
         k: v for k, v in terminal.items() if k not in ("acciones_hallazgos", "separacion")
     }
     assert terminal["separacion"]["tipo"] == "estratificada"
+
+
+def test_previsualizar_marca_manual_de_ordinal(cliente, diabetes):
+    proyecto = crear_proyecto(cliente, diabetes)
+    ok(cliente.post(f"/proyectos/{proyecto}/revision", json={"objetivo": "Outcome"}))
+    ruta = f"/proyectos/{proyecto}/decisiones/previsualizar"
+    base = ok(cliente.post(ruta, json={"elecciones": {}}))
+    assert "Pregnancies" not in base["codificaciones"]
+
+    marcada = ok(cliente.post(ruta, json={"elecciones": {"ordinal_manual:Pregnancies": "marcar"}}))
+    codificacion = marcada["codificaciones"]["Pregnancies"]
+    assert codificacion["tipo"] == "ordinal" and codificacion["orden"] == sorted(codificacion["orden"])
+    assert {k: v for k, v in marcada["codificaciones"].items() if k != "Pregnancies"} == base["codificaciones"]
+    # Se puede guardar y desmarcar.
+    ok(cliente.put(f"/proyectos/{proyecto}/decisiones", json=marcada))
+    quitada = ok(cliente.post(ruta, json={"elecciones": {"ordinal_manual:Pregnancies": "quitar"}}))
+    assert quitada["codificaciones"] == base["codificaciones"]
+
+    invalida = cliente.post(ruta, json={"elecciones": {"ordinal_manual:no_existe": "marcar"}})
+    assert invalida.status_code == 422 and invalida.json()["error"]["codigo"] == "ELECCION_NO_VALIDA"

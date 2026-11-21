@@ -33,7 +33,12 @@ from pcapp_nucleo.pc_config import (
     configuracion_por_defecto,
     problemas_configuracion,
 )
-from pcapp_nucleo.plantilla import ErrorEleccion, aplicar_elecciones
+from pcapp_nucleo.plantilla import (
+    ErrorEleccion,
+    aplicar_elecciones,
+    aplicar_marcas_ordinales,
+    separar_marcas_ordinales,
+)
 from pcapp_nucleo.preparacion import (
     ConfiguracionSeparacion,
     DatosPreparados,
@@ -316,8 +321,11 @@ class Servicios(ServiciosModeloCausal, ServiciosPrescripcion, ServiciosFormulas)
         """Decisiones que resultan de las acciones elegidas (calculadas por el núcleo)."""
         proyecto = self.proyecto(proyecto_id)
         self.etapas.exigir(proyecto_id, "decisiones")
+        hallazgos, marcas = separar_marcas_ordinales(elecciones)
         try:
-            decisiones = aplicar_elecciones(self._informe_guardado(proyecto), elecciones)
+            decisiones = aplicar_elecciones(self._informe_guardado(proyecto), hallazgos)
+            if marcas:
+                decisiones = aplicar_marcas_ordinales(decisiones, self._cargar(proyecto, proyecto.hoja), marcas)
         except ErrorEleccion as error:
             raise invalido(
                 "ELECCION_NO_VALIDA", str(error),
