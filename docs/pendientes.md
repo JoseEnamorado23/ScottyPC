@@ -36,10 +36,8 @@ Puntos para después. No están implementados.
      también alcanza el 100 %. La rejilla no cambia la tasa de éxito, pero sí lo que se propone: la continua se queda justo en
      la meta (P = 0,50) con cambios fraccionarios que no existen (62 de 64 valores inválidos), y la rejilla obliga a pasar a
      niveles reales, que sobrepasan la meta en ~0,3 de probabilidad y cuestan ~3,4 veces más. A cambio, esas prescripciones
-     tienen más respaldo en los datos y menos casos marcados para revisión. Antes de presentarlo, tener en cuenta que el
-     optimizador minimiza el costo continuo y la rejilla fuerza saltos de un nivel entero; si el sobrepaso resulta excesivo,
-     una rejilla más fina (p. ej. dejar Asistencia en 0,5 de nivel no es posible en una ordinal) no es una opción: habría que
-     decidir si el cambio máximo de 1 nivel es el adecuado para esas variables.
+     tienen más respaldo en los datos y menos casos marcados para revisión. Para el informe: el sobrepaso se debe a que el cambio máximo (1 nivel) es un salto grande
+     en variables de 3 o 4 niveles; conviene decidir con criterio si ese cambio máximo es el adecuado.
    - Queda: los `.scotty` de ejemplo vienen de proyectos con configuración antigua (sin ordinales ni pasos);
      reexportar un proyecto con ordinales marcadas desde la app para tener un ejemplo con `valores_permitidos`.
 2. **El resultado depende del tope de iteraciones cuando un arranque no converge.** En el gradiente proximal, un
