@@ -263,11 +263,14 @@ def _validar_solucion(art: Artefacto, fila: dict[str, Any], obtenido: dict[str, 
                 control.maximo is not None and despues > control.maximo + holgura(control.maximo)
             ):
                 diferencias.append(f"{nombre}.despues: {despues!r} fuera de los límites [{control.minimo}, {control.maximo}]")
-        if despues is not None and control.tipo == f.CONTINUA and control.paso:
+        # La rejilla (paso y valores permitidos) se comprueba solo desde el formato 3: en el 1 y el 2 el `paso` de
+        # controles.json era informativo y su prescripción podía proponer valores intermedios (p. ej. 2,4975).
+        rejilla = art.manifest.version_formato >= 3
+        if rejilla and despues is not None and control.tipo == f.CONTINUA and control.paso:
             k = despues / control.paso
             if abs(k - round(k)) > 1e-6 * max(1.0, abs(k)):
                 diferencias.append(f"{nombre}.despues: {despues!r} no es múltiplo del paso {control.paso:g}")
-        if despues is not None and control.valores_permitidos is not None:
+        if rejilla and despues is not None and control.valores_permitidos is not None:
             if not any(abs(despues - p["valor"]) <= 1e-9 * max(1.0, abs(despues)) for p in control.valores_permitidos):
                 diferencias.append(f"{nombre}.despues: {despues!r} no es uno de los valores permitidos")
         if cambio is not None:
@@ -374,7 +377,10 @@ def verificar_golden(
             _comparar(caso[parte], obtenido[parte], f"caso {indice}.{parte}", diferencias, maximo)
         ruta = f"caso {indice}.prescribir"
         estricta, maximo_estricta = [], [0.0]
-        _comparar(caso["prescribir"], obtenido["prescribir"], ruta, estricta, maximo_estricta)
+        esperado = caso["prescribir"]
+        if art.manifest.version_formato < 3:  # el golden de los formatos 1 y 2 no trae el aviso: ausente equivale a false
+            esperado = {**esperado, **{c: v for c, v in AUSENTES.items() if c not in esperado}}
+        _comparar(esperado, obtenido["prescribir"], ruta, estricta, maximo_estricta)
         if estricta:
             resultado = EQUIVALENTE
             equivalencia: list[str] = []

@@ -56,7 +56,7 @@ Un zip con fechas fijas (1980-01-01), de modo que el mismo contenido da el mismo
 
 ### `manifest.json`
 
-`formato = "scotty-artefacto"`, `version_formato = 3` (el 1 y el 2 se siguen leyendo; ver «Formato 3»), `creado_en`, `version_nucleo`,
+`formato = "scotty-artefacto"`, `version_formato = 3` (el 1 y el 2 se siguen leyendo; ver «Comportamiento por formato»), `creado_en`, `version_nucleo`,
 `versiones_librerias` (pygam, scikit-learn, numpy, scipy, y desde el formato 2 también python, pandas, pyarrow y networkx), `proyecto` (id, nombre, archivo, sha256 del dataset), `objetivo` (columna, tipo,
 `clase_positiva`, `clase_objetivo`, medida, dirección, deseado, `umbral_decision`), `prescripcion` (`mu`,
 `mu_origen` = `manual` | `automatico`, optimizador), `modelo` (`huella`, `train_sha256`,
@@ -116,7 +116,26 @@ nuevo lee los formatos 1, 2 y 3.
    resuelve como continua sobre su rejilla) también están en valores originales. El golden de un artefacto anterior no trae el campo: ausente equivale a `false`.
 
 Los límites, el paso y los valores permitidos que cumple cada acción se verifican en `verificar_golden` (valor fuera de
-la rejilla o de `valores_permitidos` = caso fallido).
+la rejilla o de `valores_permitidos` = caso fallido), **solo en los artefactos de formato 3** (ver la tabla siguiente).
+
+### Comportamiento por formato
+
+El núcleo lee los formatos 1, 2 y 3. Los artefactos antiguos se comportan como cuando se exportaron:
+
+| | Formato 1 | Formato 2 | Formato 3 |
+|---|---|---|---|
+| Carga | Comprobación estricta (huella bit a bit), cualquier librería del manifest es estricta | Equivalente a 1 ULP; solo avisan python, pandas, pyarrow y networkx | Ídem formato 2 |
+| `paso` de `controles.json` | **Informativo** (1 si en train solo hay enteros, `null` si no; solo continuas) | **Informativo**, igual que en el 1 | **Real**: el núcleo solo prescribe múltiplos del paso |
+| Rejilla al prescribir | No hay: se prescribe con lo que diga la configuración de `prescripcion.json` (normalmente sin paso, así que puede proponer 2,4975 o 0,5) | Ídem | Sí: `paso` y `valores_permitidos` |
+| `verificar_golden` comprueba `paso` y `valores_permitidos` | **No** | **No** | **Sí** (un valor fuera de la rejilla es un caso fallido) |
+| `valores_permitidos` de las ordinales | No existe | No existe | Obligatorio para `tipo = "ordinal"` |
+| Límites de las ordinales en `controles.json` | Códigos; al cargar se convierten a valores originales en memoria | Ídem | Valores originales |
+| `solo_con_cambios_intermedios` en el golden | Ausente = `false` | Ausente = `false` | Siempre presente |
+
+`verificar_golden` mantiene en todos los formatos lo demás: límites (`minimo`, `maximo`), `cambio_maximo`, dirección y estados
+permitidos de cada acción recalculada, y que alcance el objetivo con el motor exacto. El resultado de un artefacto de
+formato 1 o 2 es idéntico al de la versión con la que se exportó (golden idéntico en los 20 casos); está cubierto en
+`pc-app/nucleo/tests/test_artefacto_formato2.py` con artefactos reales de formato 2 exportados con v0.5.
 
 ## Cargar y usar
 

@@ -483,6 +483,14 @@ def test_una_alternativa_fuera_de_la_rejilla_no_es_valida(art, monkeypatch):
     assert any("no es múltiplo del paso" in d for d in informe.diferencias)
 
 
+def test_la_rejilla_solo_se_comprueba_desde_el_formato_3(art, monkeypatch):
+    """En el formato 1 y 2 el `paso` de controles.json era informativo: una alternativa fuera de él no es un fallo."""
+    monkeypatch.setattr(art, "manifest", replace(art.manifest, version_formato=2))
+    assert art.controles.control(TAB).paso == 1
+    informe = verificar_con_alternativa(art, monkeypatch, 7, lambda p: mover(p, TAB, 0.1))
+    assert not any("múltiplo del paso" in d or "valores permitidos" in d for d in informe.diferencias)
+
+
 def test_solo_con_cambios_intermedios_se_compara_exacto_y_su_ausencia_vale_false(art, monkeypatch):
     informe = verificar_con_alternativa(art, monkeypatch, 7, lambda p: p.update(solo_con_cambios_intermedios=True))
     assert not informe.correcto and "prescribir.solo_con_cambios_intermedios" in informe.campos_fallidos
