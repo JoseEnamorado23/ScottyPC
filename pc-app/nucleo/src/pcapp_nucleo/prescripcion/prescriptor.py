@@ -25,6 +25,7 @@ from pcapp_nucleo.prescripcion.evidencia import EvidenciaVecinos, IndiceVecinos,
 from pcapp_nucleo.prescripcion.optimizadores import Optimizador, Solucion, crear_optimizador, optimizar_caso
 from pcapp_nucleo.prescripcion.problema import CAMBIO_MAXIMO, DIRECCION, LIMITE, ProblemaPrescripcion
 from pcapp_nucleo.prescripcion.referencia import ModeloReferencia
+from pcapp_nucleo.prescripcion.rejilla import comprobar_rejilla
 
 PASO_RELAJACION = 0.05
 # Cambio (en la escala normalizada) por debajo del cual fijar una intermedia es «mantenerla».
@@ -91,6 +92,8 @@ class ResultadoPrescripcion:
     valores: list[ValorContrafactual] = field(default_factory=list)
     avisos: list[AvisoContrafactual] = field(default_factory=list)
     evidencia: EvidenciaVecinos | None = None
+    # El objetivo solo se alcanzaría con valores intermedios (fuera de la rejilla de ``paso``).
+    solo_con_cambios_intermedios: bool = False
 
 
 def semilla_de_caso(modelo: ModeloCausal, caso: Caso, por_valores: bool = False) -> np.random.SeedSequence:
@@ -158,6 +161,11 @@ def explicar(r: ResultadoPrescripcion) -> str:
         texto = f"{_lista([primera, *resto])}. Con esto, {cantidad} {verbo} de {formato(r.antes)} a {formato(r.despues)}."
         if not r.alcanzado:
             texto += f" No alcanza el objetivo ({formato(r.deseado)}): faltan {formato(r.falta)}."
+    if r.solo_con_cambios_intermedios:
+        texto += (
+            " Alcanzable solo con cambios intermedios: con valores sin restricción de paso se alcanzaría, "
+            "pero no con los valores permitidos."
+        )
     if not r.alcanzado and r.restricciones_activas:
         texto += " Lo impiden: " + "; ".join(f"{x.variable} {x.mensaje}" for x in r.restricciones_activas) + "."
     return texto
@@ -178,6 +186,17 @@ def _fijadas(problema: ProblemaPrescripcion, s: Solucion) -> tuple[dict[str, flo
                 fijadas[c] = a.estados[s.estado[j]][c]
                 nombres[c] = a.nombre
     return fijadas, nombres
+
+
+def _en_rejilla(a, v: ValorContrafactual) -> tuple[Any, float | None, float | None]:
+    """Valor propuesto sin el ruido de coma flotante de la conversión: si la acción tiene rejilla,
+    el valor exacto k·paso (``comprobar_rejilla`` ya garantizó que está en ella)."""
+    if a.paso is None or v.despues_numerico is None or not isinstance(v.despues, (int, float)):
+        return v.despues, v.despues_numerico, v.cambio
+    exacto = float(round(round(v.despues_numerico / a.paso) * a.paso, 10))
+    cambio = None if v.antes_numerico is None else exacto - v.antes_numerico
+    es_etiqueta = abs(float(v.despues) - v.despues_numerico) > 1e-6 * max(1.0, abs(v.despues_numerico))
+    return (v.despues if es_etiqueta else exacto), exacto, cambio  # una ordinal conserva su etiqueta
 
 
 def _exacta(problema: ProblemaPrescripcion, s: Solucion) -> float:
@@ -336,6 +355,7 @@ def prescribir_con_solucion(
     semilla = semilla_de_caso(modelo, caso, semilla_por_valores)
     p_antes = _exacta(problema, Solucion(np.zeros(problema.k), problema.actual, 0.0, 0.0))
     solucion, ya_cumple, segundos = resolver(problema, optimizador, semilla)
+    comprobar_rejilla(problema, solucion.d)  # nunca un valor fuera de la rejilla (error interno)
     p_despues = _exacta(problema, solucion)
     alcanzado = problema.alcanzado(p_despues)
     fijadas, nombres = _fijadas(problema, solucion)
@@ -352,8 +372,9 @@ def prescribir_con_solucion(
             continue
         v = valores[a.columna]
         mantener = abs(solucion.d[i]) < UMBRAL_MANTENER and modelo.info_variables[a.columna]["rol"] == INTERMEDIA
+        despues, despues_numerico, cambio = _en_rejilla(a, v)
         acciones.append(AccionPrescrita(
-            a.nombre, "continua", v.antes, v.despues, v.antes_numerico, v.despues_numerico, v.cambio,
+            a.nombre, "continua", v.antes, despues, v.antes_numerico, despues_numerico, cambio,
             contribuciones.get(a.nombre, 0.0), por_restriccion.get(a.nombre), v.extrapolacion, mantener,
         ))
     for j, a in enumerate(problema.discretas):
@@ -413,6 +434,7 @@ def prescribir_con_solucion(
         valores=contrafactual.valores,
         avisos=contrafactual.avisos,
         evidencia=evidencia,
+        solo_con_cambios_intermedios=bool(solucion.solo_relajada and not (alcanzado or ya_cumple)),
     )
     return _con_explicacion(resultado), solucion
 

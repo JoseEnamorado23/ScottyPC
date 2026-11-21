@@ -3,9 +3,10 @@
 // calcula el núcleo; aquí solo se edita el borrador.
 import {
   Alert, Badge, Button, Card, Checkbox, Group, MultiSelect, NumberInput, SegmentedControl, Select, Stack, Switch, Table,
-  Text, Title,
+  Text, TextInput, Title,
 } from "@mantine/core";
 import { IconAdjustments, IconDeviceFloppy } from "@tabler/icons-react";
+import { useState } from "react";
 
 import type { Esquemas } from "../../api/cliente";
 import { numero, porcentaje } from "../../estado/modeloCausal";
@@ -31,6 +32,24 @@ interface Props {
 }
 
 const numeroONulo = (v: string | number) => (typeof v === "number" ? v : null);
+
+/** Paso de una variable: acepta coma o punto y conserva lo escrito mientras se teclea («0,» antes de «0,5»). */
+function CampoPaso({ variable, valor, error, alCambiar }: {
+  variable: string; valor: number | null | undefined; error?: string; alCambiar: (v: number | null) => void;
+}) {
+  const [texto, setTexto] = useState(valor === null || valor === undefined ? "" : String(valor).replace(".", ","));
+  return (
+    <TextInput
+      size="xs" w={80} aria-label={`Paso de ${variable}`} placeholder="libre" value={texto} error={error}
+      onChange={(e) => {
+        const t = e.currentTarget.value;
+        setTexto(t);
+        const n = Number(t.trim().replace(",", "."));
+        alCambiar(t.trim() === "" ? null : Number.isFinite(n) ? n : null);
+      }}
+    />
+  );
+}
 
 function FilaAccion({
   control, borrador, errores, alCambiar,
@@ -79,9 +98,12 @@ function FilaAccion({
             <NumberInput size="xs" w={100} aria-label={`Cambio máximo de ${variable}`} decimalSeparator="," min={0}
               value={accion.cambio_maximo ?? ""} error={campo("cambio_maximo")} onChange={(v) => cambiar({ cambio_maximo: numeroONulo(v) })} />
           </Table.Td>
+          <Table.Td>
+            <CampoPaso variable={variable} valor={accion.paso} error={campo("paso")} alCambiar={(v) => cambiar({ paso: v })} />
+          </Table.Td>
         </>
       ) : (
-        <Table.Td colSpan={3}>
+        <Table.Td colSpan={4}>
           <MultiSelect
             size="xs" aria-label={`Estados permitidos de ${variable}`} placeholder="Todos"
             data={control.categorias.map((c) => ({ value: String(c), label: String(c) }))}
@@ -176,6 +198,7 @@ export function ConfiguracionPrescripcion(p: Props) {
                     <Table.Th>Mínimo</Table.Th>
                     <Table.Th>Máximo</Table.Th>
                     <Table.Th>Cambio máximo</Table.Th>
+                    <Table.Th>Paso</Table.Th>
                     <Table.Th>Costo</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
@@ -188,8 +211,10 @@ export function ConfiguracionPrescripcion(p: Props) {
             </Table.ScrollContainer>
           )}
           <Text size="xs" c="dimmed">
-            Límites y cambio máximo en unidades originales (por defecto, el rango de entrenamiento y el 25 % de ese rango). El costo
-            es por unidad de la escala normalizada, para que sea comparable entre variables.
+            Límites y cambio máximo en unidades originales (por defecto, el rango de entrenamiento y el 25 % de ese rango). El paso
+            es la resolución: solo se proponen valores múltiplos del paso (1 para enteros, 0,5 para horas a media hora; en las
+            ordinales, niveles; vacío = valor continuo libre). El costo es por unidad de la escala normalizada, para que sea
+            comparable entre variables.
           </Text>
         </Stack>
       </Card>

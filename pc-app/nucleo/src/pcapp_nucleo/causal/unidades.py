@@ -171,6 +171,18 @@ class Unidades:
             return math.expm1(numero)
         return numero
 
+    def a_preparada_numerica(self, columna: str, valor: float) -> float:
+        """Inversa de ``a_original_numerico``: de un número original (para las codificadas, su
+        código) a la escala preparada. No ambigua con etiquetas numéricas, a diferencia de
+        ``a_preparada``, que interpreta primero el valor como etiqueta.
+
+        Raises:
+            ErrorUnidades: si el valor no está en el dominio (p. ej. ≤ 0 con logaritmo).
+        """
+        if self.mapeo(columna) is not None:
+            return self._normalizar(columna, float(valor))
+        return self.a_preparada(columna, valor)
+
     def a_original(self, columna: str, valor: float | None) -> Any:
         """Valor en unidades originales: número o, si es un código exacto, su etiqueta."""
         if valor is None or (isinstance(valor, float) and math.isnan(valor)):

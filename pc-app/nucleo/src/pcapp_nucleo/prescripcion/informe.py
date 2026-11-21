@@ -51,6 +51,8 @@ def prescripciones_csv(resultados: list[dict[str, Any]]) -> str:
             "restricciones_activas": "; ".join(f"{x['variable']}: {x['restriccion']}" for x in r["restricciones_activas"]),
             "explicacion": r["explicacion"],
         }
+        if r.get("solo_con_cambios_intermedios"):  # la columna solo aparece cuando ocurre
+            fila["solo_con_cambios_intermedios"] = True
         evidencia = r.get("evidencia")
         if evidencia:
             fila["vecinos_con_prescripcion"] = evidencia["prescrita"]["valor"]

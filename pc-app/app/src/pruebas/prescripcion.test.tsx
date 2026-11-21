@@ -92,6 +92,19 @@ describe("Prescripción: pantalla", () => {
     expect(cuerpo.supuestos?.Glucose?.confirmado_en).toBeNull();
   });
 
+  it("el paso de cada variable se edita y se guarda en la configuración", async () => {
+    const usuario = userEvent.setup();
+    const sidecar = renderizar("/proyectos/p1/prescripcion", simulacionPrescripcion({ guardada: false, confirmada: false }));
+    const paso = await screen.findByLabelText("Paso de Glucose");
+    await usuario.clear(paso);
+    await usuario.type(paso, "0,5");
+    await usuario.click(screen.getByRole("button", { name: "Guardar configuración" }));
+    await waitFor(() => expect(peticionesA(sidecar.peticiones, "PUT", "/proyectos/p1/prescripcion/configuracion")).toHaveLength(1));
+    const cuerpo = peticionesA(sidecar.peticiones, "PUT", "/proyectos/p1/prescripcion/configuracion")[0]
+      .cuerpo as Esquemas["ConfiguracionPrescripcion"];
+    expect(cuerpo.acciones.Glucose.paso).toBe(0.5);
+  });
+
   it("caso individual: acciones ordenadas, marcas, explicación y «Probar una variante»", async () => {
     const usuario = userEvent.setup();
     const sidecar = renderizar("/proyectos/p1/prescripcion", simulacionPrescripcion());

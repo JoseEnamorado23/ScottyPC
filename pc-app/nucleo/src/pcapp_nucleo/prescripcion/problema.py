@@ -16,6 +16,7 @@ from __future__ import annotations
 import itertools
 import math
 from dataclasses import dataclass, field, replace
+from collections.abc import Callable
 from typing import Any
 
 import numpy as np
@@ -110,6 +111,12 @@ class AccionContinua:
     costo: float
     motivo_lo: str | None = None
     motivo_hi: str | None = None
+    # Rejilla de valores permitidos k·paso en unidades originales (en las ordinales, en código);
+    # ``None`` = continua libre. ``a_original`` y ``a_preparada`` convierten entre la escala
+    # preparada y la rejilla (inversas entre sí).
+    paso: float | None = None
+    a_original: Callable[[float], float] | None = None
+    a_preparada: Callable[[float], float] | None = None
 
 
 @dataclass
@@ -138,6 +145,11 @@ def _accion_continua(
     u = modelo.unidades
     x0o = u.a_original_numerico(nombre, x0)
     bajos, altos = [], []
+    mapeo = u.mapeo(nombre) if u.control(nombre) == ORDINAL else None
+    if mapeo:  # una ordinal solo existe entre su primer y su último nivel (códigos)
+        codigos = [float(c) for _, c in mapeo]
+        bajos.append((min(codigos), LIMITE))
+        altos.append((max(codigos), LIMITE))
     if a.minimo is not None:
         bajos.append((a.minimo, LIMITE))
     if a.maximo is not None:
@@ -155,7 +167,11 @@ def _accion_continua(
     hi = (_preparado(modelo, nombre, alto[0], x0) - x0) / escala if alto[0] is not None else 10.0
     if lo > hi:  # restricciones incompatibles: la variable no puede cambiar
         lo = hi = 0.0
-    return AccionContinua(nombre, nombre, x0, escala, lo, hi, a.costo, bajo[1], alto[1])
+    paso = float(a.paso) if a.paso is not None else None
+    return AccionContinua(
+        nombre, nombre, x0, escala, lo, hi, a.costo, bajo[1], alto[1], paso,
+        lambda xp: u.a_original_numerico(nombre, xp), lambda xo: u.a_preparada_numerica(nombre, xo),
+    )
 
 
 def _codigo_preparado(modelo: ModeloCausal, columna: str, etiqueta: Any) -> float:

@@ -132,6 +132,20 @@ def huella_de_predicciones(predicciones: dict[str, np.ndarray]) -> str:
     return resumen.hexdigest()
 
 
+def _solo_enteros(unidades: Unidades, variable: str, valores: np.ndarray) -> bool:
+    """¿Todos los valores de train, en unidades originales, son enteros? (para las codificadas, no aplica)."""
+    if unidades.mapeo(variable) is not None:
+        return False
+    presentes = np.unique(valores[~np.isnan(valores)])
+    if not len(presentes) or len(presentes) > 10_000:
+        return False
+    try:
+        originales = np.array([unidades.a_original_numerico(variable, float(x)) for x in presentes])
+    except (ValueError, OverflowError):
+        return False
+    return bool(np.all(np.abs(originales - np.round(originales)) < 1e-6 * np.maximum(1.0, np.abs(originales))))
+
+
 def huella(modelo: ModeloCausal, train: pd.DataFrame) -> str:
     """sha256 de las predicciones de todos los mecanismos sobre las filas de train."""
     return huella_de_predicciones(predicciones_train(modelo, train))
@@ -377,10 +391,13 @@ def construir_modelo(
     avisar = progreso or (lambda *_: None)
 
     info_variables: dict[str, dict[str, Any]] = {}
+    unidades_train = Unidades(datos.columnas)
     for v in sub.variables:
         valores = train[v].to_numpy(dtype=float)
         binaria = binario if v == objetivo else es_binaria(valores)
         info_variables[v] = {
+            # En unidades originales todos sus valores son enteros (resolución natural: paso 1).
+            "entero": _solo_enteros(unidades_train, v, valores),
             "tipo": BINARIA if binaria else CONTINUA,
             "rol": OBJETIVO if v == objetivo else (INTERMEDIA if sub.padres[v] else RAIZ),
             "mediana": float(np.nanmedian(valores)),

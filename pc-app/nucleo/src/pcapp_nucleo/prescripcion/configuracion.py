@@ -16,6 +16,7 @@ import numpy as np
 from pcapp_nucleo.causal.modelo import ModeloCausal
 from pcapp_nucleo.causal.unidades import CATEGORICA, GRUPO, NUMERICA, ORDINAL
 from pcapp_nucleo.pc_config import ProblemaConfiguracion
+from pcapp_nucleo.niveles import MAXIMO_NIVELES_DISCRETOS  # noqa: F401  (se reexporta)
 
 SUBIR, BAJAR, AMBAS = "subir", "bajar", "ambas"
 DIRECCIONES_OBJETIVO = (SUBIR, BAJAR)
@@ -27,8 +28,6 @@ AUTOMATICO = "automatico"
 REJILLA_MU = tuple(float(v) for v in np.round(np.logspace(-3, -1, 9), 6))
 MARGEN_OBJETIVO = 0.1
 FRACCION_CAMBIO_MAXIMO = 0.25
-# Una ordinal con más niveles se optimiza como continua.
-MAXIMO_NIVELES_DISCRETOS = 10
 
 
 @dataclass(frozen=True)
@@ -50,7 +49,7 @@ class ConfiguracionAccion:
 
     ``estados_permitidos`` (binarias, ordinales discretas y categorías): valores a los que se
     permite pasar; ``None`` = todos. La dirección solo se aplica a las numéricas, ordinales y
-    binarias (subir = pasar a un código mayor).
+    binarias (subir = pasar a un código mayor). ``paso``: ver el campo.
     """
 
     variable: str
@@ -61,6 +60,10 @@ class ConfiguracionAccion:
     cambio_maximo: float | None = None
     costo: float = 1.0
     estados_permitidos: list[Any] | None = None
+    # Resolución de las acciones continuas (y de las ordinales con más de MAXIMO_NIVELES_DISCRETOS
+    # niveles), en unidades originales; en las ordinales, en niveles (unidades de código). La
+    # prescripción solo propone valores en la rejilla k·paso. ``None`` = continua libre.
+    paso: float | None = None
 
 
 @dataclass(frozen=True)
@@ -155,7 +158,19 @@ def accion_por_defecto(modelo: ModeloCausal, variable: str) -> ConfiguracionAcci
     bajo, alto = rango
     return ConfiguracionAccion(
         variable, minimo=bajo, maximo=alto, cambio_maximo=round(FRACCION_CAMBIO_MAXIMO * (alto - bajo), 10),
+        paso=paso_por_defecto(modelo, variable),
     )
+
+
+def paso_por_defecto(modelo: ModeloCausal, variable: str) -> float | None:
+    """1 si la variable solo toma enteros en train; un nivel (1) en las ordinales; ``None`` (continua
+    libre) en otro caso."""
+    control = modelo.unidades.control(variable)
+    if control == ORDINAL:
+        return 1.0
+    if control == NUMERICA and modelo.info_variables.get(variable, {}).get("entero"):
+        return 1.0
+    return None
 
 
 def objetivo_por_defecto(modelo: ModeloCausal) -> ObjetivoDeseado:
@@ -288,6 +303,8 @@ def problemas_configuracion(modelo: ModeloCausal, c: ConfiguracionPrescripcion) 
             problemas.append(ProblemaConfiguracion(f"{campo}.minimo", "El mínimo es mayor que el máximo."))
         if a.cambio_maximo is not None and a.cambio_maximo <= 0:
             problemas.append(ProblemaConfiguracion(f"{campo}.cambio_maximo", "El cambio máximo debe ser mayor que 0."))
+        if a.paso is not None and (isinstance(a.paso, bool) or not isinstance(a.paso, (int, float)) or not a.paso > 0):
+            problemas.append(ProblemaConfiguracion(f"{campo}.paso", "El paso debe ser un número mayor que 0 (o vacío para una variable continua)."))
         control = modelo.unidades.control(modelo.unidades.grupos[v].columnas[0]) if v in modelo.unidades.grupos else modelo.unidades.control(v)
         if a.estados_permitidos is not None and control in (CATEGORICA, GRUPO, ORDINAL):
             validos = _estados_validos(modelo, v)

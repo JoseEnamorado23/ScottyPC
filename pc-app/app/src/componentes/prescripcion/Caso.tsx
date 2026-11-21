@@ -53,6 +53,11 @@ export function TarjetaPrescripcion({ r, proyectoId, indiceTest }: { r: Resultad
               )}
               {r.requiere_revision && <Badge color="orange" variant="light" leftSection={<IconAlertTriangle size={12} />}>Requiere revisión</Badge>}
               {r.extrapolacion && <Badge color="orange" variant="light">Extrapolación</Badge>}
+              {r.solo_con_cambios_intermedios && (
+                <Badge color="orange" variant="light" leftSection={<IconAlertTriangle size={12} />}>
+                  Alcanzable solo con cambios intermedios
+                </Badge>
+              )}
               {r.aproximado && <Badge color="gray" variant="light">Monte Carlo</Badge>}
             </Group>
           </Paper>

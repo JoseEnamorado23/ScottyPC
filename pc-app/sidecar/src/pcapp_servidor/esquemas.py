@@ -323,7 +323,6 @@ class MotivoPrueba(BaseModel):
 class RecomendacionPrueba(BaseModel):
     prueba: str
     motivo: str
-    motivos: list[MotivoPrueba] = []  # recomendaciones guardadas antes no lo traen
     discretizacion: str | None
     variables_no_monotonas: list[str]
     faltantes_restantes: dict[str, int]
@@ -339,6 +338,7 @@ class RecomendacionPrueba(BaseModel):
     max_k_sugerido: int | None
     tiempo_estimado_bootstrap_max_k_s: float | None
     nota_tiempo: str | None
+    motivos: list[MotivoPrueba] = []  # recomendaciones guardadas antes no lo traen
 
 
 class SolicitudEvaluarPrueba(_Entrada):
@@ -951,6 +951,11 @@ class ConfiguracionAccion(_Entrada):
     cambio_maximo: float | None = Field(None, description="Cambio máximo respecto del valor actual (unidades originales).")
     costo: float = Field(1.0, description="Costo por unidad de la escala normalizada (rango de train).")
     estados_permitidos: list[Any] | None = Field(None, description="Binarias, ordinales y categorías: estados a los que se puede pasar.")
+    paso: float | None = Field(
+        None, gt=0,
+        description="Resolución de la variable (unidades originales; en las ordinales, niveles): solo se proponen "
+                    "valores k·paso. Vacío = continua libre.",
+    )
 
 
 class Supuestos(_Entrada):
@@ -1099,6 +1104,9 @@ class ResultadoPrescripcion(BaseModel):
     valores: list[ValorContrafactual]
     avisos: list[AvisoContrafactual]
     evidencia: EvidenciaVecinos | None = None
+    solo_con_cambios_intermedios: bool = Field(
+        False, description="El objetivo solo se alcanzaría con valores intermedios, fuera de la rejilla de `paso`.",
+    )
 
 
 class SolicitudLote(_Entrada):

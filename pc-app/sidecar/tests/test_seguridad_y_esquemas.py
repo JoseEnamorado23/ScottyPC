@@ -138,6 +138,7 @@ PARES = [
     (esquemas.DiagnosticoVariable, seleccion_prueba.DiagnosticoVariable),
     (esquemas.AlternativaPrueba, seleccion_prueba.AlternativaPrueba),
     (esquemas.RecomendacionPrueba, seleccion_prueba.RecomendacionPrueba),
+    (esquemas.MotivoPrueba, seleccion_prueba.MotivoPrueba),
     (esquemas.AdvertenciaEleccion, seleccion_prueba.AdvertenciaEleccion),
     (esquemas.EvaluacionEleccion, seleccion_prueba.EvaluacionEleccion),
     (esquemas.OrientacionManual, pc_config.OrientacionManual),

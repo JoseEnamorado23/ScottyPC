@@ -75,7 +75,7 @@ export const sinPrescriptivas: Problema = {
 export const RESULTADO: Esquemas["ResultadoPrescripcion"] = {
   caso: { origen: "test", indice: 7 },
   objetivo: "Outcome", medida: "probabilidad", direccion: "bajar", clase_positiva: 1, deseado: 0.25, antes: 0.62, despues: 0.25,
-  alcanzado: true, ya_cumple: false, falta: 0,
+  alcanzado: true, ya_cumple: false, falta: 0, solo_con_cambios_intermedios: false,
   acciones: [
     { variable: "Glucose", tipo: "continua", antes: 148, despues: 131, antes_numerico: 148, despues_numerico: 131, cambio: -17, contribucion: 0.22, restriccion_activa: null, extrapolacion: false, mantener: false },
     { variable: "BMI", tipo: "continua", antes: 34.2, despues: 30.1, antes_numerico: 34.2, despues_numerico: 30.1, cambio: -4.1, contribucion: 0.08, restriccion_activa: null, extrapolacion: false, mantener: false },

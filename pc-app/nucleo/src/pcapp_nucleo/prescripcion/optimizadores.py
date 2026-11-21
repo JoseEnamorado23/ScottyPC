@@ -22,6 +22,7 @@ import numpy as np
 
 from pcapp_nucleo.prescripcion.configuracion import GENETICO, GRADIENTE, ConfiguracionPrescripcion
 from pcapp_nucleo.prescripcion.problema import ProblemaPrescripcion
+from pcapp_nucleo.prescripcion.rejilla import ajustar_a_rejilla
 
 PASO_DIFERENCIAS = 1e-4
 MAXIMAS_RONDAS_COORDENADAS = 10
@@ -34,6 +35,8 @@ class Solucion:
     perdida: float
     p: float
     iteraciones: int = 0
+    # El objetivo se alcanzaba con valores intermedios (relajación continua) pero no sobre la rejilla.
+    solo_relajada: bool = False
 
 
 class Optimizador(Protocol):
@@ -305,4 +308,16 @@ def optimizar_caso(
     t = time.perf_counter()
     solucion = cerrar(problema, pulir(problema, optimizador.optimizar(problema, semilla, inicio)))
     solucion = recortar(problema, solucion)
+    solucion = _a_rejilla(problema, solucion)
     return solucion, time.perf_counter() - t
+
+
+def _a_rejilla(problema: ProblemaPrescripcion, relajada: Solucion) -> Solucion:
+    """Pasa la solución continua a la rejilla de las acciones con ``paso`` (sin efecto si no hay)."""
+    en_rejilla = ajustar_a_rejilla(problema, relajada, _evaluar)
+    if en_rejilla is relajada:
+        return relajada
+    exacta_relajada = float(problema.p([relajada.d], [relajada.estado])[0])
+    exacta_rejilla = float(problema.p([en_rejilla.d], [en_rejilla.estado])[0])
+    solo = problema.alcanzado(exacta_relajada) and not problema.alcanzado(exacta_rejilla)
+    return replace(en_rejilla, iteraciones=relajada.iteraciones, solo_relajada=solo)

@@ -1401,6 +1401,11 @@ export interface components {
              * @description Binarias, ordinales y categorías: estados a los que se puede pasar.
              */
             estados_permitidos?: unknown[] | null;
+            /**
+             * Paso
+             * @description Resolución de la variable (unidades originales; en las ordinales, niveles): solo se proponen valores k·paso. Vacío = continua libre.
+             */
+            paso?: number | null;
         };
         /** ConfiguracionPC */
         ConfiguracionPC: {
@@ -2779,11 +2784,6 @@ export interface components {
             prueba: string;
             /** Motivo */
             motivo: string;
-            /**
-             * Motivos
-             * @default []
-             */
-            motivos: components["schemas"]["MotivoPrueba"][];
             /** Discretizacion */
             discretizacion: string | null;
             /** Variables No Monotonas */
@@ -2818,6 +2818,11 @@ export interface components {
             tiempo_estimado_bootstrap_max_k_s: number | null;
             /** Nota Tiempo */
             nota_tiempo: string | null;
+            /**
+             * Motivos
+             * @default []
+             */
+            motivos: components["schemas"]["MotivoPrueba"][];
         };
         /** ReglaDecision */
         ReglaDecision: {
@@ -3050,6 +3055,12 @@ export interface components {
             /** Avisos */
             avisos: components["schemas"]["AvisoContrafactual"][];
             evidencia?: components["schemas"]["EvidenciaVecinos"] | null;
+            /**
+             * Solo Con Cambios Intermedios
+             * @description El objetivo solo se alcanzaría con valores intermedios, fuera de la rejilla de `paso`.
+             * @default false
+             */
+            solo_con_cambios_intermedios: boolean;
         };
         /** ResultadoValidacion */
         ResultadoValidacion: {
