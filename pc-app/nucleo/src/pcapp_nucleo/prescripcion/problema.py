@@ -27,7 +27,7 @@ from pcapp_nucleo.causal.modelo import BINARIA, OBJETIVO, RAIZ, ModeloCausal
 from pcapp_nucleo.causal.unidades import CATEGORICA, NUMERICA, ORDINAL, ErrorUnidades
 from pcapp_nucleo.prescripcion.configuracion import (
     AMBAS, BAJAR, MAXIMO_NIVELES_DISCRETOS, SUBIR, ConfiguracionAccion, ConfiguracionPrescripcion, _igual,
-    columnas_de, variables_prescriptivas,
+    columnas_de, migrar_limites, variables_prescriptivas,
 )
 
 MAXIMO_COMBINACIONES = 16
@@ -137,6 +137,25 @@ def _preparado(modelo: ModeloCausal, columna: str, valor: float, respaldo: float
         return respaldo
 
 
+def _accion_ordinal(
+    modelo: ModeloCausal, nombre: str, x0: float, escala: float, a: ConfiguracionAccion,
+    bajos: list[tuple[float, str]], altos: list[tuple[float, str]],
+) -> AccionContinua:
+    """Acción continua de una ordinal con muchos niveles; ``bajos`` y ``altos`` ya están en códigos."""
+    u = modelo.unidades
+    bajo = max(bajos, key=lambda b: b[0])
+    alto = min(altos, key=lambda b: b[0])
+    lo = (u.a_preparada_numerica(nombre, bajo[0]) - x0) / escala
+    hi = (u.a_preparada_numerica(nombre, alto[0]) - x0) / escala
+    if lo > hi:  # restricciones incompatibles: la variable no puede cambiar
+        lo = hi = 0.0
+    paso = float(a.paso) if a.paso is not None else None
+    return AccionContinua(
+        nombre, nombre, x0, escala, lo, hi, a.costo, bajo[1], alto[1], paso,
+        lambda xp: u.a_original_numerico(nombre, xp), lambda xo: u.a_preparada_numerica(nombre, xo),
+    )
+
+
 def _accion_continua(
     modelo: ModeloCausal, nombre: str, x0: float, a: ConfiguracionAccion
 ) -> AccionContinua:
@@ -145,11 +164,24 @@ def _accion_continua(
     u = modelo.unidades
     x0o = u.a_original_numerico(nombre, x0)
     bajos, altos = [], []
-    mapeo = u.mapeo(nombre) if u.control(nombre) == ORDINAL else None
-    if mapeo:  # una ordinal solo existe entre su primer y su último nivel (códigos)
-        codigos = [float(c) for _, c in mapeo]
-        bajos.append((min(codigos), LIMITE))
-        altos.append((max(codigos), LIMITE))
+    if u.control(nombre) == ORDINAL:
+        # Límites, cambio máximo y dirección están en valores originales; aquí se pasan (una sola vez)
+        # a los códigos de los niveles permitidos, que son los extremos de la acción.
+        codigos = [c for _, c in u.niveles_ordinal(nombre)]
+        limites = u.niveles_permitidos(nombre, a.minimo, a.maximo)
+        bajos.append((min(limites) if limites else max(codigos) + 1.0, LIMITE))
+        altos.append((max(limites) if limites else min(codigos) - 1.0, LIMITE))
+        if a.cambio_maximo is not None:
+            cercanos = u.niveles_permitidos(nombre, centro=x0o, radio=a.cambio_maximo)
+            if cercanos:
+                bajos.append((min(cercanos), CAMBIO_MAXIMO))
+                altos.append((max(cercanos), CAMBIO_MAXIMO))
+        if a.direccion in (SUBIR, BAJAR):
+            hacia = u.niveles_permitidos(nombre, centro=x0o, sentido=a.direccion)
+            if hacia:
+                bajos.append((min(hacia), DIRECCION))
+                altos.append((max(hacia), DIRECCION))
+        return _accion_ordinal(modelo, nombre, x0, escala, a, bajos, altos)
     if a.minimo is not None:
         bajos.append((a.minimo, LIMITE))
     if a.maximo is not None:
@@ -196,19 +228,31 @@ def _accion_discreta(
         actual_valores = {nombre: x0}
         codigos = {i: u.codigo(nombre, e) for i, (e, _) in enumerate(todos)}
         codigo_actual = u.a_original_numerico(nombre, x0)
-        if u.control(nombre) == ORDINAL and a.cambio_maximo is not None:
-            todos = [t for i, t in enumerate(todos) if abs(codigos[i] - codigo_actual) <= a.cambio_maximo + 1e-9]
+        if u.control(nombre) == ORDINAL:
+            # límites, cambio máximo y dirección en valores originales (ver Unidades.niveles_permitidos)
+            valor = {i: u.valor_de_codigo(nombre, codigos[i]) for i in codigos}
+            valor_actual = u.valor_de_codigo(nombre, codigo_actual)
+            tol = lambda x: 1e-9 * max(1.0, abs(x))  # noqa: E731
+            if a.cambio_maximo is not None:
+                todos = [t for i, t in enumerate(todos) if abs(valor[i] - valor_actual) <= a.cambio_maximo + tol(valor[i])]
+                valor = {i: u.valor_de_codigo(nombre, u.codigo(nombre, e)) for i, (e, _) in enumerate(todos)}
+            if a.direccion == SUBIR:
+                todos = [t for i, t in enumerate(todos) if valor[i] >= valor_actual - tol(valor[i])]
+            elif a.direccion == BAJAR:
+                todos = [t for i, t in enumerate(todos) if valor[i] <= valor_actual + tol(valor[i])]
+            valor = {i: u.valor_de_codigo(nombre, u.codigo(nombre, e)) for i, (e, _) in enumerate(todos)}
+            if a.minimo is not None or a.maximo is not None:
+                todos = [
+                    t for i, t in enumerate(todos)
+                    if (a.minimo is None or valor[i] >= a.minimo - tol(valor[i]))
+                    and (a.maximo is None or valor[i] <= a.maximo + tol(valor[i]))
+                ] or todos
+        elif a.direccion == SUBIR:
             codigos = {i: u.codigo(nombre, e) for i, (e, _) in enumerate(todos)}
-        if a.direccion == SUBIR:
             todos = [t for i, t in enumerate(todos) if codigos[i] >= codigo_actual - 1e-9]
         elif a.direccion == BAJAR:
+            codigos = {i: u.codigo(nombre, e) for i, (e, _) in enumerate(todos)}
             todos = [t for i, t in enumerate(todos) if codigos[i] <= codigo_actual + 1e-9]
-        if a.minimo is not None or a.maximo is not None:
-            todos = [
-                t for t in todos
-                if (a.minimo is None or u.codigo(nombre, t[0]) >= a.minimo - 1e-9)
-                and (a.maximo is None or u.codigo(nombre, t[0]) <= a.maximo + 1e-9)
-            ] or todos
     actual = next((i for i, (_, vals) in enumerate(todos) if all(abs(vals[c] - actual_valores[c]) < 1e-9 for c in columnas)), None)
     estados = [vals for _, vals in todos]
     etiquetas = [e for e, _ in todos]
@@ -245,6 +289,7 @@ class ProblemaPrescripcion:
         self, modelo: ModeloCausal, caso: Caso, configuracion: ConfiguracionPrescripcion, mu: float,
         abduccion: Abduccion | None = None,
     ) -> None:
+        configuracion, _ = migrar_limites(modelo, configuracion)  # límites de ordinales en valores originales
         self.modelo, self.caso, self.configuracion, self.mu = modelo, caso, configuracion, float(mu)
         self.abduccion = abduccion or abducir(modelo, caso)
         valores_caso = {c: float(np.mean(self.abduccion.antes[c])) for c in modelo.variables if c != modelo.objetivo}

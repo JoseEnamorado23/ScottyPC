@@ -138,10 +138,10 @@ export const MODELO: Esquemas["ModeloCausal"] = {
     },
   },
   controles: [
-    { nombre: "Age", control: "numerica", columnas: ["Age"], categorias: [], minimo: 21, maximo: 81, rol: "raiz", columnas_en_modelo: ["Age"] },
-    { nombre: "BMI", control: "numerica", columnas: ["BMI"], categorias: [], minimo: 18.2, maximo: 67.1, rol: "raiz", columnas_en_modelo: ["BMI"] },
-    { nombre: "zona", control: "grupo_one_hot", columnas: ["zona=b", "zona=c"], categorias: ["a", "b", "c"], minimo: null, maximo: null, rol: "raiz", columnas_en_modelo: ["zona=b"] },
-    { nombre: "Glucose", control: "numerica", columnas: ["Glucose"], categorias: [], minimo: 57, maximo: 198, rol: "intermedia", columnas_en_modelo: ["Glucose"] },
+    { nombre: "Age", control: "numerica", columnas: ["Age"], categorias: [], minimo: 21, maximo: 81, rol: "raiz", columnas_en_modelo: ["Age"], en_niveles: false },
+    { nombre: "BMI", control: "numerica", columnas: ["BMI"], categorias: [], minimo: 18.2, maximo: 67.1, rol: "raiz", columnas_en_modelo: ["BMI"], en_niveles: false },
+    { nombre: "zona", control: "grupo_one_hot", columnas: ["zona=b", "zona=c"], categorias: ["a", "b", "c"], minimo: null, maximo: null, rol: "raiz", columnas_en_modelo: ["zona=b"], en_niveles: false },
+    { nombre: "Glucose", control: "numerica", columnas: ["Glucose"], categorias: [], minimo: 57, maximo: 198, rol: "intermedia", columnas_en_modelo: ["Glucose"], en_niveles: false },
   ],
 };
 

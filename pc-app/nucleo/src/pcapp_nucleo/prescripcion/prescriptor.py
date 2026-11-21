@@ -20,6 +20,7 @@ from pcapp_nucleo.causal.contrafactuales import (
     AvisoContrafactual, Caso, PasoTraza, ValorContrafactual, contrafactual_preparado,
 )
 from pcapp_nucleo.causal.modelo import INTERMEDIA, ModeloCausal
+from pcapp_nucleo.causal.unidades import ORDINAL
 from pcapp_nucleo.prescripcion.configuracion import BAJAR, ConfiguracionPrescripcion, SUBIR
 from pcapp_nucleo.prescripcion.evidencia import EvidenciaVecinos, IndiceVecinos, evidencia_caso, valores_de_columnas
 from pcapp_nucleo.prescripcion.optimizadores import Optimizador, Solucion, crear_optimizador, optimizar_caso
@@ -373,8 +374,14 @@ def prescribir_con_solucion(
         v = valores[a.columna]
         mantener = abs(solucion.d[i]) < UMBRAL_MANTENER and modelo.info_variables[a.columna]["rol"] == INTERMEDIA
         despues, despues_numerico, cambio = _en_rejilla(a, v)
+        antes_numerico = v.antes_numerico
+        if modelo.unidades.control(a.columna) == ORDINAL and despues_numerico is not None and antes_numerico is not None:
+            # valores originales (no códigos): así el cambio es comparable con el cambio máximo configurado
+            antes_numerico = modelo.unidades.valor_de_codigo(a.columna, antes_numerico)
+            despues_numerico = modelo.unidades.valor_de_codigo(a.columna, despues_numerico)
+            cambio = despues_numerico - antes_numerico
         acciones.append(AccionPrescrita(
-            a.nombre, "continua", v.antes, despues, v.antes_numerico, despues_numerico, cambio,
+            a.nombre, "continua", v.antes, despues, antes_numerico, despues_numerico, cambio,
             contribuciones.get(a.nombre, 0.0), por_restriccion.get(a.nombre), v.extrapolacion, mantener,
         ))
     for j, a in enumerate(problema.discretas):

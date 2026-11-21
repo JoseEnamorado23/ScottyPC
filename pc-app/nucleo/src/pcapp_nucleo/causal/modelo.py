@@ -30,7 +30,7 @@ from pcapp_nucleo.causal.mecanismos import (
     mecanismo_desde_diccionario, nodos_spline, pliegues, seleccionar_mecanismo, umbral_optimo,
 )
 from pcapp_nucleo.causal.subgrafo import subgrafo_objetivo
-from pcapp_nucleo.causal.unidades import NUMERICA, Unidades
+from pcapp_nucleo.causal.unidades import NUMERICA, ORDINAL, Unidades
 from pcapp_nucleo.modelos import TipoObjetivo
 from pcapp_nucleo.preparacion import DatosPreparados, MetadatosColumna
 from pcapp_nucleo.utilidades import a_diccionario_serializable
@@ -644,7 +644,11 @@ def descripcion_variables(modelo: ModeloCausal) -> list[dict[str, Any]]:
         entrada = asdict(descripcion)
         entrada["rol"] = info["rol"]
         entrada["columnas_en_modelo"] = [c for c in descripcion.columnas if c in modelo.info_variables]
-        if descripcion.control != NUMERICA and grupo is None:
+        if descripcion.control == ORDINAL:
+            valores = [v for v, _ in modelo.unidades.niveles_ordinal(nombre)]
+            entrada["minimo"], entrada["maximo"] = (min(valores), max(valores)) if valores else (None, None)
+            entrada["en_niveles"] = not modelo.unidades.etiquetas_numericas(nombre)
+        elif descripcion.control != NUMERICA and grupo is None:
             entrada["minimo"] = entrada["maximo"] = None
         controles.append(entrada)
     return a_diccionario_serializable(controles)

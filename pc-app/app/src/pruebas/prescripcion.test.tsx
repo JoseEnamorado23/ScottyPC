@@ -105,6 +105,39 @@ describe("Prescripción: pantalla", () => {
     expect(cuerpo.acciones.Glucose.paso).toBe(0.5);
   });
 
+  it("mínimo, máximo y cambio máximo aceptan decimales con coma sin perder lo escrito", async () => {
+    const usuario = userEvent.setup();
+    const sidecar = renderizar("/proyectos/p1/prescripcion", simulacionPrescripcion({ guardada: false, confirmada: false }));
+    const minimo = (await screen.findByLabelText("Mínimo de Glucose")) as HTMLInputElement;
+    const cambio = screen.getByLabelText("Cambio máximo de Glucose") as HTMLInputElement;
+    await usuario.clear(minimo);
+    await usuario.type(minimo, "60,");
+    expect(minimo.value).toBe("60,");                 // el decimal a medio escribir no se pierde
+    await usuario.type(minimo, "5");
+    expect(minimo.value).toBe("60,5");
+    await usuario.clear(cambio);
+    await usuario.type(cambio, "12.5");
+    await usuario.click(screen.getByRole("button", { name: "Guardar configuración" }));
+    await waitFor(() => expect(peticionesA(sidecar.peticiones, "PUT", "/proyectos/p1/prescripcion/configuracion")).toHaveLength(1));
+    const accion = (peticionesA(sidecar.peticiones, "PUT", "/proyectos/p1/prescripcion/configuracion")[0]
+      .cuerpo as Esquemas["ConfiguracionPrescripcion"]).acciones.Glucose;
+    expect(accion.minimo).toBe(60.5);
+    expect(accion.cambio_maximo).toBe(12.5);
+    expect(accion.maximo).toBe(198);                   // lo no tocado no cambia
+  });
+
+  it("avisa de los límites de ordinales pasados a valores originales y de los que quedan distintos", async () => {
+    renderizar("/proyectos/p1/prescripcion", simulacionPrescripcion({
+      avisosMigracion: [
+        { variable: "BMI", mensaje: "Pasado a valores originales: límites [1, 3] (niveles) → [2, 4].", distinta: false },
+        { variable: "Glucose", mensaje: "Revise: los niveles no están igualmente espaciados.", distinta: true },
+      ],
+    }));
+    const aviso = await screen.findByTestId("avisos-migracion");
+    expect(within(aviso).getByText(/Pasado a valores originales: límites \[1, 3\]/)).toBeInTheDocument();
+    expect(within(aviso).getByText(/Revise: los niveles no están igualmente espaciados/)).toBeInTheDocument();
+  });
+
   it("caso individual: acciones ordenadas, marcas, explicación y «Probar una variante»", async () => {
     const usuario = userEvent.setup();
     const sidecar = renderizar("/proyectos/p1/prescripcion", simulacionPrescripcion());

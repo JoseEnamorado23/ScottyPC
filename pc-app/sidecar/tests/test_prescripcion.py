@@ -63,6 +63,14 @@ def test_configuracion_sugerida_y_condiciones(con_modelo):
     assert condiciones["bloqueado"] and ("SUPUESTOS_SIN_CONFIRMAR" in codigos or "SIN_PRESCRIPTIVAS" in codigos)
 
 
+def test_los_limites_van_en_valores_originales_y_sin_avisos_de_migracion(con_modelo):
+    cliente, proyecto = con_modelo
+    vista = ok(cliente.get(url(proyecto, "/configuracion")))
+    assert vista["configuracion"]["unidades_limites"] == "original"
+    assert vista["avisos_migracion"] == []  # la sugerida ya nace en valores originales
+    assert all(c["en_niveles"] is False for c in vista["controles"])  # ninguna ordinal con etiquetas de texto aquí
+
+
 def test_sin_prescriptivas_bloquea_con_el_mensaje(con_modelo):
     cliente, proyecto = con_modelo
     vista = ok(cliente.get(url(proyecto, "/configuracion")))

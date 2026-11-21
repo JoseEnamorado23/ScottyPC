@@ -38,10 +38,13 @@ export function configuracion(confirmada = false): Configuracion {
     alfa_blx: 0.5,
     probabilidad_mutacion: 0.2,
     elite: 2,
+    unidades_limites: "original",
   };
 }
 
-export function vista(c: Configuracion, guardada: boolean): Esquemas["VistaConfiguracionPrescripcion"] {
+export function vista(
+  c: Configuracion, guardada: boolean, avisosMigracion: Esquemas["AvisoMigracion"][] = [],
+): Esquemas["VistaConfiguracionPrescripcion"] {
   return {
     configuracion: c,
     guardada,
@@ -57,6 +60,7 @@ export function vista(c: Configuracion, guardada: boolean): Esquemas["VistaConfi
     calibracion: null,
     mu_efectivo: 0.01,
     aviso: "Recomendaciones basadas en datos observacionales. No reemplazan el criterio de un experto ni una validación experimental.",
+    avisos_migracion: avisosMigracion,
   };
 }
 
@@ -150,12 +154,14 @@ export const EVALUACION_CON_EVIDENCIA: Esquemas["InformeEvaluacion"] = {
   },
 };
 
-export function simulacionPrescripcion({ guardada = true, confirmada = true, problemas = [] as Problema[] } = {}) {
+export function simulacionPrescripcion({
+  guardada = true, confirmada = true, problemas = [] as Problema[], avisosMigracion = [] as Esquemas["AvisoMigracion"][],
+} = {}) {
   const etapas = guardada ? { ...ETAPAS_CON_MODELO, prescripcion: "vigente" as const } : ETAPAS_CON_MODELO;
   return {
     ...simulacionModelo(),
     "GET /proyectos/p1": proyecto(etapas),
-    "GET /proyectos/p1/prescripcion/configuracion": vista(configuracion(confirmada), guardada),
+    "GET /proyectos/p1/prescripcion/configuracion": vista(configuracion(confirmada), guardada, avisosMigracion),
     "POST /proyectos/p1/prescripcion/condiciones": { problemas, bloqueado: problemas.some((p) => p.severidad === "bloqueante"), aviso: "" },
     "POST /proyectos/p1/prescripcion/configuracion/validar": (p: { cuerpo: unknown }) => ({
       valida: true, errores: [], condiciones: [], configuracion: p.cuerpo,

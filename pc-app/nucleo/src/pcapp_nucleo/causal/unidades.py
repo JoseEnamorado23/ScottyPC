@@ -16,6 +16,8 @@ import math
 from dataclasses import dataclass, field
 from typing import Any
 
+import numpy as np
+
 from pcapp_nucleo.preparacion import MetadatosColumna, _mismo_valor
 
 # Tipos de control de una variable en los escenarios.
@@ -182,6 +184,58 @@ class Unidades:
         if self.mapeo(columna) is not None:
             return self._normalizar(columna, float(valor))
         return self.a_preparada(columna, valor)
+
+    # --- Ordinales: valores originales frente a códigos ----------------------------------------
+    #
+    # El «valor original» de un nivel es su etiqueta cuando todas las etiquetas son números (créditos
+    # 14, 15, …) y su posición (el código 0, 1, …) cuando no lo son («bajo», «medio», «alto»). Los
+    # límites, el cambio máximo y la dirección de una ordinal se escriben SIEMPRE en ese valor; el
+    # código es interno y la conversión es esta, única.
+
+    def niveles_ordinal(self, columna: str) -> list[tuple[float, float]]:
+        """Pares (valor original, código) de cada nivel, por código creciente."""
+        mapeo = sorted(self.mapeo(columna) or [], key=lambda par: par[1])
+        numericas = all(_es_numero(original) for original, _ in mapeo)
+        return [(float(original) if numericas else float(codigo), float(codigo)) for original, codigo in mapeo]
+
+    def etiquetas_numericas(self, columna: str) -> bool:
+        """True si los límites de la ordinal se escriben en sus etiquetas; False si se cuentan niveles."""
+        mapeo = self.mapeo(columna) or []
+        return bool(mapeo) and all(_es_numero(original) for original, _ in mapeo)
+
+    def valor_de_codigo(self, columna: str, codigo: float) -> float:
+        """Valor original (numérico) de un código; entre dos niveles, interpolación lineal."""
+        niveles = self.niveles_ordinal(columna)
+        codigos = [c for _, c in niveles]
+        valores = [v for v, _ in niveles]
+        if len(niveles) < 2:
+            return valores[0] if valores else float(codigo)
+        return float(np.interp(float(codigo), codigos, valores))
+
+    def niveles_permitidos(
+        self, columna: str, minimo: float | None = None, maximo: float | None = None,
+        centro: float | None = None, radio: float | None = None, sentido: str | None = None,
+    ) -> list[float]:
+        """Códigos de los niveles cuyo valor original está entre ``minimo`` y ``maximo``, a no más de
+        ``radio`` del valor del código ``centro`` y, si ``sentido`` es ``subir`` o ``bajar``, no por
+        debajo/encima de él."""
+        valor_centro = self.valor_de_codigo(columna, centro) if centro is not None else None
+        permitidos = []
+        for valor, codigo in self.niveles_ordinal(columna):
+            holgura = 1e-9 * max(1.0, abs(valor))
+            if minimo is not None and valor < minimo - holgura:
+                continue
+            if maximo is not None and valor > maximo + holgura:
+                continue
+            if valor_centro is not None:
+                if radio is not None and abs(valor - valor_centro) > radio + holgura:
+                    continue
+                if sentido == "subir" and valor < valor_centro - holgura:
+                    continue
+                if sentido == "bajar" and valor > valor_centro + holgura:
+                    continue
+            permitidos.append(codigo)
+        return permitidos
 
     def a_original(self, columna: str, valor: float | None) -> Any:
         """Valor en unidades originales: número o, si es un código exacto, su etiqueta."""

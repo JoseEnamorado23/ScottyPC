@@ -840,6 +840,9 @@ class ControlVariable(BaseModel):
     maximo: float | None
     rol: Literal["raiz", "intermedia"]
     columnas_en_modelo: list[str]
+    en_niveles: bool = Field(
+        False, description="Ordinal con etiquetas no numéricas: sus límites se escriben en niveles (0 = el primero)."
+    )
 
 
 class ModeloCausal(BaseModel):
@@ -983,6 +986,17 @@ class ConfiguracionPrescripcion(_Entrada):
     alfa_blx: float = 0.5
     probabilidad_mutacion: float = 0.2
     elite: int = 2
+    unidades_limites: Literal["codigo", "original"] = Field(
+        "original",
+        description="Unidades de los límites de las ordinales: valores originales (etiqueta del nivel, o su posición "
+        "0, 1, … si las etiquetas no son números). «codigo» solo lo traen las configuraciones antiguas, que se migran al leerlas.",
+    )
+
+
+class AvisoMigracion(BaseModel):
+    variable: str
+    mensaje: str
+    distinta: bool = Field(description="True si la configuración migrada no equivale exactamente a la guardada.")
 
 
 class PuntoRejilla(BaseModel):
@@ -1020,6 +1034,9 @@ class VistaConfiguracionPrescripcion(BaseModel):
     calibracion: CalibracionMu | None
     mu_efectivo: float | None = Field(description="μ que se usará (manual o calibrado); null si falta calibrar.")
     aviso: str
+    avisos_migracion: list[AvisoMigracion] = Field(
+        [], description="Límites de ordinales guardados en códigos que se pasaron a valores originales al abrir la configuración."
+    )
 
 
 class ValidacionPrescripcion(BaseModel):

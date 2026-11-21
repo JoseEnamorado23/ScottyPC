@@ -160,6 +160,7 @@ PARES = [
     (esquemas.ResultadoContrafactual, causal_contrafactual.ResultadoContrafactual),
     (esquemas.ObjetivoDeseado, p_configuracion.ObjetivoDeseado),
     (esquemas.ConfiguracionAccion, p_configuracion.ConfiguracionAccion),
+    (esquemas.AvisoMigracion, p_configuracion.AvisoMigracion),
     (esquemas.Supuestos, p_configuracion.Supuestos),
     (esquemas.ConfiguracionPrescripcion, p_configuracion.ConfiguracionPrescripcion),
     (esquemas.PuntoRejilla, p_calibracion.PuntoRejilla),

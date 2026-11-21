@@ -4,6 +4,7 @@ from pcapp_nucleo.prescripcion.calibracion import CalibracionCancelada, Calibrac
 from pcapp_nucleo.prescripcion.condiciones import MENSAJE_SIN_PRESCRIPTIVAS, evaluar_prescribibilidad
 from pcapp_nucleo.prescripcion.configuracion import (
     AUTOMATICO,
+    AvisoMigracion,
     ConfiguracionAccion,
     ConfiguracionPrescripcion,
     ErrorConfiguracionPrescripcion,
@@ -13,6 +14,7 @@ from pcapp_nucleo.prescripcion.configuracion import (
     configuracion_desde_diccionario,
     configuracion_por_defecto,
     confirmar_supuestos,
+    migrar_limites,
     problemas_configuracion,
     variables_prescriptivas,
 )
@@ -31,7 +33,9 @@ from pcapp_nucleo.prescripcion.referencia import ModeloReferencia, ajustar_refer
 
 __all__ = [
     "AUTOMATICO",
+    "migrar_limites",
     "AVISO_PERMANENTE",
+    "AvisoMigracion",
     "CalibracionCancelada",
     "CalibracionMu",
     "ConfiguracionAccion",
@@ -52,6 +56,8 @@ __all__ = [
     "completar",
     "configuracion_desde_diccionario",
     "configuracion_por_defecto",
+    "migrar_limites",
+    "AvisoMigracion",
     "confirmar_supuestos",
     "crear_optimizador",
     "evaluar_prescribibilidad",

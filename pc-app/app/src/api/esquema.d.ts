@@ -1121,6 +1121,18 @@ export interface components {
             /** Variables */
             variables: string[];
         };
+        /** AvisoMigracion */
+        AvisoMigracion: {
+            /** Variable */
+            variable: string;
+            /** Mensaje */
+            mensaje: string;
+            /**
+             * Distinta
+             * @description True si la configuración migrada no equivale exactamente a la guardada.
+             */
+            distinta: boolean;
+        };
         /** AvisoResultado */
         AvisoResultado: {
             /** Codigo */
@@ -1560,6 +1572,13 @@ export interface components {
              * @default 2
              */
             elite: number;
+            /**
+             * Unidades Limites
+             * @description Unidades de los límites de las ordinales: valores originales (etiqueta del nivel, o su posición 0, 1, … si las etiquetas no son números). «codigo» solo lo traen las configuraciones antiguas, que se migran al leerlas.
+             * @default original
+             * @enum {string}
+             */
+            unidades_limites: "codigo" | "original";
         };
         /** ConfiguracionSeparacion */
         ConfiguracionSeparacion: {
@@ -1636,6 +1655,12 @@ export interface components {
             rol: "raiz" | "intermedia";
             /** Columnas En Modelo */
             columnas_en_modelo: string[];
+            /**
+             * En Niveles
+             * @description Ordinal con etiquetas no numéricas: sus límites se escriben en niveles (0 = el primero).
+             * @default false
+             */
+            en_niveles: boolean;
         };
         /** ConversionUnidades */
         ConversionUnidades: {
@@ -3939,6 +3964,12 @@ export interface components {
             mu_efectivo: number | null;
             /** Aviso */
             aviso: string;
+            /**
+             * Avisos Migracion
+             * @description Límites de ordinales guardados en códigos que se pasaron a valores originales al abrir la configuración.
+             * @default []
+             */
+            avisos_migracion: components["schemas"]["AvisoMigracion"][];
         };
     };
     responses: never;

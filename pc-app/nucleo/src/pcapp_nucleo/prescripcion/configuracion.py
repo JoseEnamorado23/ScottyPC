@@ -49,7 +49,10 @@ class ConfiguracionAccion:
 
     ``estados_permitidos`` (binarias, ordinales discretas y categorías): valores a los que se
     permite pasar; ``None`` = todos. La dirección solo se aplica a las numéricas, ordinales y
-    binarias (subir = pasar a un código mayor). ``paso``: ver el campo.
+    binarias (subir = pasar a un valor mayor). ``paso``: ver el campo.
+
+    En las ordinales, ``minimo``, ``maximo`` y ``cambio_maximo`` están en valores originales: la
+    etiqueta del nivel si todas son números (créditos 14, 15, …) o su posición 0, 1, … si no lo son.
     """
 
     variable: str
@@ -61,7 +64,7 @@ class ConfiguracionAccion:
     costo: float = 1.0
     estados_permitidos: list[Any] | None = None
     # Resolución de las acciones continuas (y de las ordinales con más de MAXIMO_NIVELES_DISCRETOS
-    # niveles), en unidades originales; en las ordinales, en niveles (unidades de código). La
+    # niveles), en unidades originales; en las ordinales, en niveles (1 = el nivel siguiente). La
     # prescripción solo propone valores en la rejilla k·paso. ``None`` = continua libre.
     paso: float | None = None
 
@@ -102,6 +105,10 @@ class ConfiguracionPrescripcion:
     alfa_blx: float = 0.5
     probabilidad_mutacion: float = 0.2
     elite: int = 2
+    # En qué unidades están los límites de las ordinales. Las configuraciones guardadas antes de
+    # existir este campo los tienen en códigos («codigo»); ``migrar_limites`` los pasa a valores
+    # originales sin cambiar su significado.
+    unidades_limites: str = "original"
 
 
 @dataclass(frozen=True)
@@ -141,10 +148,14 @@ def columnas_de(modelo: ModeloCausal, variable: str) -> list[str]:
 
 
 def rango_original(modelo: ModeloCausal, variable: str) -> tuple[float, float] | None:
-    """Rango de train en unidades originales (numéricas y ordinales)."""
+    """Rango de train en unidades originales (numéricas y ordinales; en estas, el valor original de
+    su primer y último nivel)."""
     if variable not in modelo.info_variables or modelo.unidades.control(variable) not in (NUMERICA, ORDINAL):
         return None
     info = modelo.info_variables[variable]
+    if modelo.unidades.control(variable) == ORDINAL:
+        valores = [v for v, _ in modelo.unidades.niveles_ordinal(variable)]
+        return (min(valores), max(valores)) if valores else None
     return (
         modelo.unidades.a_original_numerico(variable, info["minimo"]),
         modelo.unidades.a_original_numerico(variable, info["maximo"]),
@@ -207,7 +218,9 @@ def configuracion_por_defecto(modelo: ModeloCausal, modificables: list[str]) -> 
 
 def completar(modelo: ModeloCausal, configuracion: ConfiguracionPrescripcion) -> ConfiguracionPrescripcion:
     """Añade acciones y supuestos por defecto a las prescriptivas que no los tengan (p. ej. al
-    cambiar la lista de modificables) y quita los de variables que ya no lo son."""
+    cambiar la lista de modificables) y quita los de variables que ya no lo son. También pasa a
+    valores originales los límites de las ordinales de una configuración antigua."""
+    configuracion, _ = migrar_limites(modelo, configuracion)
     prescriptivas = variables_prescriptivas(modelo, configuracion.modificables).prescriptivas
     acciones = {v: configuracion.acciones.get(v) or accion_por_defecto(modelo, v) for v in prescriptivas}
     supuestos = {v: configuracion.supuestos.get(v) or Supuestos() for v in prescriptivas}
@@ -221,6 +234,103 @@ def confirmar_supuestos(configuracion: ConfiguracionPrescripcion, variables: lis
     for v in variables:
         supuestos[v] = Supuestos(True, True, True, fecha)
     return replace(configuracion, supuestos=supuestos)
+
+
+# --- Límites de las ordinales: de códigos a valores originales ---------------------------------
+
+LIMITES_CODIGO, LIMITES_ORIGINAL = "codigo", "original"
+
+
+@dataclass(frozen=True)
+class AvisoMigracion:
+    """Resultado de pasar los límites de una ordinal a valores originales."""
+
+    variable: str
+    mensaje: str
+    distinta: bool  # True si la configuración migrada no equivale exactamente a la anterior
+
+
+def migrar_limites(
+    modelo: ModeloCausal, configuracion: ConfiguracionPrescripcion
+) -> tuple[ConfiguracionPrescripcion, list[AvisoMigracion]]:
+    """Pasa de códigos a valores originales los límites de las ordinales de una configuración guardada
+    antes de que se escribieran en valores originales, conservando su significado: los mismos niveles
+    permitidos, el mismo cambio máximo en niveles y la misma dirección. Avisa de lo que haya
+    cambiado (``distinta``) y de lo que solo se reexpresó. Sin efecto si ya está en valores originales."""
+    if configuracion.unidades_limites == LIMITES_ORIGINAL:
+        return configuracion, []
+    u = modelo.unidades
+    acciones, avisos = dict(configuracion.acciones), []
+    for variable, accion in configuracion.acciones.items():
+        if u.control(variable) != ORDINAL:
+            continue
+        nueva, aviso = _migrar_accion(u, accion)
+        acciones[variable] = nueva
+        if aviso is not None:
+            avisos.append(aviso)
+    return replace(configuracion, acciones=acciones, unidades_limites=LIMITES_ORIGINAL), avisos
+
+
+def _migrar_accion(u, accion: ConfiguracionAccion) -> tuple[ConfiguracionAccion, AvisoMigracion | None]:
+    variable = accion.variable
+    niveles = u.niveles_ordinal(variable)
+    if not niveles or all(abs(v - c) < 1e-12 for v, c in niveles):
+        return accion, None  # valor original = código: nada que traducir
+    valores = [v for v, _ in niveles]
+    ascendente = all(b > a for a, b in zip(valores, valores[1:]))
+    descendente = all(b < a for a, b in zip(valores, valores[1:]))
+    tol = 1e-9
+    permitidos = [
+        (v, c) for v, c in niveles
+        if (accion.minimo is None or c >= accion.minimo - tol) and (accion.maximo is None or c <= accion.maximo + tol)
+    ]
+    cambios, distinta = [], False
+    minimo, maximo = accion.minimo, accion.maximo
+    if (accion.minimo is not None or accion.maximo is not None) and not permitidos:
+        distinta = True
+        cambios.append("ningún nivel cumplía el mínimo y el máximo; se dejan sin cambios")
+    elif permitidos and (minimo is not None or maximo is not None):
+        v_bajo, v_alto = min(v for v, _ in permitidos), max(v for v, _ in permitidos)
+        if ascendente or descendente:
+            minimo = v_bajo if (accion.minimo if ascendente else accion.maximo) is not None else None
+            maximo = v_alto if (accion.maximo if ascendente else accion.minimo) is not None else None
+        else:  # etiquetas sin orden monótono: se acota al rango de los niveles permitidos
+            minimo, maximo = v_bajo, v_alto
+            dentro = [c for v, c in niveles if v_bajo - 1e-9 <= v <= v_alto + 1e-9]
+            if sorted(dentro) != sorted(c for _, c in permitidos):
+                distinta = True
+                cambios.append(
+                    "las etiquetas no crecen con el orden de los niveles y el rango no reproduce exactamente los niveles permitidos"
+                )
+        cambios.append(f"límites {_texto_rango(accion.minimo, accion.maximo)} (niveles) → {_texto_rango(minimo, maximo)}")
+    cambio = accion.cambio_maximo
+    if cambio is not None:
+        saltos = [abs(b - a) for a, b in zip(valores, valores[1:])]
+        tipico = float(np.median(saltos)) if saltos else 1.0
+        cambio = round(cambio * tipico, 10)
+        if saltos and max(saltos) - min(saltos) > 1e-9 * max(1.0, max(saltos)):
+            distinta = True
+            cambios.append(
+                f"los niveles no están igualmente espaciados: cambio máximo {accion.cambio_maximo:g} niveles → {cambio:g} "
+                "(según el salto típico entre niveles); puede permitir otros niveles que antes"
+            )
+        else:
+            cambios.append(f"cambio máximo {accion.cambio_maximo:g} niveles → {cambio:g}")
+    direccion = accion.direccion
+    if descendente and direccion in (SUBIR, BAJAR):  # subir era «a un código mayor» = a un valor menor
+        direccion = BAJAR if direccion == SUBIR else SUBIR
+        cambios.append(f"dirección '{accion.direccion}' → '{direccion}' (el orden de los niveles baja en valor)")
+    if not cambios:
+        return accion, None
+    nueva = replace(accion, minimo=minimo, maximo=maximo, cambio_maximo=cambio, direccion=direccion)
+    prefijo = "Revise: " if distinta else "Pasado a valores originales: "
+    return nueva, AvisoMigracion(variable, prefijo + "; ".join(cambios) + ".", distinta)
+
+
+def _texto_rango(minimo: float | None, maximo: float | None) -> str:
+    bajo = "" if minimo is None else f"{minimo:g}"
+    alto = "" if maximo is None else f"{maximo:g}"
+    return f"[{bajo}, {alto}]"
 
 
 # --- Serialización y validación ---------------------------------------------------------------
@@ -261,6 +371,7 @@ def configuracion_desde_diccionario(datos: dict[str, Any]) -> ConfiguracionPresc
         v: _construir(Supuestos, s or {}, f"supuestos.{v}", problemas) for v, s in (datos.get("supuestos") or {}).items()
     }
     resto = {k: v for k, v in datos.items() if k not in ("objetivo", "acciones", "supuestos")}
+    resto.setdefault("unidades_limites", LIMITES_CODIGO)  # las configuraciones antiguas no traen el campo
     if problemas:
         raise ErrorConfiguracionPrescripcion(problemas)
     configuracion = _construir(
@@ -281,6 +392,8 @@ def problemas_configuracion(modelo: ModeloCausal, c: ConfiguracionPrescripcion) 
         problemas.append(ProblemaConfiguracion("objetivo.clase_positiva", "Debe ser 0 o 1."))
     if modelo.binario and not 0 < c.objetivo.valor < 1:
         problemas.append(ProblemaConfiguracion("objetivo.valor", "La probabilidad deseada debe estar entre 0 y 1."))
+    if c.unidades_limites not in (LIMITES_CODIGO, LIMITES_ORIGINAL):
+        problemas.append(ProblemaConfiguracion("unidades_limites", "Debe ser 'codigo' u 'original'."))
     if c.optimizador not in OPTIMIZADORES:
         problemas.append(ProblemaConfiguracion("optimizador", "Debe ser 'gradiente_proximal' o 'genetico'."))
     if c.mu != AUTOMATICO and (not isinstance(c.mu, (int, float)) or isinstance(c.mu, bool) or c.mu < 0):
@@ -306,6 +419,13 @@ def problemas_configuracion(modelo: ModeloCausal, c: ConfiguracionPrescripcion) 
         if a.paso is not None and (isinstance(a.paso, bool) or not isinstance(a.paso, (int, float)) or not a.paso > 0):
             problemas.append(ProblemaConfiguracion(f"{campo}.paso", "El paso debe ser un número mayor que 0 (o vacío para una variable continua)."))
         control = modelo.unidades.control(modelo.unidades.grupos[v].columnas[0]) if v in modelo.unidades.grupos else modelo.unidades.control(v)
+        if control == ORDINAL and c.unidades_limites == LIMITES_ORIGINAL and (a.minimo is not None or a.maximo is not None):
+            if not modelo.unidades.niveles_permitidos(v, a.minimo, a.maximo):
+                niveles = [x for x, _ in modelo.unidades.niveles_ordinal(v)]
+                problemas.append(ProblemaConfiguracion(
+                    f"{campo}.minimo",
+                    f"Ningún nivel está entre el mínimo y el máximo; los valores de '{v}' van de {min(niveles):g} a {max(niveles):g}.",
+                ))
         if a.estados_permitidos is not None and control in (CATEGORICA, GRUPO, ORDINAL):
             validos = _estados_validos(modelo, v)
             malos = [e for e in a.estados_permitidos if not any(_igual(e, x) for x in validos)]

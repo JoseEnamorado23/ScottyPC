@@ -6,7 +6,7 @@ import {
   Text, TextInput, Title,
 } from "@mantine/core";
 import { IconAdjustments, IconDeviceFloppy } from "@tabler/icons-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { Esquemas } from "../../api/cliente";
 import { numero, porcentaje } from "../../estado/modeloCausal";
@@ -33,22 +33,45 @@ interface Props {
 
 const numeroONulo = (v: string | number) => (typeof v === "number" ? v : null);
 
-/** Paso de una variable: acepta coma o punto y conserva lo escrito mientras se teclea («0,» antes de «0,5»). */
-function CampoPaso({ variable, valor, error, alCambiar }: {
-  variable: string; valor: number | null | undefined; error?: string; alCambiar: (v: number | null) => void;
+const aTexto = (v: number | null | undefined) => (v === null || v === undefined ? "" : String(v).replace(".", ","));
+const aNumero = (t: string): number | null => {
+  const n = Number(t.trim().replace(",", "."));
+  return t.trim() === "" || !Number.isFinite(n) ? null : n;
+};
+
+/** Campo numérico que acepta coma o punto y conserva lo escrito mientras se teclea («0,» antes de «0,5»):
+ * solo se reescribe el texto si el valor del borrador cambia desde fuera (descartar, recargar). */
+function CampoNumero({ etiqueta, valor, error, ancho = 100, marcador, alCambiar }: {
+  etiqueta: string; valor: number | null | undefined; error?: string; ancho?: number; marcador?: string;
+  alCambiar: (v: number | null) => void;
 }) {
-  const [texto, setTexto] = useState(valor === null || valor === undefined ? "" : String(valor).replace(".", ","));
+  const [texto, setTexto] = useState(aTexto(valor));
+  useEffect(() => {
+    if ((valor ?? null) !== aNumero(texto)) setTexto(aTexto(valor));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [valor]);
   return (
     <TextInput
-      size="xs" w={80} aria-label={`Paso de ${variable}`} placeholder="libre" value={texto} error={error}
+      size="xs" w={ancho} aria-label={etiqueta} placeholder={marcador} value={texto} error={error} inputMode="decimal"
       onChange={(e) => {
         const t = e.currentTarget.value;
         setTexto(t);
-        const n = Number(t.trim().replace(",", "."));
-        alCambiar(t.trim() === "" ? null : Number.isFinite(n) ? n : null);
+        alCambiar(aNumero(t));
       }}
     />
   );
+}
+
+/** Rango de train de una variable numérica u ordinal; en una ordinal, en sus valores originales
+ * (o en niveles si sus etiquetas no son números). */
+function textoRango(control: Control): string | null {
+  if (control.minimo === null || control.maximo === null) return null;
+  if (control.control === "ordinal" && control.en_niveles) {
+    const primero = control.categorias[0];
+    const ultimo = control.categorias[control.categorias.length - 1];
+    return `niveles ${numero(control.minimo, 0)} (${primero}) a ${numero(control.maximo, 0)} (${ultimo})`;
+  }
+  return `${control.control === "ordinal" ? "valores" : "train:"} ${numero(control.minimo, 2)} – ${numero(control.maximo, 2)}`;
 }
 
 function FilaAccion({
@@ -66,7 +89,7 @@ function FilaAccion({
         <Text size="sm" fw={500}>{variable}</Text>
         <Text size="xs" c="dimmed">
           {control.rol === "raiz" ? "raíz" : "intermedia"}
-          {numerica && control.minimo !== null && ` · train: ${numero(control.minimo, 2)} – ${numero(control.maximo, 2)}`}
+          {numerica && textoRango(control) && ` · ${textoRango(control)}`}
         </Text>
       </Table.Td>
       <Table.Td>
@@ -87,19 +110,18 @@ function FilaAccion({
       {numerica ? (
         <>
           <Table.Td>
-            <NumberInput size="xs" w={100} aria-label={`Mínimo de ${variable}`} decimalSeparator="," value={accion.minimo ?? ""}
-              error={campo("minimo")} onChange={(v) => cambiar({ minimo: numeroONulo(v) })} />
+            <CampoNumero etiqueta={`Mínimo de ${variable}`} valor={accion.minimo} error={campo("minimo")} alCambiar={(v) => cambiar({ minimo: v })} />
           </Table.Td>
           <Table.Td>
-            <NumberInput size="xs" w={100} aria-label={`Máximo de ${variable}`} decimalSeparator="," value={accion.maximo ?? ""}
-              error={campo("maximo")} onChange={(v) => cambiar({ maximo: numeroONulo(v) })} />
+            <CampoNumero etiqueta={`Máximo de ${variable}`} valor={accion.maximo} error={campo("maximo")} alCambiar={(v) => cambiar({ maximo: v })} />
           </Table.Td>
           <Table.Td>
-            <NumberInput size="xs" w={100} aria-label={`Cambio máximo de ${variable}`} decimalSeparator="," min={0}
-              value={accion.cambio_maximo ?? ""} error={campo("cambio_maximo")} onChange={(v) => cambiar({ cambio_maximo: numeroONulo(v) })} />
+            <CampoNumero etiqueta={`Cambio máximo de ${variable}`} valor={accion.cambio_maximo} error={campo("cambio_maximo")}
+              alCambiar={(v) => cambiar({ cambio_maximo: v })} />
           </Table.Td>
           <Table.Td>
-            <CampoPaso variable={variable} valor={accion.paso} error={campo("paso")} alCambiar={(v) => cambiar({ paso: v })} />
+            <CampoNumero etiqueta={`Paso de ${variable}`} valor={accion.paso} error={campo("paso")} ancho={80} marcador="libre"
+              alCambiar={(v) => cambiar({ paso: v })} />
           </Table.Td>
         </>
       ) : (
@@ -184,6 +206,24 @@ export function ConfiguracionPrescripcion(p: Props) {
             La lista parte de las modificables de la configuración de PC ({vista.modificables_pc.join(", ") || "ninguna"}). Cambiarla
             solo desactualiza la prescripción, no el análisis. Solo son prescriptivas las que además son ancestros del objetivo.
           </Text>
+          {vista.avisos_migracion.length > 0 && (
+            <Alert
+              color={vista.avisos_migracion.some((a) => a.distinta) ? "orange" : "blue"} variant="light" py="xs"
+              title="Límites de variables ordinales pasados a valores originales" data-testid="avisos-migracion"
+            >
+              <Text size="xs">
+                Esta configuración se guardó con los límites de las ordinales en posiciones de nivel. Se muestran ahora en valores
+                originales sin cambiar su significado; guarde la configuración para conservarlos así.
+              </Text>
+              <Stack gap={2} mt={4}>
+                {vista.avisos_migracion.map((a) => (
+                  <Text key={a.variable} size="xs" c={a.distinta ? "orange.8" : undefined}>
+                    <b>{a.variable}</b>: {a.mensaje}
+                  </Text>
+                ))}
+              </Stack>
+            </Alert>
+          )}
           {vista.sin_camino.length > 0 && (
             <Text size="xs">Sin camino al objetivo (se ignoran): {vista.sin_camino.join(", ")}.</Text>
           )}
@@ -211,10 +251,11 @@ export function ConfiguracionPrescripcion(p: Props) {
             </Table.ScrollContainer>
           )}
           <Text size="xs" c="dimmed">
-            Límites y cambio máximo en unidades originales (por defecto, el rango de entrenamiento y el 25 % de ese rango). El paso
-            es la resolución: solo se proponen valores múltiplos del paso (1 para enteros, 0,5 para horas a media hora; en las
-            ordinales, niveles; vacío = valor continuo libre). El costo es por unidad de la escala normalizada, para que sea
-            comparable entre variables.
+            Límites y cambio máximo siempre en valores originales (por defecto, el rango de entrenamiento y el 25 % de ese rango).
+            En una ordinal son los valores de sus niveles (créditos 14, 15, …); si sus etiquetas no son números (bajo, medio, alto),
+            se cuentan niveles desde 0. El paso es la resolución: solo se proponen valores múltiplos del paso (1 para enteros, 0,5
+            para horas a media hora; en las ordinales, niveles; vacío = valor continuo libre). El costo es por unidad de la escala
+            normalizada, para que sea comparable entre variables.
           </Text>
         </Stack>
       </Card>

@@ -32,6 +32,7 @@ from pcapp_nucleo.prescripcion import (
     configuracion_por_defecto,
     evaluar_prescribibilidad,
     evaluar_prescriptor,
+    migrar_limites,
     informe_prescripcion_html,
     prescribir_caso,
     prescribir_lote,
@@ -101,7 +102,9 @@ class ServiciosPrescripcion:
             raise invalido("CONFIGURACION_NO_VALIDA", str(error), a_diccionario_serializable(error.problemas)) from error
         return completar(modelo, configuracion)
 
-    def _vista_configuracion(self, proyecto, modelo, configuracion, guardada: bool, contenido) -> dict[str, Any]:
+    def _vista_configuracion(
+        self, proyecto, modelo, configuracion, guardada: bool, contenido, avisos_migracion=(),
+    ) -> dict[str, Any]:
         variables = variables_prescriptivas(modelo, configuracion.modificables)
         controles = [c for c in descripcion_variables(modelo) if c["nombre"] in variables.prescriptivas]
         grafo = self._resultado_actual(proyecto)[0]["variables"]
@@ -120,6 +123,7 @@ class ServiciosPrescripcion:
             "calibracion": (contenido or {}).get("calibracion"),
             "mu_efectivo": self._mu_efectivo(contenido) if contenido else None,
             "aviso": AVISO_PERMANENTE,
+            "avisos_migracion": a_diccionario_serializable(list(avisos_migracion)),
         }
 
     @staticmethod
@@ -137,8 +141,9 @@ class ServiciosPrescripcion:
         modelo, _ = self._modelo_vigente(proyecto)
         contenido = self._contenido_prescripcion(proyecto)
         if contenido is not None:
+            _, avisos = migrar_limites(modelo, configuracion_desde_diccionario(contenido["configuracion"]))
             configuracion = self._configuracion_de(modelo, contenido["configuracion"])
-            return self._vista_configuracion(proyecto, modelo, configuracion, True, contenido)
+            return self._vista_configuracion(proyecto, modelo, configuracion, True, contenido, avisos)
         modificables = self.modificables_prescripcion(proyecto) or self._leer(proyecto, "pc.json").get("modificables", [])
         return self._vista_configuracion(proyecto, modelo, configuracion_por_defecto(modelo, modificables), False, None)
 
