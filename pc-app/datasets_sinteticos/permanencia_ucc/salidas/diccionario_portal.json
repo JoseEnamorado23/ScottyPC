@@ -1,0 +1,152 @@
+{
+  "descripcion": "Diccionario en español sencillo para estudiantes. Cada variable tiene etiqueta, descripcion, unidad y valores; las que el estudiante puede cambiar tienen además `como_mejorar`. Los datos son sintéticos (no son estudiantes reales).",
+  "objetivo": {
+    "variable": "permanece",
+    "pregunta": "¿Seguirás estudiando el próximo semestre?",
+    "texto": "seguir estudiando el próximo semestre",
+    "explicacion": "Es la probabilidad de que sigas matriculado(a) en la universidad el próximo semestre. Es una estimación basada en la experiencia de estudiantes con una situación parecida a la tuya, no una promesa ni una decisión sobre ti.",
+    "valores": {
+      "0": "No continúa el próximo semestre",
+      "1": "Continúa el próximo semestre"
+    }
+  },
+  "variables": {
+    "estrato": {
+      "etiqueta": "Estrato socioeconómico",
+      "modificable": false,
+      "descripcion": "Estrato de la vivienda donde vives, según tu factura de servicios públicos.",
+      "unidad": "nivel de 1 a 6",
+      "valores": "1 (más bajo) a 6 (más alto)"
+    },
+    "genero": {
+      "etiqueta": "Género",
+      "modificable": false,
+      "descripcion": "Género con el que te identificas en el registro de la universidad.",
+      "unidad": "categoría",
+      "valores": {
+        "0": "Hombre",
+        "1": "Mujer"
+      }
+    },
+    "edad_ingreso": {
+      "etiqueta": "Edad al ingresar",
+      "modificable": false,
+      "descripcion": "Los años que tenías cuando empezaste la carrera.",
+      "unidad": "años",
+      "valores": "entre 16 y 30"
+    },
+    "primera_generacion": {
+      "etiqueta": "Primera persona de la familia en la universidad",
+      "modificable": false,
+      "descripcion": "Si eres la primera persona de tu familia (padres o madres) que llega a la educación superior.",
+      "unidad": "sí / no",
+      "valores": {
+        "0": "No, alguien de mi familia ya fue a la universidad",
+        "1": "Sí, soy la primera persona"
+      }
+    },
+    "vive_con_familia": {
+      "etiqueta": "Vives con tu familia",
+      "modificable": false,
+      "descripcion": "Si vives en la misma casa que tu familia.",
+      "unidad": "sí / no",
+      "valores": {
+        "0": "No",
+        "1": "Sí"
+      }
+    },
+    "puntaje_saber11": {
+      "etiqueta": "Puntaje en las pruebas Saber 11",
+      "modificable": false,
+      "descripcion": "El puntaje global que sacaste en el examen de Estado al terminar el colegio.",
+      "unidad": "puntos",
+      "valores": "entre 0 y 500"
+    },
+    "horas_trabajo_semana": {
+      "etiqueta": "Horas de trabajo a la semana",
+      "modificable": true,
+      "descripcion": "Las horas que trabajas en una semana normal, además de estudiar. Cero significa que no trabajas.",
+      "unidad": "horas por semana",
+      "valores": "entre 0 y 48",
+      "como_mejorar": "Si trabajas muchas horas, reducirlas, aunque sea un poco, deja más tiempo para estudiar y asistir a clase. Si no puedes dejar de trabajar, busca horarios que no choquen con tus clases o pregunta en Bienestar por monitorías y apoyos económicos para trabajar menos."
+    },
+    "asistencia_pct": {
+      "etiqueta": "Asistencia a clase",
+      "modificable": true,
+      "descripcion": "De cada 100 clases, a cuántas asististe en el semestre.",
+      "unidad": "porcentaje (%)",
+      "valores": "entre 30 y 100",
+      "como_mejorar": "Ir a clase con regularidad es una de las cosas que más ayuda. Marca en tu calendario las clases del semestre, evita faltar por días seguidos y, si tienes que faltar, avisa al docente y pide lo que viste."
+    },
+    "horas_estudio_semana": {
+      "etiqueta": "Horas de estudio fuera de clase",
+      "modificable": true,
+      "descripcion": "Las horas que dedicas por tu cuenta a estudiar, hacer tareas o preparar exámenes en una semana normal.",
+      "unidad": "horas por semana",
+      "valores": "entre 0 y 30, de media en media hora",
+      "como_mejorar": "Reserva bloques fijos de estudio en tu semana, por ejemplo una hora después de cada clase difícil. Estudiar poco a poco rinde más que hacerlo todo la noche anterior, y las primeras horas extra son las que más se notan."
+    },
+    "tutorias_asistidas": {
+      "etiqueta": "Tutorías a las que asististe",
+      "modificable": true,
+      "descripcion": "Cuántas tutorías académicas (clases de apoyo con un docente o monitor) tomaste en el semestre.",
+      "unidad": "tutorías",
+      "valores": "números enteros, de 0 a 8",
+      "como_mejorar": "Apúntate a las tutorías de las materias que más te cuestan y pregunta sin pena. No hace falta ir a todas: unas pocas, bien aprovechadas, ayudan."
+    },
+    "creditos_matriculados": {
+      "etiqueta": "Créditos matriculados",
+      "modificable": true,
+      "descripcion": "La carga académica del semestre: la suma de los créditos de las materias que inscribiste.",
+      "unidad": "créditos",
+      "valores": "números enteros, de 8 a 22",
+      "como_mejorar": "Una carga muy alta te quita tiempo para estudiar cada materia, y una muy baja alarga la carrera. Entre 14 y 16 créditos suele ser manejable; si tienes más y además trabajas, habla con tu coordinación académica antes de inscribir las materias."
+    },
+    "apoyo_bienestar": {
+      "etiqueta": "Apoyo de Bienestar Universitario",
+      "modificable": true,
+      "descripcion": "Si recibes acompañamiento de Bienestar: orientación psicológica, apoyo académico o actividades de acompañamiento.",
+      "unidad": "sí / no",
+      "valores": {
+        "0": "No lo recibo",
+        "1": "Sí lo recibo"
+      },
+      "como_mejorar": "Acércate a Bienestar Universitario y pregunta qué acompañamiento hay para ti. Pedir ayuda a tiempo funciona mejor que esperar a que el problema crezca."
+    },
+    "apoyo_financiero": {
+      "etiqueta": "Apoyo financiero",
+      "modificable": true,
+      "descripcion": "Si tienes beca, crédito condonable, subsidio o descuento que te ayuda a pagar la matrícula o el sostenimiento.",
+      "unidad": "sí / no",
+      "valores": {
+        "0": "No lo tengo",
+        "1": "Sí lo tengo"
+      },
+      "como_mejorar": "Pregunta en la oficina de financiación o de becas por las convocatorias abiertas, los requisitos y los plazos. Revisa cada semestre, porque se abren nuevas opciones."
+    },
+    "promedio_semestre": {
+      "etiqueta": "Promedio del semestre",
+      "modificable": false,
+      "descripcion": "Tu nota promedio de las materias del semestre, en la escala colombiana.",
+      "unidad": "nota de 0 a 5",
+      "valores": "entre 0,0 y 5,0"
+    },
+    "materias_reprobadas": {
+      "etiqueta": "Materias reprobadas",
+      "modificable": false,
+      "descripcion": "Cuántas materias perdiste en el semestre.",
+      "unidad": "materias",
+      "valores": "números enteros, de 0 a 6"
+    },
+    "permanece": {
+      "etiqueta": "Continúa el próximo semestre",
+      "modificable": false,
+      "descripcion": "Si volviste a matricularte al semestre siguiente. Es lo que queremos entender y apoyar.",
+      "unidad": "sí / no",
+      "valores": {
+        "0": "No continúa",
+        "1": "Continúa"
+      }
+    }
+  }
+}

@@ -1,0 +1,512 @@
+{
+  "valido": true,
+  "validacion": {
+    "valido": true,
+    "errores": [],
+    "advertencias": []
+  },
+  "resumen": {
+    "filas": 3000,
+    "columnas": 16,
+    "columnas_numericas": 16,
+    "columnas_categoricas": 0,
+    "columnas_texto": 0,
+    "columnas_fecha": 0,
+    "columnas_booleanas": 0,
+    "columnas_vacias": 0,
+    "total_faltantes": 233,
+    "objetivo": "permanece",
+    "tipo_objetivo": "binario"
+  },
+  "hallazgos": [
+    {
+      "tipo": "valores_faltantes",
+      "columnas_involucradas": [
+        "puntaje_saber11"
+      ],
+      "severidad": "media",
+      "detalle": "La columna 'puntaje_saber11' contiene 149 valores faltantes (5.0 %).",
+      "evidencia": {
+        "faltantes": 149,
+        "porcentaje": 4.97,
+        "faltantes_nulos": 149,
+        "faltantes_centinela": 0,
+        "valores_centinela": {},
+        "tipos_faltante": [
+          "nulo"
+        ]
+      },
+      "acciones_posibles": [
+        "Revisar el origen de los valores faltantes.",
+        "Decidir en la fase de preparación si se imputan o se excluyen."
+      ],
+      "accion_sugerida": "Revisar el origen de los valores faltantes.",
+      "identificador": "valores_faltantes:puntaje_saber11"
+    },
+    {
+      "tipo": "valores_faltantes",
+      "columnas_involucradas": [
+        "horas_trabajo_semana"
+      ],
+      "severidad": "media",
+      "detalle": "La columna 'horas_trabajo_semana' contiene 84 valores faltantes (2.8 %).",
+      "evidencia": {
+        "faltantes": 84,
+        "porcentaje": 2.8,
+        "faltantes_nulos": 84,
+        "faltantes_centinela": 0,
+        "valores_centinela": {},
+        "tipos_faltante": [
+          "nulo"
+        ]
+      },
+      "acciones_posibles": [
+        "Revisar el origen de los valores faltantes.",
+        "Decidir en la fase de preparación si se imputan o se excluyen."
+      ],
+      "accion_sugerida": "Revisar el origen de los valores faltantes.",
+      "identificador": "valores_faltantes:horas_trabajo_semana"
+    },
+    {
+      "tipo": "ceros_sospechosos",
+      "columnas_involucradas": [
+        "horas_trabajo_semana"
+      ],
+      "severidad": "media",
+      "detalle": "La variable 'horas_trabajo_semana' contiene 1643 valores iguales a 0 (54.8 %). Estos valores podrían representar datos faltantes codificados como cero.",
+      "evidencia": {
+        "ceros": 1643,
+        "porcentaje": 54.77,
+        "minimo_distinto_de_cero": 7.0,
+        "maximo": 48.0
+      },
+      "acciones_posibles": [
+        "Verificar si el cero es un valor posible para esta variable.",
+        "Mantener los ceros si representan mediciones reales.",
+        "Tratarlos como faltantes en la fase de preparación si no son válidos."
+      ],
+      "accion_sugerida": "Verificar si el cero es un valor posible para esta variable.",
+      "identificador": "ceros_sospechosos:horas_trabajo_semana"
+    },
+    {
+      "tipo": "variable_categorica",
+      "columnas_involucradas": [
+        "estrato"
+      ],
+      "severidad": "baja",
+      "detalle": "La columna 'estrato' parece categórica: 6 valores distintos (1, 2, 3, 4, 5, 6).",
+      "evidencia": {
+        "origen": "enteros",
+        "valores_distintos": 6,
+        "categorias": [
+          {
+            "valor": 1,
+            "conteo": 1048
+          },
+          {
+            "valor": 2,
+            "conteo": 1038
+          },
+          {
+            "valor": 3,
+            "conteo": 542
+          },
+          {
+            "valor": 4,
+            "conteo": 226
+          },
+          {
+            "valor": 5,
+            "conteo": 78
+          },
+          {
+            "valor": 6,
+            "conteo": 68
+          }
+        ]
+      },
+      "acciones_posibles": [
+        "Confirmar si la variable es categórica.",
+        "Definir su codificación en la fase de preparación."
+      ],
+      "accion_sugerida": "Confirmar si la variable es categórica.",
+      "identificador": "variable_categorica:estrato"
+    },
+    {
+      "tipo": "posible_variable_ordinal",
+      "columnas_involucradas": [
+        "estrato"
+      ],
+      "severidad": "baja",
+      "detalle": "Los valores de la columna 'estrato' sugieren un orden natural: 1 < 2 < 3 < 4 < 5 < 6.",
+      "evidencia": {
+        "criterio": "enteros_consecutivos",
+        "orden_sugerido": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "acciones_posibles": [
+        "Confirmar si el orden sugerido es correcto.",
+        "Tratarla como ordinal en la fase de preparación."
+      ],
+      "accion_sugerida": "Confirmar si el orden sugerido es correcto.",
+      "identificador": "posible_variable_ordinal:estrato"
+    },
+    {
+      "tipo": "variable_categorica",
+      "columnas_involucradas": [
+        "tutorias_asistidas"
+      ],
+      "severidad": "baja",
+      "detalle": "La columna 'tutorias_asistidas' parece categórica: 8 valores distintos (0, 1, 2, 3, 4, 5, 6, 7).",
+      "evidencia": {
+        "origen": "enteros",
+        "valores_distintos": 8,
+        "categorias": [
+          {
+            "valor": 0,
+            "conteo": 1151
+          },
+          {
+            "valor": 1,
+            "conteo": 1067
+          },
+          {
+            "valor": 2,
+            "conteo": 544
+          },
+          {
+            "valor": 3,
+            "conteo": 169
+          },
+          {
+            "valor": 4,
+            "conteo": 61
+          },
+          {
+            "valor": 5,
+            "conteo": 4
+          },
+          {
+            "valor": 6,
+            "conteo": 3
+          },
+          {
+            "valor": 7,
+            "conteo": 1
+          }
+        ]
+      },
+      "acciones_posibles": [
+        "Confirmar si la variable es categórica.",
+        "Definir su codificación en la fase de preparación."
+      ],
+      "accion_sugerida": "Confirmar si la variable es categórica.",
+      "identificador": "variable_categorica:tutorias_asistidas"
+    },
+    {
+      "tipo": "posible_variable_ordinal",
+      "columnas_involucradas": [
+        "tutorias_asistidas"
+      ],
+      "severidad": "baja",
+      "detalle": "Los valores de la columna 'tutorias_asistidas' sugieren un orden natural: 0 < 1 < 2 < 3 < 4 < 5 < 6 < 7.",
+      "evidencia": {
+        "criterio": "enteros_consecutivos",
+        "orden_sugerido": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ]
+      },
+      "acciones_posibles": [
+        "Confirmar si el orden sugerido es correcto.",
+        "Tratarla como ordinal en la fase de preparación."
+      ],
+      "accion_sugerida": "Confirmar si el orden sugerido es correcto.",
+      "identificador": "posible_variable_ordinal:tutorias_asistidas"
+    },
+    {
+      "tipo": "variable_categorica",
+      "columnas_involucradas": [
+        "materias_reprobadas"
+      ],
+      "severidad": "baja",
+      "detalle": "La columna 'materias_reprobadas' parece categórica: 6 valores distintos (0, 1, 2, 3, 4, 5).",
+      "evidencia": {
+        "origen": "enteros",
+        "valores_distintos": 6,
+        "categorias": [
+          {
+            "valor": 0,
+            "conteo": 2123
+          },
+          {
+            "valor": 1,
+            "conteo": 680
+          },
+          {
+            "valor": 2,
+            "conteo": 162
+          },
+          {
+            "valor": 3,
+            "conteo": 23
+          },
+          {
+            "valor": 4,
+            "conteo": 10
+          },
+          {
+            "valor": 5,
+            "conteo": 2
+          }
+        ]
+      },
+      "acciones_posibles": [
+        "Confirmar si la variable es categórica.",
+        "Definir su codificación en la fase de preparación."
+      ],
+      "accion_sugerida": "Confirmar si la variable es categórica.",
+      "identificador": "variable_categorica:materias_reprobadas"
+    },
+    {
+      "tipo": "posible_variable_ordinal",
+      "columnas_involucradas": [
+        "materias_reprobadas"
+      ],
+      "severidad": "baja",
+      "detalle": "Los valores de la columna 'materias_reprobadas' sugieren un orden natural: 0 < 1 < 2 < 3 < 4 < 5.",
+      "evidencia": {
+        "criterio": "enteros_consecutivos",
+        "orden_sugerido": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "acciones_posibles": [
+        "Confirmar si el orden sugerido es correcto.",
+        "Tratarla como ordinal en la fase de preparación."
+      ],
+      "accion_sugerida": "Confirmar si el orden sugerido es correcto.",
+      "identificador": "posible_variable_ordinal:materias_reprobadas"
+    },
+    {
+      "tipo": "distribucion_objetivo",
+      "columnas_involucradas": [
+        "permanece"
+      ],
+      "severidad": "baja",
+      "detalle": "La variable objetivo 'permanece' tiene 2 clases. 1: 2412 (80.4 %); 0: 588 (19.6 %).",
+      "evidencia": {
+        "tipo_objetivo": "binario",
+        "clases": 2,
+        "valores_no_faltantes": 3000,
+        "distribucion": [
+          {
+            "valor": 1,
+            "conteo": 2412,
+            "porcentaje": 80.4
+          },
+          {
+            "valor": 0,
+            "conteo": 588,
+            "porcentaje": 19.6
+          }
+        ]
+      },
+      "acciones_posibles": [
+        "Comprobar que las clases sean las esperadas."
+      ],
+      "accion_sugerida": "Comprobar que las clases sean las esperadas.",
+      "identificador": "distribucion_objetivo:permanece"
+    },
+    {
+      "tipo": "desbalance_clases",
+      "columnas_involucradas": [
+        "permanece"
+      ],
+      "severidad": "media",
+      "detalle": "La clase minoritaria ('0') representa el 19.6 % de los registros. Puede existir un problema de desbalance de clases.",
+      "evidencia": {
+        "clase_minoritaria": 0,
+        "conteo": 588,
+        "porcentaje": 19.6,
+        "umbral": 20.0
+      },
+      "acciones_posibles": [
+        "Tener en cuenta el desbalance al interpretar los resultados.",
+        "Considerar técnicas de balanceo en una fase posterior."
+      ],
+      "accion_sugerida": "Tener en cuenta el desbalance al interpretar los resultados.",
+      "identificador": "desbalance_clases:permanece"
+    }
+  ],
+  "perfiles_columnas": [
+    {
+      "nombre": "estrato",
+      "tipo_detectado": "numerica",
+      "faltantes": 0,
+      "porcentaje_faltantes": 0.0,
+      "valores_unicos": 6,
+      "minimo": 1,
+      "maximo": 6
+    },
+    {
+      "nombre": "genero",
+      "tipo_detectado": "numerica",
+      "faltantes": 0,
+      "porcentaje_faltantes": 0.0,
+      "valores_unicos": 2,
+      "minimo": 0,
+      "maximo": 1
+    },
+    {
+      "nombre": "edad_ingreso",
+      "tipo_detectado": "numerica",
+      "faltantes": 0,
+      "porcentaje_faltantes": 0.0,
+      "valores_unicos": 96,
+      "minimo": 16.1,
+      "maximo": 28.7
+    },
+    {
+      "nombre": "primera_generacion",
+      "tipo_detectado": "numerica",
+      "faltantes": 0,
+      "porcentaje_faltantes": 0.0,
+      "valores_unicos": 2,
+      "minimo": 0,
+      "maximo": 1
+    },
+    {
+      "nombre": "vive_con_familia",
+      "tipo_detectado": "numerica",
+      "faltantes": 0,
+      "porcentaje_faltantes": 0.0,
+      "valores_unicos": 2,
+      "minimo": 0,
+      "maximo": 1
+    },
+    {
+      "nombre": "puntaje_saber11",
+      "tipo_detectado": "numerica",
+      "faltantes": 149,
+      "porcentaje_faltantes": 4.97,
+      "valores_unicos": 241,
+      "minimo": 123.0,
+      "maximo": 395.0
+    },
+    {
+      "nombre": "horas_trabajo_semana",
+      "tipo_detectado": "numerica",
+      "faltantes": 84,
+      "porcentaje_faltantes": 2.8,
+      "valores_unicos": 41,
+      "minimo": 0.0,
+      "maximo": 48.0
+    },
+    {
+      "nombre": "asistencia_pct",
+      "tipo_detectado": "numerica",
+      "faltantes": 0,
+      "porcentaje_faltantes": 0.0,
+      "valores_unicos": 53,
+      "minimo": 43,
+      "maximo": 99
+    },
+    {
+      "nombre": "horas_estudio_semana",
+      "tipo_detectado": "numerica",
+      "faltantes": 0,
+      "porcentaje_faltantes": 0.0,
+      "valores_unicos": 52,
+      "minimo": 1.0,
+      "maximo": 30.0
+    },
+    {
+      "nombre": "tutorias_asistidas",
+      "tipo_detectado": "numerica",
+      "faltantes": 0,
+      "porcentaje_faltantes": 0.0,
+      "valores_unicos": 8,
+      "minimo": 0,
+      "maximo": 7
+    },
+    {
+      "nombre": "creditos_matriculados",
+      "tipo_detectado": "numerica",
+      "faltantes": 0,
+      "porcentaje_faltantes": 0.0,
+      "valores_unicos": 15,
+      "minimo": 8,
+      "maximo": 22
+    },
+    {
+      "nombre": "apoyo_bienestar",
+      "tipo_detectado": "numerica",
+      "faltantes": 0,
+      "porcentaje_faltantes": 0.0,
+      "valores_unicos": 2,
+      "minimo": 0,
+      "maximo": 1
+    },
+    {
+      "nombre": "apoyo_financiero",
+      "tipo_detectado": "numerica",
+      "faltantes": 0,
+      "porcentaje_faltantes": 0.0,
+      "valores_unicos": 2,
+      "minimo": 0,
+      "maximo": 1
+    },
+    {
+      "nombre": "promedio_semestre",
+      "tipo_detectado": "numerica",
+      "faltantes": 0,
+      "porcentaje_faltantes": 0.0,
+      "valores_unicos": 312,
+      "minimo": 1.39,
+      "maximo": 5.0
+    },
+    {
+      "nombre": "materias_reprobadas",
+      "tipo_detectado": "numerica",
+      "faltantes": 0,
+      "porcentaje_faltantes": 0.0,
+      "valores_unicos": 6,
+      "minimo": 0,
+      "maximo": 5
+    },
+    {
+      "nombre": "permanece",
+      "tipo_detectado": "numerica",
+      "faltantes": 0,
+      "porcentaje_faltantes": 0.0,
+      "valores_unicos": 2,
+      "minimo": 0,
+      "maximo": 1
+    }
+  ],
+  "objetivo": "permanece",
+  "informacion_objetivo": {
+    "encontrado": true,
+    "tipo": "binario",
+    "tipo_columna": "numerica",
+    "valores_unicos": 2
+  }
+}

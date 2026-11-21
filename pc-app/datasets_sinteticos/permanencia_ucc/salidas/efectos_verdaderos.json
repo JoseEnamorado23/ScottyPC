@@ -1,0 +1,82 @@
+{
+  "descripcion": "Cambio medio en P(permanece) (puntos de probabilidad, 0.05 = +5 pp) al intervenir con el operador do y regenerar los descendientes con el mismo ruido. 'subgrupo_riesgo' = estudiantes con P(permanece) < 0.5 en el mundo sin intervenir. 'efecto_en_afectados' promedia solo sobre quienes cambian de valor.",
+  "hash_modelo": "adaea608835b64c92c69c1035c091ae319219ea986b0ec3de38292471079534a",
+  "semilla": 2026,
+  "n": 3000,
+  "p_permanece_media": 0.8103534384299963,
+  "n_subgrupo_riesgo": 288,
+  "efectos": {
+    "asistencia_pct_mas_10_puntos": {
+      "variable": "asistencia_pct",
+      "efecto_poblacion": 0.020800290681025242,
+      "efecto_subgrupo_riesgo": 0.05989697250039419,
+      "afectados_poblacion": 3000,
+      "afectados_subgrupo_riesgo": 288,
+      "efecto_en_afectados_poblacion": 0.020800290681025242,
+      "efecto_en_afectados_subgrupo_riesgo": 0.05989697250039419
+    },
+    "horas_estudio_semana_mas_5_h": {
+      "variable": "horas_estudio_semana",
+      "efecto_poblacion": 0.040770166364953224,
+      "efecto_subgrupo_riesgo": 0.12251027887872087,
+      "afectados_poblacion": 2998,
+      "afectados_subgrupo_riesgo": 288,
+      "efecto_en_afectados_poblacion": 0.04079736460802524,
+      "efecto_en_afectados_subgrupo_riesgo": 0.12251027887872087
+    },
+    "tutorias_asistidas_mas_2": {
+      "variable": "tutorias_asistidas",
+      "efecto_poblacion": 0.021561320071961296,
+      "efecto_subgrupo_riesgo": 0.05377190802290968,
+      "afectados_poblacion": 3000,
+      "afectados_subgrupo_riesgo": 288,
+      "efecto_en_afectados_poblacion": 0.021561320071961296,
+      "efecto_en_afectados_subgrupo_riesgo": 0.05377190802290968
+    },
+    "creditos_matriculados_de_21_a_16": {
+      "variable": "creditos_matriculados",
+      "efecto_poblacion": 0.0018117768878360455,
+      "efecto_subgrupo_riesgo": 0.004442908968521755,
+      "afectados_poblacion": 56,
+      "afectados_subgrupo_riesgo": 5,
+      "efecto_en_afectados_poblacion": 0.09705947613407388,
+      "efecto_en_afectados_subgrupo_riesgo": 0.25591155658685316
+    },
+    "creditos_matriculados_bajar_a_16_los_que_tienen_mas": {
+      "variable": "creditos_matriculados",
+      "efecto_poblacion": 0.008417792820338417,
+      "efecto_subgrupo_riesgo": 0.022529294905016366,
+      "afectados_poblacion": 1037,
+      "afectados_subgrupo_riesgo": 84,
+      "efecto_en_afectados_poblacion": 0.024352341813900915,
+      "efecto_en_afectados_subgrupo_riesgo": 0.07724329681719896
+    },
+    "apoyo_bienestar_0_a_1": {
+      "variable": "apoyo_bienestar",
+      "efecto_poblacion": 0.032408587621176856,
+      "efecto_subgrupo_riesgo": 0.06833319044148137,
+      "afectados_poblacion": 2293,
+      "afectados_subgrupo_riesgo": 238,
+      "efecto_en_afectados_poblacion": 0.042401117690157246,
+      "efecto_en_afectados_subgrupo_riesgo": 0.0826889027191035
+    },
+    "apoyo_financiero_0_a_1": {
+      "variable": "apoyo_financiero",
+      "efecto_poblacion": 0.0394817077313981,
+      "efecto_subgrupo_riesgo": 0.08914960950463083,
+      "afectados_poblacion": 1906,
+      "afectados_subgrupo_riesgo": 222,
+      "efecto_en_afectados_poblacion": 0.06214329653420478,
+      "efecto_en_afectados_subgrupo_riesgo": 0.115653547465467
+    },
+    "horas_trabajo_semana_menos_10_h": {
+      "variable": "horas_trabajo_semana",
+      "efecto_poblacion": 0.029192457186929924,
+      "efecto_subgrupo_riesgo": 0.10336070332461196,
+      "afectados_poblacion": 1317,
+      "afectados_subgrupo_riesgo": 221,
+      "efecto_en_afectados_poblacion": 0.06649762457159436,
+      "efecto_en_afectados_subgrupo_riesgo": 0.1346963011651052
+    }
+  }
+}

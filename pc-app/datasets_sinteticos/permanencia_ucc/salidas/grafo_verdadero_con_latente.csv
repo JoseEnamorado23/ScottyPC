@@ -1,0 +1,33 @@
+origen,destino,signo,forma
+estrato,primera_generacion,-,logistica
+estrato,puntaje_saber11,+,lineal
+primera_generacion,puntaje_saber11,-,lineal
+estrato,horas_trabajo_semana,-,logistica (trabaja o no) y lognormal (cuántas horas)
+edad_ingreso,horas_trabajo_semana,+,logistica (trabaja o no) y lognormal (cuántas horas)
+edad_ingreso,vive_con_familia,-,logistica
+horas_trabajo_semana,asistencia_pct,-,saturante (sigmoide)
+horas_trabajo_semana,horas_estudio_semana,-,lognormal
+primera_generacion,horas_estudio_semana,-,lognormal
+primera_generacion,tutorias_asistidas,+,poisson (log-lineal)
+horas_trabajo_semana,creditos_matriculados,-,lineal
+primera_generacion,apoyo_bienestar,+,logistica
+estrato,apoyo_financiero,-,logistica
+puntaje_saber11,apoyo_financiero,+,logistica
+puntaje_saber11,promedio_semestre,+,lineal
+asistencia_pct,promedio_semestre,+,saturante
+horas_estudio_semana,promedio_semestre,+,rendimientos decrecientes (log)
+tutorias_asistidas,promedio_semestre,+,lineal
+creditos_matriculados,promedio_semestre,+/-,U invertida (óptimo ~15-16)
+horas_trabajo_semana,promedio_semestre,-,lineal
+promedio_semestre,materias_reprobadas,-,"poisson (log-lineal), ruidoso"
+creditos_matriculados,materias_reprobadas,+,poisson (log-lineal)
+promedio_semestre,permanece,+,"logistica con quiebre (más pendiente bajo 3,0)"
+materias_reprobadas,permanece,-,"logistica, cuadrática"
+apoyo_financiero,permanece,+,logistica
+apoyo_bienestar,permanece,+,logistica
+estrato,permanece,+,"logistica, logarítmica (situación económica)"
+horas_trabajo_semana,permanece,-,"logistica, cuadrática"
+motivacion,asistencia_pct,+,sigmoide (entra al índice)
+motivacion,horas_estudio_semana,+,lognormal
+motivacion,tutorias_asistidas,+,poisson (log-lineal)
+motivacion,promedio_semestre,+,lineal
