@@ -14,6 +14,7 @@ con variables locales (promedio 0–5, Saber 11, estrato, créditos…).
 | `verificar_realismo.py` | Verifica las metas de realismo, dibuja `distribuciones.png` y comprueba que `efectos_verdaderos.json` corresponde a la versión actual del generador (hash). |
 | `revisar_con_nucleo.py` | Carga el CSV y corre solo la revisión del núcleo (sin PC). |
 | `comparar_con_verdad.py` | Compara una exportación de Scotty PC con la verdad (ver «Comparar con la verdad»). |
+| `verificar_prescripcion_rapida.py` | Prescribe en lote con el núcleo sobre 800 filas y comprueba rejilla, límites y el comparador (ver «Verificación rápida sin la app»). |
 | `probar_comparador.py` | Prueba el comparador con un PC falso (verdad menos 3 aristas, 1 invertida). |
 | `generar_diccionario.py` | Genera `salidas/diccionario_portal.json`. |
 | `salidas/permanencia_ucc.csv` | **El dataset** (coma, UTF-8, sin id ni `motivacion`). |
@@ -22,6 +23,7 @@ con variables locales (promedio 0–5, Saber 11, estrato, créditos…).
 | `salidas/ecuaciones.md` | Cada ecuación estructural con sus coeficientes y su ruido. |
 | `salidas/efectos_verdaderos.json` | Efecto causal verdadero de cada acción sobre P(permanece) (do-operator) y hash del modelo. |
 | `salidas/diccionario_portal.json` | Textos en español sencillo para estudiantes (objetivo y las 16 variables; `como_mejorar` en las 7 modificables). |
+| `salidas/verificacion_rapida/` | `prescripciones.csv` (formato de la app), `comparacion.md` y entrada de esa verificación. |
 | `salidas/prueba_comparador/` | Entrada y resultado de la prueba del comparador (PC falso). |
 | `salidas/verificacion.md`, `distribuciones.png`, `revision_nucleo.json` | Metas de realismo, histogramas, hallazgos de la revisión. |
 
@@ -63,33 +65,25 @@ es un confusor no observado a propósito.
 
 ## Guía para correrlo en Scotty PC
 
-### Qué funciona hoy y qué no (lea esto primero)
+### Qué hace Scotty PC con cada tipo de variable (lea esto primero)
 
-Verificado leyendo el código del núcleo y la app, y ejecutando la preparación sobre este CSV (sin correr PC):
+Verificado con el núcleo sobre este CSV (`verificar_prescripcion_rapida.py`, ver más abajo): ningún valor prescrito queda fuera de su
+rejilla ni de sus límites.
 
-| Tipo de variable | Cómo se prescribe hoy | ¿Valores válidos? |
+| Tipo de variable | Cómo se prescribe | ¿Valores válidos? |
 |---|---|---|
-| **Binarias 0/1** (`apoyo_bienestar`, `apoyo_financiero`) | La preparación las marca `binaria` sola (si la columna tiene exactamente 2 valores) y el modelo las trata como binarias; la prescripción las enumera como **estados 0 y 1** (nunca valores intermedios). | **Sí**, sin hacer nada. |
-| **Enteros sin marcar como ordinal** (`tutorias_asistidas`, `creditos_matriculados`) | Quedan `continua`: el optimizador desciende por gradiente y puede devolver 2,4 tutorías o 16,3 créditos. No hay redondeo en ningún punto de la prescripción. | **No.** Es el problema de Factores (Preparación, Videojuegos, Asistencia). |
-| **Ordinal con pocos niveles (≤ 10)** (`tutorias_asistidas`: 8 niveles) | Si la columna tiene una codificación ordinal, la prescripción la trata como **estados discretos** (`es_discreta`, `prescripcion/problema.py`) y respeta `estados_permitidos`, `direccion` y `cambio_maximo`. | **Sí**, pero ver el primer punto de abajo: la UI no la crea. |
-| **Ordinal con más de 10 niveles** (`creditos_matriculados`: 15 niveles) | `MAXIMO_NIVELES_DISCRETOS = 10` (`prescripcion/configuracion.py`): se optimiza como continua. | **No.** |
-| **Continuas de verdad** (`asistencia_pct`, `horas_estudio_semana`, `horas_trabajo_semana`) | Continuas con límites y cambio máximo. | Sí (el entero de asistencia y horas se redondea a mano, ver abajo). |
+| **Binarias 0/1** (`apoyo_bienestar`, `apoyo_financiero`) | La preparación las marca `binaria` sola; la prescripción las enumera como **estados 0 y 1**. | **Sí**, sin hacer nada. |
+| **Ordinales con pocos niveles (≤ 10)** (`estrato`, `tutorias_asistidas`, `materias_reprobadas`) | Una ordinal se prescribe como **estados discretos**; respeta `estados_permitidos`, `direccion` y `cambio_maximo`. | **Sí**, si la marca como ordinal (paso 1 abajo). |
+| **Ordinales con más de 10 niveles** (`creditos_matriculados`: 15 niveles) | Se optimiza como continua y el resultado se **ajusta a la rejilla de sus niveles** (redondeo hacia la mejora, búsqueda local y recorte). | **Sí.** Si el objetivo solo se alcanzaría con un valor intermedio, el caso sale «Alcanzable solo con cambios intermedios». |
+| **Enteras o continuas con `paso`** (`asistencia_pct`, `horas_estudio_semana`, `horas_trabajo_semana`) | Continuas con límites, cambio máximo y **paso**: solo se proponen múltiplos del paso. | **Sí.** El paso por defecto es 1 si la variable solo toma enteros; para `horas_estudio_semana` póngalo en 0,5. |
 
-Tres hallazgos que condicionan la guía:
+Cómo se escriben las restricciones de una ordinal: **siempre en valores originales**. Para `creditos_matriculados`, «mínimo 14» son 14
+créditos y «cambio máximo 6» son 6 créditos (no la posición del nivel). Si las etiquetas de la ordinal no son números (p. ej. bajo,
+medio, alto), los límites se cuentan en niveles desde 0. Las configuraciones guardadas con límites en posiciones se convierten solas al
+abrirlas, y la pantalla avisa de lo que haya cambiado.
 
-1. **La UI no puede marcar una columna entera como ordinal.** En la plantilla (`plantilla.py`), para columnas enteras el hallazgo
-   `variable_categorica` solo ofrece `conservar_numerica` / `one_hot`, y `posible_variable_ordinal` ofrece `usar_orden_sugerido`
-   (que es `_nada`: no crea ninguna codificación) / `sin_orden`. Lo comprobé: aceptar el orden sugerido de `estrato`,
-   `tutorias_asistidas` y `materias_reprobadas` deja `codificaciones = {}` y las tres salen `continua`. La pantalla Decisiones solo
-   muestra el editor de orden (`EditorOrden`) para codificaciones que **ya existen**. La única vía es poner la codificación en el JSON
-   de decisiones (ver paso 1 abajo), lo que sí funciona en el núcleo (comprobado) pero **no lo probé a través de la app ni del sidecar**.
-2. **Las ordinales se controlan en «códigos» (posición en `orden`), no en valores originales.** `Unidades.a_original_numerico`
-   devuelve el código para columnas codificadas. Para `tutorias_asistidas` con `orden = [0,…,7]` código y valor coinciden. Para
-   `creditos_matriculados` con `orden = [8,…,22]`, el valor 16 tiene código 8 y el 10 tiene código 2: un «mínimo 10» en
-   `minimo`/`cambio_maximo` se interpretaría en códigos. Otra razón para **no** codificar créditos como ordinal.
-3. **En el modelo causal solo hay dos tipos de mecanismo**: binaria (logístico/GAM logístico) y continua (lineal/splines/GAM)
-   (`causal/modelo.py`, `info_variables[...]["tipo"]`). Una ordinal como hijo se modela como continua sobre su código; solo la
-   **prescripción** la discretiza.
+En el modelo causal solo hay dos tipos de mecanismo: binario y continuo. Una ordinal como hijo se modela como continua sobre su código;
+solo la **prescripción** la discretiza. En PC (prueba de independencia), una ordinal con más de 10 niveles se trata como numérica.
 
 ### 1. Revisión y Decisiones
 
@@ -99,28 +93,22 @@ Tres hallazgos que condicionan la guía:
   `desbalance_clases` es informativo (19,6 % vs umbral 20 %).
 - **Binarias** (`genero`, `primera_generacion`, `vive_con_familia`, `apoyo_bienestar`, `apoyo_financiero`): no hay nada que marcar;
   la preparación las detecta como `binaria` sola. Compruébelo en la pantalla Preparación (tipo `binaria`).
-- **Ordinales** (`estrato`, `tutorias_asistidas`, `materias_reprobadas`): aceptar `usar_orden_sugerido` **no basta** (ver arriba). Para
-  que queden realmente ordinales, tras guardar las decisiones envíe el JSON completo de decisiones al sidecar
-  (`PUT /proyectos/{id}/decisiones`, el mismo endpoint que usa la pantalla) añadiendo en `codificaciones`:
-
-  ```json
-  "codificaciones": {
-    "estrato":              {"tipo": "ordinal", "orden": [1, 2, 3, 4, 5, 6]},
-    "tutorias_asistidas":   {"tipo": "ordinal", "orden": [0, 1, 2, 3, 4, 5, 6, 7]},
-    "materias_reprobadas":  {"tipo": "ordinal", "orden": [0, 1, 2, 3, 4, 5]}
-  }
-  ```
-
-  Haga esto **al final**, justo antes de preparar, porque no sé si la pantalla recalcula las decisiones desde los hallazgos y borra la
-  edición. Compruebe en la tarjeta «Codificaciones» de Decisiones que aparezcan `tutorias_asistidas: ordinal (0 < 1 < …)` y que
-  Preparación marque esas columnas como `ordinal`. Si no aparecen, la vía no funciona todavía: anótelo como cambio necesario en Scotty PC.
-  - Solo `tutorias_asistidas` es modificable, así que solo ella afecta a la prescripción. `estrato` y `materias_reprobadas` afectan
-    a PC (con `chisq` una ordinal conserva sus niveles; una continua se discretiza en quintiles).
-- **`creditos_matriculados`: no la marque ordinal** (15 niveles → igual se optimiza continua, y sus límites irían en códigos).
-  Déjela numérica y redondee la prescripción a enteros a mano. Esto es una limitación, no una configuración.
+- **Ordinales** (`estrato`, `tutorias_asistidas`, `materias_reprobadas`, `creditos_matriculados`): se marcan **desde la pantalla
+  Decisiones, sin tocar JSON**.
+  1. Los hallazgos `posible_variable_ordinal` de `estrato`, `tutorias_asistidas` y `materias_reprobadas` traen como acción sugerida
+     `usar_orden_sugerido`: déjela, y ahora sí crea la codificación ordinal con el orden sugerido.
+  2. Para cualquier otra columna entera (aquí, `creditos_matriculados`), use el selector **«Variables ordinales»** de la pantalla
+     Decisiones, elija la columna y, si hace falta, ajuste su orden con el editor que aparece en «Codificaciones».
+  3. Compruebe en la tarjeta «Codificaciones» que aparezcan, p. ej., `tutorias_asistidas: ordinal (0 < 1 < …)`, y en Preparación que las
+     columnas figuren como `ordinal`.
+  - Solo `tutorias_asistidas` y `creditos_matriculados` son modificables, así que solo ellas afectan a la prescripción. `estrato` y
+    `materias_reprobadas` afectan a PC (con `chisq` una ordinal conserva sus niveles; una con más de 10 niveles pasa a numérica).
+- **`creditos_matriculados`**: puede marcarla ordinal (15 niveles). Con eso la prescripción propone créditos reales (14, 15, …), no
+  16,3, y los límites de la tabla de abajo se escriben en créditos.
 - No excluya columnas: `genero` y `vive_con_familia` **deben quedarse**; son los controles para detectar falsos positivos.
 - Prueba de independencia: la que recomiende la app. Con datos mixtos y faltantes imputados, `mv_fisherz`/`fisherz` o `chisq` son
-  las candidatas; anote cuál usó (la comparación de Paso 5 lo agradece).
+  las candidatas; anote cuál usó (la comparación de Paso 5 lo agradece). Si la recomendación trae varios motivos, la pantalla los
+  muestra todos.
 
 ### 2. Niveles temporales
 
@@ -141,15 +129,18 @@ minoritaria; aquí la 1 es la mayoritaria, 80 %, y es lo deseable.)
 
 ### 4. Variables modificables y restricciones
 
-| Variable | Dirección | Cambio máx. | Límites / estados | Costo | Nota |
-|---|---|---|---|---|---|
-| `asistencia_pct` | subir | 20 puntos | máx. 100 | 1 | Continua; redondee a entero. |
-| `horas_estudio_semana` | subir | 8 h | máx. 30 | 1 | Continua; redondee a 0,5. |
-| `tutorias_asistidas` | subir | 4 | estados 0–8, enteros | 1 | Solo queda en enteros si es ordinal (paso 1). |
-| `creditos_matriculados` | bajar | 6 | **mínimo 14** (no 10) | 1 | Continua; redondee a entero. |
-| `apoyo_bienestar` | subir | — | estados 0, 1 | 1 | Binaria: 0→1. |
-| `apoyo_financiero` | subir | — | estados 0, 1 | **3** (alto) | Binaria: 0→1. |
-| `horas_trabajo_semana` | bajar | 10 h | mínimo 0 | 1 | Continua; redondee a entero. |
+Todo en **valores originales** (en las ordinales también: créditos, no posiciones de nivel). La columna «Paso» es la del campo
+**Paso** de la pantalla de configuración de la prescripción; las que ya vienen con 1 (enteras y ordinales) no hay que tocarlas.
+
+| Variable | Dirección | Cambio máx. | Límites / estados | Paso | Costo | Nota |
+|---|---|---|---|---|---|---|
+| `asistencia_pct` | subir | 20 puntos | máx. 100 | 1 (por defecto) | 1 | Continua entera. |
+| `horas_estudio_semana` | subir | 8 h | máx. 30 | **0,5** (escríbalo) | 1 | Continua; media hora. |
+| `tutorias_asistidas` | subir | 4 | niveles 0–7 | 1 nivel (por defecto) | 1 | Ordinal (≤ 10 niveles: estados discretos). |
+| `creditos_matriculados` | bajar | **6 créditos** | **mínimo 14 créditos** (no 10) | 1 nivel (por defecto) | 1 | Ordinal de 15 niveles: rejilla de créditos. |
+| `apoyo_bienestar` | subir | — | estados 0, 1 | — | 1 | Binaria: 0→1. |
+| `apoyo_financiero` | subir | — | estados 0, 1 | — | **3** (alto) | Binaria: 0→1. |
+| `horas_trabajo_semana` | bajar | 10 h | mínimo 0 | 1 (por defecto) | 1 | Continua entera. |
 
 Cambios respecto a lo propuesto, y por qué (calculado con el generador verdadero, do-operator):
 
@@ -214,12 +205,21 @@ invertidas (marcando las explicables por la latente `motivacion` o por un camino
 verdadera (do-operator con el ruido de cada estudiante) y el porcentaje que realmente llega a la meta, con los valores tal cual los
 propone el optimizador y redondeados a estados válidos.
 
-Supuestos: la columna `caso` es la fila (desde 0) de `permanencia_ucc.csv` (o del CSV pasado con `--dataset`); `antes`/`despues`/`deseado` son
+Verificado con el `prescripciones.csv` que escribe el núcleo (el mismo formato que exporta la app): `caso` es la posición de la fila en el CSV
+original aunque se entrene sobre un subconjunto, así que no hace falta `--dataset` cuando se carga el CSV completo (`verificar_prescripcion_rapida.py`
+lo comprueba: 0 casos ignorados). Supuestos: la columna `caso` es la fila (desde 0) de `permanencia_ucc.csv` (o del CSV pasado con `--dataset`); `antes`/`despues`/`deseado` son
 probabilidades; las acciones se leen de las columnas `<variable> antes` / `<variable> despues`. Si la app numera los casos de otra
 forma, el comparador lo dirá en «casos ignorados».
 
 `python probar_comparador.py` lo valida con un PC falso (verdad menos 3 aristas, 1 invertida, 1 espuria por la latente y 1 control
 conectado; prescripciones con +10 pp de sobrepromesa) y sale con error si no detecta exactamente lo sembrado.
+
+### Verificación rápida sin la app
+
+`python verificar_prescripcion_rapida.py` (requiere `pcapp_nucleo`; tarda unos 6 minutos) toma 800 filas, usa el grafo verdadero como
+resultado de PC, marca las 4 ordinales, aplica la tabla de restricciones de arriba y prescribe en lote sobre los casos de test que no
+cumplen la meta. Comprueba que ningún valor prescrito salga de su rejilla o de sus límites y que `comparar_con_verdad.py` lea el
+`prescripciones.csv` sin «casos ignorados». Escribe `salidas/verificacion_rapida/`.
 
 ## 8. Diccionario para el portal
 

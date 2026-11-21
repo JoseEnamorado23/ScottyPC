@@ -2,9 +2,9 @@
  "proyecto": "descercion",
  "exportacion": {
   "correcta": true,
-  "archivo": "descercion_v2_20261119-074003.scotty",
-  "bytes": 208914,
-  "segundos": 93.1,
+  "archivo": "descercion_v2_20261121-010145.scotty",
+  "bytes": 208921,
+  "segundos": 39.8,
   "advertencias": [
    "MODIFICABLES_SIN_CAMINO",
    "COSTO_PARSIMONIA",
@@ -23,21 +23,21 @@
   "nota": "Informativa. La semilla del optimizador depende en el artefacto de los valores del caso y en Scotty PC de su índice de test, por lo que pueden diferir algunas prescripciones."
  },
  "carga": {
-  "segundos": 0.21,
-  "rss_mb_antes": 203,
-  "rss_mb_despues": 205,
+  "segundos": 0.06,
+  "rss_mb_antes": 206,
+  "rss_mb_despues": 208,
   "tipo": "exacta",
   "avisos": []
  },
  "manifest": {
-  "version_formato": 2,
+  "version_formato": 3,
   "versiones_librerias": {
    "pygam": "0.12.0",
    "scikit-learn": "1.9.1",
    "numpy": "2.5.3",
    "scipy": "1.16.3",
    "python": "3.13.9",
-   "pandas": "3.0.6",
+   "pandas": "3.1.1",
    "pyarrow": "26.0.1",
    "networkx": "3.7"
   },
@@ -56,36 +56,88 @@
  "verificar_golden": {
   "correcto": true,
   "casos": 20,
-  "maxima_diferencia": 0.0,
   "diferencias": [],
-  "segundos": 39.2
+  "segundos": 13.7,
+  "casos_identicos": 20,
+  "casos_equivalentes": 0
  },
  "tiempos": {
   "predecir": {
-   "media_s": 0.26,
-   "maximo_s": 0.31,
+   "media_s": 0.096,
+   "maximo_s": 0.108,
    "casos": 20
   },
   "prescribir": {
-   "media_s": 1.508,
-   "maximo_s": 2.987,
-   "casos": 20
-  },
-  "contrafactual": {
-   "media_s": 0.129,
-   "maximo_s": 0.144,
+   "media_s": 0.547,
+   "maximo_s": 1.056,
    "casos": 20
   }
  },
- "lote": {
-  "filas": 1000,
-  "resultados": 1000,
-  "no_preparadas": 0,
-  "procesos": 1,
-  "tamano_bloque": 50,
-  "segundos": 1043.4,
-  "rss_mb_inicio": 206,
-  "rss_mb_maximo": 207,
-  "rss_mb_final": 202
- }
+ "controles": [
+  {
+   "variable": "Debtor",
+   "nombre_visible": "Debtor",
+   "tipo": "binaria",
+   "direccion": "ambas",
+   "permitida": true,
+   "minimo": null,
+   "maximo": null,
+   "cambio_maximo": null,
+   "costo": 1.0,
+   "estados_permitidos": [
+    0,
+    1
+   ],
+   "paso": null,
+   "valores_permitidos": null
+  },
+  {
+   "variable": "Tuition fees up to date",
+   "nombre_visible": "Tuition fees up to date",
+   "tipo": "binaria",
+   "direccion": "ambas",
+   "permitida": true,
+   "minimo": null,
+   "maximo": null,
+   "cambio_maximo": null,
+   "costo": 1.0,
+   "estados_permitidos": [
+    0,
+    1
+   ],
+   "paso": null,
+   "valores_permitidos": null
+  },
+  {
+   "variable": "Daytime/evening attendance\t",
+   "nombre_visible": "Daytime/evening attendance",
+   "tipo": "binaria",
+   "direccion": "ambas",
+   "permitida": true,
+   "minimo": null,
+   "maximo": null,
+   "cambio_maximo": null,
+   "costo": 1.0,
+   "estados_permitidos": [
+    0,
+    1
+   ],
+   "paso": null,
+   "valores_permitidos": null
+  },
+  {
+   "variable": "Curricular units 2nd sem (approved)",
+   "nombre_visible": "Curricular units 2nd sem (approved)",
+   "tipo": "continua",
+   "direccion": "ambas",
+   "permitida": true,
+   "minimo": 0.0,
+   "maximo": 20.0,
+   "cambio_maximo": 5.0,
+   "costo": 1.0,
+   "estados_permitidos": null,
+   "paso": null,
+   "valores_permitidos": null
+  }
+ ]
 }

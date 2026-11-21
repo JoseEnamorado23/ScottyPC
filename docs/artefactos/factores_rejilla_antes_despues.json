@@ -1,0 +1,104 @@
+{
+ "resumenes": [
+  {
+   "cambio_medio_abs": 0.5632212018216611,
+   "cambio_medio_por_variable": {
+    "Asistencia": 0.601,
+    "Preparacion": 0.496,
+    "Videojuegos": 0.5
+   },
+   "acciones_por_caso": 1.5681818181818181,
+   "variante": "antes (guardado: sin ordinales, sin paso)",
+   "casos": 44,
+   "alcanzados": 40,
+   "tasa_exito": 0.9090909090909091,
+   "solo_con_cambios_intermedios": 0,
+   "costo_medio": 0.3414885120229619,
+   "valores_prescritos": 69,
+   "valores_fuera_de_rejilla": 69,
+   "ejemplos_fuera": [
+    [
+     6,
+     "Asistencia",
+     2.4975761228176445
+    ],
+    [
+     8,
+     "Preparacion",
+     0.5
+    ],
+    [
+     8,
+     "Asistencia",
+     0.75
+    ],
+    [
+     8,
+     "Videojuegos",
+     1.5
+    ],
+    [
+     11,
+     "Preparacion",
+     0.5
+    ],
+    [
+     11,
+     "Asistencia",
+     0.75
+    ],
+    [
+     11,
+     "Videojuegos",
+     1.5
+    ],
+    [
+     13,
+     "Asistencia",
+     2.497576122817594
+    ]
+   ],
+   "segundos": 17.0
+  },
+  {
+   "cambio_medio_abs": 1.0,
+   "cambio_medio_por_variable": {
+    "Preparacion": 1.0,
+    "Asistencia": 1.0,
+    "Ingles": 1.0
+   },
+   "acciones_por_caso": 1.4545454545454546,
+   "variante": "después (3 ordinales, cambio máx. 1 nivel, paso por defecto)",
+   "casos": 44,
+   "alcanzados": 44,
+   "tasa_exito": 1.0,
+   "solo_con_cambios_intermedios": 0,
+   "costo_medio": 1.1818181818181819,
+   "valores_prescritos": 64,
+   "valores_fuera_de_rejilla": 0,
+   "ejemplos_fuera": [],
+   "segundos": 6.4
+  },
+  {
+   "cambio_medio_abs": 1.0,
+   "cambio_medio_por_variable": {
+    "Preparacion": 1.0,
+    "Asistencia": 1.0,
+    "Ingles": 1.0
+   },
+   "acciones_por_caso": 1.4545454545454546,
+   "variante": "después con μ recalibrado (0.01)",
+   "casos": 44,
+   "alcanzados": 44,
+   "tasa_exito": 1.0,
+   "solo_con_cambios_intermedios": 0,
+   "costo_medio": 1.1818181818181819,
+   "valores_prescritos": 64,
+   "valores_fuera_de_rejilla": 0,
+   "ejemplos_fuera": [],
+   "segundos": 6.0,
+   "mu": 0.01
+  }
+ ],
+ "incumplimientos_despues": []
+}
