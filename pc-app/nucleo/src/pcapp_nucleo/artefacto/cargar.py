@@ -386,6 +386,10 @@ def cargar_artefacto(
         raise ErrorArtefacto("Las variables prescriptivas del manifest no coinciden con la configuración.", "INTEGRIDAD")
     if manifest.objetivo.columna != modelo.objetivo:
         raise ErrorArtefacto("El objetivo del manifest no coincide con el del modelo.", "INTEGRIDAD")
+    if manifest.version_formato < 3:  # sus ordinales traen los límites en códigos: se pasan a valores originales
+        from pcapp_nucleo.artefacto.exportar import controles_a_formato_3
+
+        controles = controles_a_formato_3(controles, modelo, configuracion, train)
     indice = construir_indice(modelo, train, configuracion)
     return Artefacto(
         manifest, esquema, controles, evaluacion, golden, receta, modelo, configuracion, referencia, mu, indice, train,

@@ -56,7 +56,7 @@ Un zip con fechas fijas (1980-01-01), de modo que el mismo contenido da el mismo
 
 ### `manifest.json`
 
-`formato = "scotty-artefacto"`, `version_formato = 2`, `creado_en`, `version_nucleo`,
+`formato = "scotty-artefacto"`, `version_formato = 3` (el 1 y el 2 se siguen leyendo; ver «Formato 3»), `creado_en`, `version_nucleo`,
 `versiones_librerias` (pygam, scikit-learn, numpy, scipy, y desde el formato 2 también python, pandas, pyarrow y networkx), `proyecto` (id, nombre, archivo, sha256 del dataset), `objetivo` (columna, tipo,
 `clase_positiva`, `clase_objetivo`, medida, dirección, deseado, `umbral_decision`), `prescripcion` (`mu`,
 `mu_origen` = `manual` | `automatico`, optimizador), `modelo` (`huella`, `train_sha256`,
@@ -74,8 +74,49 @@ identificadoras se descartan en la receta y no llegan al esquema.
 ### `controles.json`
 
 Por variable prescriptiva: `variable`, `nombre_visible`, `tipo`, `direccion`, `minimo`, `maximo`,
-`cambio_maximo`, `costo`, `estados_permitidos`, `permitida` y `paso` (1 si en train solo hay enteros; `null`
-si no). Solo hay controles de las variables con supuestos confirmados.
+`cambio_maximo`, `costo`, `estados_permitidos`, `permitida`, `paso` y `valores_permitidos`. Solo hay controles de
+las variables con supuestos confirmados. Todo está en **unidades originales** (ver «Formato 3»).
+
+| Campo | Continuas | Ordinales | Binarias y categóricas |
+|---|---|---|---|
+| `minimo`, `maximo` | Límites absolutos | Límites absolutos, **en valores originales** | `null` |
+| `cambio_maximo` | Máximo cambio respecto al valor actual | Ídem, en valores originales (créditos, no niveles) | `null` |
+| `paso` | Resolución con la que prescribe el núcleo (1 para enteras, 0,5 para horas a media hora, `null` = libre) | `null` (se usa `valores_permitidos`) | `null` |
+| `valores_permitidos` | `null` | Niveles a los que se puede pasar | `null` |
+| `estados_permitidos` | `null` | Etiquetas de esos niveles | Valores a los que se puede pasar |
+
+`valores_permitidos` es una lista, por orden de nivel, de `{"valor": número, "etiqueta": texto | null}`: `valor` es
+el valor original del nivel (la etiqueta si todas son números —créditos 14, 15, …— y entonces `etiqueta` es `null`;
+si no, su posición 0, 1, … y `etiqueta` es el texto, p. ej. `{"valor": 2, "etiqueta": "alto"}`). Solo incluye los niveles que están entre
+`minimo` y `maximo` y en `estados_permitidos`.
+
+### Formato 3: qué cambia para quien consume el artefacto (el portal)
+
+Solo cambia `controles.json` (y el número `version_formato` de todos los archivos); `prescripcion.json`, el modelo y
+el train son los mismos. Un lector del formato 2 que encuentre un `3` lo rechaza por `version_formato`; el núcleo
+nuevo lee los formatos 1, 2 y 3.
+
+1. **`paso` es el paso real, no «1 si hay enteros».** Antes era informativo (1 o `null`, solo continuas) y la
+   prescripción podía proponer 2,4 tutorías. Ahora el núcleo solo propone múltiplos de `paso` (y el golden lo
+   comprueba). Un portal debe usarlo como `step` del campo numérico y no esperar valores intermedios. Puede ser
+   decimal (0,5). Ya no es un entero.
+2. **Las ordinales traen `valores_permitidos`** (nuevo, obligatorio en el formato 3 para `tipo = "ordinal"`). Un portal
+   debe ofrecer exactamente esos valores (lista desplegable o control deslizante discreto) y mostrar `etiqueta` cuando
+   no es `null`. Antes había que deducir los niveles de `estados_permitidos`.
+3. **Los límites de las ordinales están en valores originales.** En los formatos 1 y 2, `minimo`, `maximo` y
+   `cambio_maximo` de una ordinal iban en **códigos** (posición del nivel): con créditos 8…22, «mínimo 2» significaba 10
+   créditos. Ahora «mínimo 10» es 10 créditos, y `cambio_maximo = 6` son 6 créditos. Si las etiquetas son texto,
+   el «valor original» es la posición (0 = el primer nivel). Al cargar un artefacto de formato 1 o 2, el núcleo
+   convierte esos controles (`art.controles` ya los trae en valores originales; el archivo no se modifica).
+4. **`prescribir` informa `solo_con_cambios_intermedios`** (booleano, siempre presente): `true` cuando el objetivo
+   se alcanzaría con valores intermedios pero no con los permitidos por `paso` y `valores_permitidos`. Va junto con
+   `alcanzado = false`, y su `explicacion` termina con «Alcanzable solo con cambios intermedios…». Un portal puede
+   mostrarlo como «el objetivo exige un cambio más fino que la resolución configurada». Los resultados de `prescribir`
+   y `acciones[].cambio`, `antes_numerico`, `despues_numerico` de una ordinal con muchos niveles (más de 10, que se
+   resuelve como continua sobre su rejilla) también están en valores originales. El golden de un artefacto anterior no trae el campo: ausente equivale a `false`.
+
+Los límites, el paso y los valores permitidos que cumple cada acción se verifican en `verificar_golden` (valor fuera de
+la rejilla o de `valores_permitidos` = caso fallido).
 
 ## Cargar y usar
 
@@ -202,8 +243,8 @@ difieren y conviene revisar antes de publicar.
 - **`clase_objetivo`.** En objetivos binarios, la clase cuya probabilidad se predice (la positiva);
   `clase_positiva` conserva las etiquetas originales.
 - **`permitida`.** Un control puede estar declarado pero desactivado; las prescripciones lo respetan.
-- **Unidades.** Los límites del esquema y de los controles están en unidades originales; las conversiones
-  de la receta se aplican al preparar.
+- **Unidades.** Los límites del esquema y de los controles están en unidades originales (desde el formato 3 también
+  los de las ordinales); las conversiones de la receta se aplican al preparar.
 - **Versiones.** Un cambio en pygam, scikit-learn, numpy o scipy es un error (los parámetros del modelo dependen
   de ellas); un cambio en python, pandas, pyarrow, networkx o en la versión del núcleo es un aviso. En el formato 1
   toda librería del manifest es estricta.

@@ -162,3 +162,54 @@ def test_configuracion_nueva_no_se_migra(mundo):
     c = configuracion(modelo, ["ORD5"], "bajar", 0.3)
     assert c.unidades_limites == "original"
     assert migrar_limites(modelo, c) == (c, [])
+
+
+# --- Artefacto: controles.json del formato 3 ------------------------------------------------------------
+
+
+def test_controles_del_formato_3_traen_paso_y_valores_permitidos(mundo, mundo_desigual):
+    from pcapp_nucleo.artefacto import formato as f
+    from pcapp_nucleo.artefacto.exportar import derivar_controles
+
+    datos, modelo = mundo
+    c = configuracion(modelo, ["ENT", "CONT", "ORD15", "ORD5"], "bajar", 0.3)
+    c = replace(c, acciones={
+        **c.acciones,
+        "CONT": replace(c.acciones["CONT"], paso=0.5),
+        "ORD5": replace(c.acciones["ORD5"], minimo=2.0, maximo=4.0, cambio_maximo=1.0, estados_permitidos=[2, 3, 4, 5]),
+    })
+    controles = {x.variable: x for x in derivar_controles(modelo, c, datos.train).controles}
+    assert (controles["ENT"].tipo, controles["ENT"].paso) == (f.CONTINUA, 1.0)
+    assert controles["CONT"].paso == 0.5
+    ord5 = controles["ORD5"]
+    assert (ord5.minimo, ord5.maximo, ord5.cambio_maximo) == (2.0, 4.0, 1.0)       # valores originales
+    assert ord5.valores_permitidos == [{"valor": v, "etiqueta": None} for v in (2.0, 3.0, 4.0)]  # 5 queda fuera del máximo
+    assert controles["ORD15"].valores_permitidos[0] == {"valor": 20.0, "etiqueta": None}
+    assert len(controles["ORD15"].valores_permitidos) == 15 and controles["ORD15"].paso is None
+    f.controles_desde_diccionario(f.Controles(list(controles.values())).a_diccionario())  # el lector lo acepta
+
+    # ordinal de texto: el valor es la posición del nivel y la etiqueta va aparte
+    datos2, modelo2 = mundo_desigual
+    c2 = configuracion(modelo2, ["BAJO"], "bajar", 0.3)
+    (bajo,) = derivar_controles(modelo2, c2, datos2.train).controles
+    assert bajo.valores_permitidos == [
+        {"valor": 0.0, "etiqueta": "bajo"}, {"valor": 1.0, "etiqueta": "medio"}, {"valor": 2.0, "etiqueta": "alto"},
+    ]
+
+
+def test_controles_de_un_artefacto_antiguo_se_pasan_a_valores_originales(mundo):
+    from pcapp_nucleo.artefacto import formato as f
+    from pcapp_nucleo.artefacto.exportar import controles_a_formato_3, derivar_controles
+
+    datos, modelo = mundo
+    antigua = _antigua(configuracion(modelo, ["ORD5", "ENT"], "bajar", 0.3), ORD5={"minimo": 1.0, "maximo": 3.0, "cambio_maximo": 1.0})
+    migrada, _ = migrar_limites(modelo, antigua)
+    viejos = f.Controles(
+        [replace(c, valores_permitidos=None) for c in derivar_controles(modelo, migrada, datos.train).controles],
+        version_formato=2,
+    )
+    nuevos = controles_a_formato_3(viejos, modelo, antigua, datos.train)
+    assert nuevos.version_formato == 2                      # el archivo sigue siendo del formato 2
+    assert nuevos.control("ORD5").minimo == 2.0 and nuevos.control("ORD5").maximo == 4.0   # códigos 1 y 3 → valores 2 y 4
+    assert nuevos.control("ORD5").valores_permitidos is not None
+    assert nuevos.control("ENT") == viejos.control("ENT")   # lo que no es ordinal no cambia

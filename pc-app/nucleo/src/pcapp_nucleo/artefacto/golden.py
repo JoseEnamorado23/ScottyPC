@@ -47,7 +47,9 @@ COSTO_RELATIVO = 0.02  # |Δ costo_total| / costo_total
 DESPUES_ABSOLUTO = 0.01  # |Δ despues| (y |Δ falta|), en unidades del objetivo
 CAMBIO_RELATIVO_RANGO = 0.015  # |Δ cambio| de cada acción / rango de train de su variable
 # Se exigen iguales (con 1e-9 en los números): lo que no depende del camino del optimizador.
-CAMPOS_EXACTOS = ("alcanzado", "ya_cumple", "requiere_revision", "extrapolacion", "aproximado")
+CAMPOS_EXACTOS = ("alcanzado", "ya_cumple", "requiere_revision", "extrapolacion", "aproximado", "solo_con_cambios_intermedios")
+# Los golden anteriores al formato 3 no traen estos campos: faltar equivale a este valor.
+AUSENTES = {"solo_con_cambios_intermedios": False}
 CAMPOS_INVARIANTES = ("caso", "objetivo", "medida", "direccion", "clase_positiva", "deseado", "antes", "optimizador", "mu")
 IDENTICA, EQUIVALENTE, FALLIDA = "identica", "equivalente", "fallida"
 # Campos que cambian en cada ejecución: no forman parte del golden.
@@ -261,6 +263,13 @@ def _validar_solucion(art: Artefacto, fila: dict[str, Any], obtenido: dict[str, 
                 control.maximo is not None and despues > control.maximo + holgura(control.maximo)
             ):
                 diferencias.append(f"{nombre}.despues: {despues!r} fuera de los límites [{control.minimo}, {control.maximo}]")
+        if despues is not None and control.tipo == f.CONTINUA and control.paso:
+            k = despues / control.paso
+            if abs(k - round(k)) > 1e-6 * max(1.0, abs(k)):
+                diferencias.append(f"{nombre}.despues: {despues!r} no es múltiplo del paso {control.paso:g}")
+        if despues is not None and control.valores_permitidos is not None:
+            if not any(abs(despues - p["valor"]) <= 1e-9 * max(1.0, abs(despues)) for p in control.valores_permitidos):
+                diferencias.append(f"{nombre}.despues: {despues!r} no es uno de los valores permitidos")
         if cambio is not None:
             if control.cambio_maximo is not None and abs(cambio) > control.cambio_maximo + 1e-9 * max(1.0, control.cambio_maximo):
                 diferencias.append(f"{nombre}.cambio: |{cambio:.6g}| supera el cambio máximo {control.cambio_maximo:g}")
@@ -284,8 +293,9 @@ def _comparar_prescripcion(
 ) -> None:
     """Equivalencia de dos prescripciones: ver el docstring del módulo. ``resumen`` recibe las diferencias máximas."""
     for campo in CAMPOS_EXACTOS:
-        if esperado.get(campo) != obtenido.get(campo):
-            diferencias.append(f"{ruta}.{campo}: esperado {esperado.get(campo)!r}, obtenido {obtenido.get(campo)!r}")
+        antes, ahora = esperado.get(campo, AUSENTES.get(campo)), obtenido.get(campo, AUSENTES.get(campo))
+        if antes != ahora:
+            diferencias.append(f"{ruta}.{campo}: esperado {antes!r}, obtenido {ahora!r}")
     for campo in CAMPOS_INVARIANTES:
         if campo in esperado or campo in obtenido:
             _comparar(esperado.get(campo), obtenido.get(campo), f"{ruta}.{campo}", diferencias, [0.0])

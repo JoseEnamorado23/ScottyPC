@@ -77,15 +77,28 @@ def controles_validos() -> dict:
             {
                 "variable": "Asistencia", "nombre_visible": "Asistencia", "tipo": "continua", "direccion": "subir",
                 "permitida": True, "minimo": 0.0, "maximo": 100.0, "cambio_maximo": 25.0, "costo": 1.0,
-                "estados_permitidos": None, "paso": 1,
+                "estados_permitidos": None, "paso": 1, "valores_permitidos": None,
             },
             {
                 "variable": "Curso", "nombre_visible": "Curso", "tipo": "categorica", "direccion": "ambas",
                 "permitida": False, "minimo": None, "maximo": None, "cambio_maximo": None, "costo": 2.0,
-                "estados_permitidos": ["A", "B"], "paso": None,
+                "estados_permitidos": ["A", "B"], "paso": None, "valores_permitidos": None,
             },
         ],
     }
+
+
+def controles_v3() -> dict:
+    """Controles del formato 3: una continua con paso 0,5 y una ordinal con sus valores permitidos."""
+    datos = controles_validos()
+    datos["version_formato"] = 3
+    datos["controles"][0]["paso"] = 0.5
+    datos["controles"].append({
+        "variable": "Nivel", "nombre_visible": "Nivel", "tipo": "ordinal", "direccion": "ambas", "permitida": True,
+        "minimo": 14.0, "maximo": 16.0, "cambio_maximo": 2.0, "costo": 1.0, "estados_permitidos": [14, 15, 16], "paso": None,
+        "valores_permitidos": [{"valor": 14.0, "etiqueta": None}, {"valor": 15.0, "etiqueta": None}, {"valor": 16.0, "etiqueta": None}],
+    })
+    return datos
 
 
 def problemas_de(funcion, datos) -> dict[str, str]:
@@ -116,7 +129,7 @@ def test_manifest_golden_provisional_es_valido():
     "cambio, campo",
     [
         (lambda d: d.update(formato="otro"), "formato"),
-        (lambda d: d.update(version_formato=3), "version_formato"),
+        (lambda d: d.update(version_formato=4), "version_formato"),
         (lambda d: d.update(creado_en="ayer"), "creado_en"),
         (lambda d: d.pop("version_nucleo"), "version_nucleo"),
         (lambda d: d["versiones_librerias"].update(pygam=""), "versiones_librerias.pygam"),
@@ -198,7 +211,7 @@ def test_esquema_valido_ida_y_vuelta_y_respeta_el_nombre_exacto():
         (lambda d: d["columnas"][2].update(admite_faltantes=False), "columnas.2.admite_faltantes"),
         (lambda d: d["columnas"][2].update(imputacion="media"), "columnas.2.imputacion"),
         (lambda d: d["columnas"][2].pop("detalle_imputacion"), "columnas.2.detalle_imputacion"),
-        (lambda d: d.update(version_formato=3), "version_formato"),
+        (lambda d: d.update(version_formato=4), "version_formato"),
         (lambda d: d["columnas"][0].update(extra=1), "columnas.0.extra"),
     ],
 )
@@ -226,6 +239,38 @@ def test_controles_validos_ida_y_vuelta():
     assert controles.control("No existe") is None
 
 
+def test_controles_formato_3_ida_y_vuelta_con_ordinal_y_paso_real():
+    datos = controles_v3()
+    controles = controles_desde_diccionario(datos)
+    assert controles.a_diccionario() == datos
+    assert controles.control("Asistencia").paso == 0.5
+    assert [p["valor"] for p in controles.control("Nivel").valores_permitidos] == [14.0, 15.0, 16.0]
+
+
+def test_controles_formato_3_ordinal_de_texto_lleva_la_etiqueta():
+    datos = controles_v3()
+    datos["controles"][2].update(
+        estados_permitidos=["bajo", "alto"], minimo=0.0, maximo=2.0, cambio_maximo=1.0,
+        valores_permitidos=[{"valor": 0.0, "etiqueta": "bajo"}, {"valor": 2.0, "etiqueta": "alto"}],
+    )
+    assert controles_desde_diccionario(datos).control("Nivel").valores_permitidos[1] == {"valor": 2.0, "etiqueta": "alto"}
+
+
+@pytest.mark.parametrize("version", [1, 2])
+def test_los_formatos_1_y_2_se_siguen_leyendo_sin_valores_permitidos(version):
+    datos = controles_validos()
+    datos["version_formato"] = version
+    for c in datos["controles"]:
+        c.pop("valores_permitidos")
+    datos["controles"].append({
+        "variable": "Nivel", "nombre_visible": "Nivel", "tipo": "ordinal", "direccion": "ambas", "permitida": True,
+        "minimo": 0.0, "maximo": 2.0, "cambio_maximo": 1.0, "costo": 1.0, "estados_permitidos": [14, 15, 16], "paso": None,
+    })
+    leidos = controles_desde_diccionario(datos)
+    assert leidos.version_formato == version and leidos.control("Nivel").valores_permitidos is None
+    assert leidos.control("Asistencia").paso == 1
+
+
 @pytest.mark.parametrize(
     "cambio, campo",
     [
@@ -234,7 +279,13 @@ def test_controles_validos_ida_y_vuelta():
         (lambda d: d["controles"][0].update(costo=0), "controles.0.costo"),
         (lambda d: d["controles"][0].update(cambio_maximo=-1), "controles.0.cambio_maximo"),
         (lambda d: d["controles"][0].update(paso=0), "controles.0.paso"),
-        (lambda d: d["controles"][0].update(paso=1.5), "controles.0.paso"),
+        (lambda d: d["controles"][0].update(paso="x"), "controles.0.paso"),
+        (lambda d: d["controles"][0].update(valores_permitidos=[{"valor": 1.0, "etiqueta": None}]), "controles.0.valores_permitidos"),
+        (lambda d: d["controles"][2].update(valores_permitidos=[]), "controles.2.valores_permitidos"),
+        (lambda d: d["controles"][2].update(valores_permitidos=None), "controles.2.valores_permitidos"),
+        (lambda d: d["controles"][2].update(paso=1.0), "controles.2.paso"),
+        (lambda d: d["controles"][2]["valores_permitidos"][0].update(extra=1), "controles.2.valores_permitidos.0.extra"),
+        (lambda d: d["controles"][2]["valores_permitidos"][0].pop("etiqueta"), "controles.2.valores_permitidos.0.etiqueta"),
         (lambda d: d["controles"][0].update(minimo=200.0), "controles.0.minimo"),
         (lambda d: d["controles"][0].update(estados_permitidos=["a"]), "controles.0.estados_permitidos"),
         (lambda d: d["controles"][1].update(estados_permitidos=[]), "controles.1.estados_permitidos"),
@@ -247,7 +298,7 @@ def test_controles_validos_ida_y_vuelta():
     ],
 )
 def test_controles_invalidos(cambio, campo):
-    datos = copy.deepcopy(controles_validos())
+    datos = copy.deepcopy(controles_v3())
     cambio(datos)
     assert campo in problemas_de(controles_desde_diccionario, datos)
 

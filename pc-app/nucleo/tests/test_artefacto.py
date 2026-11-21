@@ -144,7 +144,7 @@ def test_nombre_y_contenido_del_archivo(exportado):
 
 def test_el_manifest_resume_el_proyecto(art, proyecto):
     m = art.manifest
-    assert m.formato == "scotty-artefacto" and m.version_formato == 2
+    assert m.formato == "scotty-artefacto" and m.version_formato == 3
     assert m.objetivo.columna == "Y" and m.objetivo.tipo == "binario" and m.objetivo.medida == "probabilidad"
     assert m.objetivo.clase_positiva == ["Si"] and m.objetivo.clase_objetivo == 1
     assert (m.objetivo.direccion, m.objetivo.deseado) == ("subir", 0.8)
@@ -292,7 +292,7 @@ def test_formato_no_valido(exportado, tmp_path):
     with pytest.raises(ErrorArtefacto, match="Faltan archivos"):
         cargar_artefacto(reempaquetar(ruta, quitar=(f.CONTROLES,)))
     with pytest.raises(ErrorArtefacto, match="version_formato"):
-        cargar_artefacto(reempaquetar(ruta, manifest=lambda m: m.update(version_formato=3)))
+        cargar_artefacto(reempaquetar(ruta, manifest=lambda m: m.update(version_formato=4)))
     with pytest.raises(ErrorArtefacto, match="formato"):
         cargar_artefacto(reempaquetar(ruta, manifest=lambda m: m.update(formato="otro")))
     destino = io.BytesIO()
@@ -470,7 +470,37 @@ def test_golden_normal_es_identico_en_todos_los_casos(art):
     assert informe.campos_fallidos == {} and {t["resultado"] for t in informe.trayectorias} == {"identica"}
 
 
+def sin_paso(art, monkeypatch, variable):
+    """Las alternativas de estas pruebas mueven la variable fuera de su rejilla: se le quita el paso al control."""
+    controles = [replace(c, paso=None) if c.variable == variable else c for c in art.controles.controles]
+    monkeypatch.setattr(art, "controles", replace(art.controles, controles=controles))
+
+
+def test_una_alternativa_fuera_de_la_rejilla_no_es_valida(art, monkeypatch):
+    assert art.controles.control(TAB).paso == 1  # Horas solo toma enteros: la rejilla es de 1
+    informe = verificar_con_alternativa(art, monkeypatch, 7, lambda p: mover(p, TAB, 0.1))
+    assert not informe.correcto
+    assert any("no es múltiplo del paso" in d for d in informe.diferencias)
+
+
+def test_solo_con_cambios_intermedios_se_compara_exacto_y_su_ausencia_vale_false(art, monkeypatch):
+    informe = verificar_con_alternativa(art, monkeypatch, 7, lambda p: p.update(solo_con_cambios_intermedios=True))
+    assert not informe.correcto and "prescribir.solo_con_cambios_intermedios" in informe.campos_fallidos
+
+    def sin_campo(p):  # un golden anterior al formato 3 no lo trae
+        p.pop("solo_con_cambios_intermedios", None)
+
+    assert verificar_con_alternativa(art, monkeypatch, 7, sin_campo).correcto
+
+
+def test_la_prescripcion_del_artefacto_trae_solo_con_cambios_intermedios(art, proyecto):
+    caso = art.golden["casos"][0]
+    assert caso["prescribir"]["solo_con_cambios_intermedios"] is False
+
+
 def test_una_solucion_alternativa_valida_dentro_de_tolerancia_pasa(art, monkeypatch):
+    sin_paso(art, monkeypatch, TAB)
+
     def alternativa(p):
         mover(p, TAB, 0.1)  # 0,5 % del rango de train de Horas (20), con más margen sobre el objetivo
         p["costo_total"] *= 1.01
@@ -523,6 +553,7 @@ def test_se_ignoran_traza_evidencia_referencia_y_explicacion(art, monkeypatch):
         p["traza"], p["evidencia"], p["explicacion"] = [], None, "otra"
         p["referencia"] = {"despues": 0.123, "alcanzado": p["referencia"].get("alcanzado")}
 
+    sin_paso(art, monkeypatch, TAB)
     informe = verificar_con_alternativa(art, monkeypatch, 7, otra)
     assert informe.correcto, informe.diferencias
 

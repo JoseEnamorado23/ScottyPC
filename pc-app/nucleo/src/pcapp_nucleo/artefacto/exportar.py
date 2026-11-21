@@ -33,13 +33,13 @@ from pcapp_nucleo.causal.aplicabilidad import ADVERTENCIA, BLOQUEANTE
 from pcapp_nucleo.causal.modelo import INTERMEDIA, ModeloCausal
 from pcapp_nucleo.causal.unidades import GRUPO, NUMERICA, ORDINAL, Unidades
 from pcapp_nucleo.preparacion import (
-    ErrorPreparacion, Receta, aplicar_receta, columnas_originales_requeridas, receta_desde_diccionario,
+    ErrorPreparacion, Receta, _mismo_valor, aplicar_receta, columnas_originales_requeridas, receta_desde_diccionario,
 )
 from pcapp_nucleo.prescripcion import (
     AVISO_PERMANENTE, ConfiguracionPrescripcion, ErrorConfiguracionPrescripcion, completar,
     configuracion_desde_diccionario, evaluar_prescribibilidad, problemas_configuracion, variables_prescriptivas,
 )
-from pcapp_nucleo.prescripcion.configuracion import rango_original
+from pcapp_nucleo.prescripcion.configuracion import migrar_limites, rango_original
 from pcapp_nucleo.utilidades import a_diccionario_serializable
 
 ARCHIVO_RECETA = "receta.json"
@@ -362,6 +362,33 @@ def _solo_enteros(unidades: Unidades, train: pd.DataFrame, columna: str) -> bool
     return bool(np.all(np.abs(originales - np.round(originales)) <= 1e-6 * np.maximum(1.0, np.abs(originales))))
 
 
+def _valores_permitidos_ordinal(unidades: Unidades, variable: str, accion, estados: list[Any]) -> list[dict[str, Any]]:
+    """Niveles de una ordinal a los que se puede pasar: los estados permitidos que además están entre el
+    mínimo y el máximo, con su valor original y, si el nivel es texto, su etiqueta."""
+    numericas = unidades.etiquetas_numericas(variable)
+    dentro = set(unidades.niveles_permitidos(variable, accion.minimo, accion.maximo))
+    salida = []
+    for etiqueta, codigo in sorted(unidades.mapeo(variable) or [], key=lambda par: par[1]):
+        if float(codigo) not in dentro or not any(_mismo_valor(etiqueta, e) for e in estados):
+            continue
+        valor = unidades.valor_de_codigo(variable, float(codigo))
+        salida.append({"valor": valor, "etiqueta": None if numericas else etiqueta})
+    return salida
+
+
+def controles_a_formato_3(
+    controles: f.Controles, modelo: ModeloCausal, configuracion: ConfiguracionPrescripcion, train: pd.DataFrame
+) -> f.Controles:
+    """Controles de un artefacto de formato 1 o 2 con las ordinales en valores originales (allí iban en
+    códigos): se toman de la configuración, ya migrada, que es la que prescribe. El resto no cambia."""
+    configuracion, _ = migrar_limites(modelo, configuracion)  # idempotente: ya viene migrada desde la carga
+    nuevos = {c.variable: c for c in derivar_controles(modelo, configuracion, train).controles}
+    return f.Controles(
+        [nuevos[c.variable] if c.tipo == f.ORDINAL and c.variable in nuevos else c for c in controles.controles],
+        controles.version_formato,
+    )
+
+
 def derivar_controles(
     modelo: ModeloCausal, configuracion: ConfiguracionPrescripcion, train: pd.DataFrame
 ) -> f.Controles:
@@ -373,23 +400,25 @@ def derivar_controles(
         d = descripciones[variable]
         control = d["control"]
         estados: list[Any] | None = None
-        minimo = maximo = paso = None
+        minimo = maximo = paso = valores = None
         if control == NUMERICA:
             tipo = f.CONTINUA
             rango = rango_original(modelo, variable)
             minimo = accion.minimo if accion.minimo is not None else rango[0]
             maximo = accion.maximo if accion.maximo is not None else rango[1]
-            paso = 1 if _solo_enteros(modelo.unidades, train, variable) else None
+            paso = float(accion.paso) if accion.paso is not None else None  # el paso con el que se prescribe
         else:
             tipo = {ORDINAL: f.ORDINAL, GRUPO: f.CATEGORICA}.get(control, f.BINARIA if len(d["categorias"]) == 2 else f.CATEGORICA)
             estados = list(accion.estados_permitidos) if accion.estados_permitidos is not None else list(d["categorias"])
             if tipo == f.ORDINAL:
+                # límites en valores originales; los niveles se listan por si el portal los muestra o valida
                 minimo, maximo = accion.minimo, accion.maximo
+                valores = _valores_permitidos_ordinal(modelo.unidades, variable, accion, estados)
         controles.append(f.ControlVariable(
             variable=variable, nombre_visible=f.nombre_visible(variable), tipo=tipo, direccion=accion.direccion,
             permitida=accion.permitida, minimo=minimo, maximo=maximo,
             cambio_maximo=accion.cambio_maximo if tipo in (f.CONTINUA, f.ORDINAL) else None, costo=accion.costo,
-            estados_permitidos=estados, paso=paso,
+            estados_permitidos=estados, paso=paso, valores_permitidos=valores,
         ))
     return f.Controles(controles)
 

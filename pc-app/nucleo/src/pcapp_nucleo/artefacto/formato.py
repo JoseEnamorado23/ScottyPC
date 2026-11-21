@@ -38,10 +38,12 @@ from typing import Any
 from pcapp_nucleo.utilidades import a_diccionario_serializable
 
 FORMATO = "scotty-artefacto"
-VERSION_FORMATO = 2
+VERSION_FORMATO = 3
 # Formatos que ``cargar_artefacto`` sabe leer. El 1 no trae ``predicciones_train.parquet`` y se carga con la
 # comprobación estricta (huella bit a bit y todas las librerías idénticas).
-VERSIONES_SOPORTADAS = (1, 2)
+# El 3 cambia solo ``controles.json``: ``paso`` real, y en las ordinales límites en valores originales y
+# ``valores_permitidos``. El 2 y el 1 se siguen leyendo (sus ordinales traen los límites en códigos).
+VERSIONES_SOPORTADAS = (1, 2, 3)
 EXTENSION = ".scotty"
 
 MANIFEST = "manifest.json"
@@ -517,11 +519,15 @@ def esquema_entrada_desde_diccionario(datos: Any) -> EsquemaEntrada:
 class ControlVariable:
     """Una variable prescriptiva tal como la ve la interfaz (unidades originales).
 
-    ``minimo``/``maximo`` son los límites absolutos permitidos al prescribir (continuas y ordinales,
-    estas últimas sobre su código); ``cambio_maximo``, el cambio máximo respecto al valor actual
-    (``None`` = sin límite);
-    ``estados_permitidos``, los valores a los que se puede pasar (no continuas); ``paso`` es 1 si la
-    variable original solo toma enteros en train y ``None`` en otro caso.
+    ``minimo``/``maximo`` son los límites absolutos permitidos al prescribir (continuas y ordinales) y
+    ``cambio_maximo``, el cambio máximo respecto al valor actual (``None`` = sin límite), todos en
+    unidades originales. Desde el formato 3, en las ordinales son valores originales (la etiqueta del nivel
+    si es numérica; si no, su posición 0, 1, …); en los formatos 1 y 2 eran códigos.
+    ``estados_permitidos``, los valores a los que se puede pasar (no continuas); ``paso`` es la resolución
+    de las continuas: la prescripción solo propone múltiplos de ``paso`` (``None`` = valor libre).
+    ``valores_permitidos`` (formato 3, solo ordinales) lista los niveles a los que se puede pasar:
+    ``{"valor": número en unidades originales, "etiqueta": texto del nivel o null si es numérico}``,
+    por orden de nivel.
     """
 
     variable: str
@@ -534,7 +540,8 @@ class ControlVariable:
     cambio_maximo: float | None
     costo: float
     estados_permitidos: list[Any] | None
-    paso: int | None
+    paso: float | None
+    valores_permitidos: list[dict[str, Any]] | None = None
 
 
 @dataclass(frozen=True)
@@ -547,6 +554,17 @@ class Controles:
 
     def control(self, variable: str) -> ControlVariable | None:
         return next((c for c in self.controles if c.variable == variable), None)
+
+
+def _valores_permitidos(v: "_Lector", lista: list[Any], ruta: str) -> list[dict[str, Any]]:
+    salida = []
+    for i, item in enumerate(lista):
+        d = v.objeto(item, f"{ruta}.{i}", {"valor", "etiqueta"})
+        valor = v.campo(d, "valor", f"{ruta}.{i}", "numero")
+        if "etiqueta" not in d:
+            v.error(f"{ruta}.{i}.etiqueta", "Falta el campo (null si el nivel es numérico).")
+        salida.append({"valor": valor, "etiqueta": d.get("etiqueta")})
+    return salida
 
 
 def controles_desde_diccionario(datos: Any) -> Controles:
@@ -579,7 +597,16 @@ def controles_desde_diccionario(datos: Any) -> Controles:
         cambio = v.campo(c, "cambio_maximo", ruta, "numero", nulo=True, positivo=True)
         costo = v.campo(c, "costo", ruta, "numero", positivo=True)
         estados = v.campo(c, "estados_permitidos", ruta, "lista", nulo=True)
-        paso = v.campo(c, "paso", ruta, "entero", nulo=True, positivo=True)
+        paso = v.campo(c, "paso", ruta, "numero", nulo=True, positivo=True)
+        valores = v.campo(c, "valores_permitidos", ruta, "lista", nulo=True)
+        if valores is not None:
+            valores = _valores_permitidos(v, valores, f"{ruta}.valores_permitidos")
+            if tipo is not None and tipo != ORDINAL:
+                v.error(f"{ruta}.valores_permitidos", "Solo las variables ordinales tienen valores permitidos.")
+            elif tipo == ORDINAL and not valores:
+                v.error(f"{ruta}.valores_permitidos", "Una variable ordinal necesita al menos un valor permitido.")
+        elif tipo == ORDINAL and version is not None and version >= 3:
+            v.error(f"{ruta}.valores_permitidos", "Desde el formato 3, una variable ordinal necesita sus valores permitidos.")
         if tipo == CONTINUA:
             if estados is not None:
                 v.error(f"{ruta}.estados_permitidos", "Una variable continua no tiene estados.")
@@ -593,7 +620,7 @@ def controles_desde_diccionario(datos: Any) -> Controles:
             if tipo != ORDINAL and (minimo is not None or maximo is not None or cambio is not None):
                 v.error(f"{ruta}.minimo", "Solo las continuas y las ordinales tienen mínimo, máximo y cambio máximo.")
         controles.append(ControlVariable(
-            variable, visible, tipo, direccion, permitida, minimo, maximo, cambio, costo, estados, paso,
+            variable, visible, tipo, direccion, permitida, minimo, maximo, cambio, costo, estados, paso, valores,
         ))
     _lanzar(CONTROLES, problemas)
     return Controles(controles, version)
