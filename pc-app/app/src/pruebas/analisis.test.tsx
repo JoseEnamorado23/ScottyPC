@@ -37,6 +37,10 @@ function trabajo(estado: Trabajo["estado"], cambios: Partial<Trabajo> = {}): Tra
 const RECOMENDACION: Esquemas["RecomendacionPrueba"] = {
   prueba: "chisq",
   motivo: "Estas variables tienen una relación no monótona con el objetivo: variabilidad.",
+  motivos: [
+    { prueba: "chisq", texto: "El 60 % de las variables son categóricas o binarias.", decisivo: true },
+    { prueba: "chisq", texto: "Estas variables tienen una relación no monótona con el objetivo: variabilidad.", decisivo: false },
+  ],
   discretizacion: "quintiles",
   variables_no_monotonas: ["variabilidad"],
   faltantes_restantes: {},
@@ -85,6 +89,10 @@ describe("Recomendación de prueba", () => {
 
     expect(await screen.findByTestId("sextiles-variabilidad")).toBeInTheDocument();
     expect(screen.getByText("Tasa de la clase positiva", { exact: false })).toBeInTheDocument();
+    const motivos = within(screen.getByTestId("motivos-prueba"));
+    expect(motivos.getByText("El 60 % de las variables son categóricas o binarias.")).toBeInTheDocument();
+    expect(motivos.getByText("Estas variables tienen una relación no monótona con el objetivo: variabilidad.")).toBeInTheDocument();
+    expect(motivos.getByText("Decidió · chisq")).toBeInTheDocument();
     expect(await screen.findByText("Tiempo estimado con esta elección: 10 min 00 s")).toBeInTheDocument();
     expect(screen.queryByTestId("advertencias-eleccion")).toBeNull();
 

@@ -5,7 +5,7 @@
 sugerida, el motivo, la evidencia por variable, las alternativas y el tiempo
 estimado. Es una sugerencia: el usuario siempre puede elegir otra prueba.
 
-Reglas (en este orden):
+Reglas (en este orden; la recomendación informa TODAS las que aplican y decide la primera):
 
 1. Quedan faltantes → ``mv_fisherz``.
 2. Más de ``proporcion_maxima_categoricas`` de variables categóricas o
@@ -38,7 +38,7 @@ from __future__ import annotations
 
 import multiprocessing
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import numpy as np
@@ -47,6 +47,7 @@ from scipy import stats
 
 from pcapp_nucleo.configuracion import ConfiguracionValidacion
 from pcapp_nucleo.modelos import TipoObjetivo
+from pcapp_nucleo.niveles import MAXIMO_NIVELES_DISCRETOS
 from pcapp_nucleo.preparacion import BINARIA, CONTINUA, INDICADOR, ONE_HOT, ORDINAL, DatosPreparados
 
 FISHERZ, CHISQ, MV_FISHERZ, KCI = "fisherz", "chisq", "mv_fisherz", "kci"
@@ -101,6 +102,15 @@ class AlternativaPrueba:
 
 
 @dataclass(frozen=True)
+class MotivoPrueba:
+    """Una razón a favor de una prueba. ``decisivo``: la que decidió la recomendación."""
+
+    prueba: str
+    texto: str
+    decisivo: bool = False
+
+
+@dataclass(frozen=True)
 class RecomendacionPrueba:
     """Prueba sugerida para PC, con su justificación y el tiempo estimado."""
 
@@ -121,6 +131,8 @@ class RecomendacionPrueba:
     max_k_sugerido: int | None = None
     tiempo_estimado_bootstrap_max_k_s: float | None = None
     nota_tiempo: str | None = None
+    # Todos los motivos que aplican (``motivo`` es el decisivo, el primero).
+    motivos: list[MotivoPrueba] = field(default_factory=list)
 
 
 # --- Diagnóstico de no linealidad ----------------------------------------------------------
@@ -317,6 +329,20 @@ def formatear_duracion(segundos: float) -> str:
     return f"{segundos / 3600:.1f} h"
 
 
+def tipos_para_prueba(datos: DatosPreparados) -> dict[str, str]:
+    """Tipo de cada columna a efectos de la prueba de independencia.
+
+    Una ordinal con más de ``MAXIMO_NIVELES_DISCRETOS`` niveles se trata como numérica (continua)
+    por su código: como categórica daría tablas dispersas con chisq. Sigue siendo ordinal en la
+    receta y en la prescripción.
+    """
+    tipos = {m.nombre: m.tipo_final for m in datos.columnas}
+    for columna, tipo in tipos.items():
+        if tipo == ORDINAL and columna in datos.train.columns and datos.train[columna].nunique() > MAXIMO_NIVELES_DISCRETOS:
+            tipos[columna] = CONTINUA
+    return tipos
+
+
 # --- Recomendación ------------------------------------------------------------------------------
 
 
@@ -329,7 +355,7 @@ def recomendar_prueba(
     configuracion = configuracion or ConfiguracionValidacion()
     train = datos.train
     objetivo = datos.objetivo
-    tipos = {m.nombre: m.tipo_final for m in datos.columnas}
+    tipos = tipos_para_prueba(datos)
     variables = [c for c in train.columns if c != objetivo]
     faltantes = {c: int(n) for c, n in train.isna().sum().items() if n}
     categoricas = [v for v in variables if tipos.get(v) in (BINARIA, ORDINAL, ONE_HOT, INDICADOR)]
@@ -346,38 +372,40 @@ def recomendar_prueba(
     no_monotonas = [d.nombre for d in diagnosticos if d.monotona is False]
 
     kci_posible = len(train) < configuracion.filas_maximas_kci and len(variables) <= configuracion.variables_maximas_kci
+    # Todos los motivos que aplican, en el orden de las reglas; decide el primero.
+    motivos: list[MotivoPrueba] = []
     if faltantes:
-        prueba = MV_FISHERZ
-        motivo = (
+        texto = (
             f"Quedan faltantes después de la preparación en {len(faltantes)} columnas "
             f"({', '.join(faltantes)}); mv_fisherz los maneja sin imputar."
         )
         if no_monotonas:
-            motivo += (
+            texto += (
                 " Atención: estas variables tienen una relación no monótona con el objetivo, que "
                 f"mv_fisherz (lineal) puede no detectar: {', '.join(no_monotonas)}."
             )
-    elif proporcion > configuracion.proporcion_maxima_categoricas:
-        prueba = CHISQ
-        motivo = (
+        motivos.append(MotivoPrueba(MV_FISHERZ, texto))
+    if proporcion > configuracion.proporcion_maxima_categoricas:
+        motivos.append(MotivoPrueba(CHISQ, (
             f"El {100 * proporcion:.0f} % de las variables son categóricas o binarias; chi-cuadrado "
             "no supone relaciones lineales (las continuas se discretizan en quintiles)."
-        )
-    elif no_monotonas:
-        prueba = CHISQ
-        motivo = (
+        )))
+    if no_monotonas:
+        texto = (
             "Estas variables tienen una relación no monótona con el objetivo, que una prueba "
             f"lineal como fisherz puede no detectar: {', '.join(no_monotonas)}. Se sugiere "
             "chi-cuadrado con las variables continuas discretizadas en quintiles."
         )
         if kci_posible:
-            motivo += " Con pocas filas y variables, KCI es una alternativa más potente pero mucho más lenta."
-    else:
-        prueba = FISHERZ
-        motivo = (
+            texto += " Con pocas filas y variables, KCI es una alternativa más potente pero mucho más lenta."
+        motivos.append(MotivoPrueba(CHISQ, texto))
+    if not motivos:
+        motivos.append(MotivoPrueba(FISHERZ, (
             "No quedan faltantes, predominan las variables continuas y sus relaciones con el "
             "objetivo son monótonas; Fisher-z es rápida y potente en este caso."
-        )
+        )))
+    prueba, motivo = motivos[0].prueba, motivos[0].texto
+    motivos = [replace(m, decisivo=i == 0) for i, m in enumerate(motivos)]
 
     discretizacion, limites = None, {}
     matriz = train[[*variables, objetivo]]
@@ -429,6 +457,7 @@ def recomendar_prueba(
     return RecomendacionPrueba(
         prueba=prueba,
         motivo=motivo,
+        motivos=motivos,
         discretizacion=discretizacion,
         variables_no_monotonas=no_monotonas,
         faltantes_restantes=faltantes,

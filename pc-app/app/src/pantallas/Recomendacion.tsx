@@ -131,7 +131,23 @@ export function Recomendacion() {
               <Badge size="lg">{rec.prueba}</Badge>
               {rec.discretizacion && <Text size="sm" c="dimmed">(variables continuas en {rec.discretizacion})</Text>}
             </Group>
-            <Text size="sm">{rec.motivo}</Text>
+            {(rec.motivos ?? []).length > 1 ? (
+              <Stack gap={6} data-testid="motivos-prueba">
+                <Text size="sm" c="dimmed">
+                  Varias razones apuntan a una prueba; la primera decidió.
+                </Text>
+                {rec.motivos!.map((m, i) => (
+                  <Group key={i} gap="xs" align="flex-start" wrap="nowrap">
+                    <Badge variant={m.decisivo ? "filled" : "light"} color={m.decisivo ? "blue" : "gray"} style={{ flexShrink: 0 }}>
+                      {m.decisivo ? "Decidió" : "También"} · {m.prueba}
+                    </Badge>
+                    <Text size="sm">{m.texto}</Text>
+                  </Group>
+                ))}
+              </Stack>
+            ) : (
+              <Text size="sm">{rec.motivo}</Text>
+            )}
           </Card>
 
           {noMonotonas.length > 0 && (

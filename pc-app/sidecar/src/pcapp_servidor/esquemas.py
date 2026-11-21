@@ -314,9 +314,16 @@ class AlternativaPrueba(BaseModel):
     desventajas: str
 
 
+class MotivoPrueba(BaseModel):
+    prueba: str
+    texto: str
+    decisivo: bool
+
+
 class RecomendacionPrueba(BaseModel):
     prueba: str
     motivo: str
+    motivos: list[MotivoPrueba] = []  # recomendaciones guardadas antes no lo traen
     discretizacion: str | None
     variables_no_monotonas: list[str]
     faltantes_restantes: dict[str, int]

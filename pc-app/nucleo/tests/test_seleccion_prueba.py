@@ -186,3 +186,75 @@ def test_chisq_lento_sugiere_max_k():
     assert recomendacion.max_k_sugerido == 3
     assert "max_k = 3" in recomendacion.nota_tiempo
     assert recomendacion.tiempo_estimado_bootstrap_max_k_s is not None
+
+
+# --- Ordinales con muchos niveles y motivos múltiples ---------------------------------------------
+
+
+def dataset_con_ordinales(n=1500, semilla=7):
+    rng = np.random.default_rng(semilla)
+    amplia = rng.integers(0, 15, n)  # 15 niveles
+    corta = rng.integers(0, 5, n)  # 5 niveles
+    datos = pd.DataFrame({f"b{i}": rng.integers(0, 2, n) for i in range(3)})
+    datos["amplia"], datos["corta"], datos["x"] = amplia, corta, rng.normal(size=n)
+    datos["y"] = binario(0.35 * (amplia - 7) ** 2 - 4 + 0.3 * datos["x"], rng)
+    return datos
+
+
+def decisiones_ordinales(datos):
+    from pcapp_nucleo.preparacion import Codificacion
+
+    return DecisionesUsuario(codificaciones={
+        "amplia": Codificacion("ordinal", orden=list(range(15))),
+        "corta": Codificacion("ordinal", orden=list(range(5))),
+    })
+
+
+def test_ordinal_con_muchos_niveles_se_trata_como_numerica_para_la_prueba():
+    from pcapp_nucleo.preparacion import CONTINUA, ORDINAL
+    from pcapp_nucleo.seleccion_prueba import tipos_para_prueba
+
+    datos = dataset_con_ordinales()
+    preparados = preparar(datos, "y", decisiones_ordinales(datos))
+    tipos_receta = {m.nombre: m.tipo_final for m in preparados.columnas}
+    assert tipos_receta["amplia"] == tipos_receta["corta"] == ORDINAL  # en la receta siguen siendo ordinales
+
+    tipos = tipos_para_prueba(preparados)
+    assert tipos["amplia"] == CONTINUA and tipos["corta"] == ORDINAL
+
+    rec = recomendar_prueba(preparados, estimar=False)
+    assert rec.proporcion_categoricas == round(4 / 6, 4)  # 3 binarias + corta; amplia no cuenta
+    assert "amplia" in rec.variables_no_monotonas  # y por eso se diagnostica como numérica
+    assert "amplia" in rec.limites_discretizacion and "corta" not in rec.limites_discretizacion
+    assert len(rec.limites_discretizacion["amplia"]) <= 4  # quintiles (5 niveles), no 15
+
+
+def test_pc_discretiza_la_ordinal_amplia_pero_no_la_corta():
+    from pcapp_nucleo.pc_bootstrap import matriz_para_pc
+    from pcapp_nucleo.pc_config import ConfiguracionPC
+
+    datos = dataset_con_ordinales()
+    preparados = preparar(datos, "y", decisiones_ordinales(datos))
+    matriz, variables, limites = matriz_para_pc(preparados, ConfiguracionPC(prueba="chisq"))
+    columna = lambda c: matriz[:, variables.index(c)]
+    assert len(np.unique(columna("amplia"))) <= 5
+    assert len(np.unique(columna("corta"))) == 5  # intacta (los códigos 0..4 normalizados)
+    assert "amplia" in limites and "corta" not in limites
+
+
+def test_la_recomendacion_informa_todos_los_motivos():
+    datos = dataset_con_ordinales()
+    rec = recomendar_prueba(preparar(datos, "y", decisiones_ordinales(datos)), estimar=False)
+
+    assert rec.prueba == CHISQ
+    assert [m.decisivo for m in rec.motivos] == [True, False]
+    assert "categóricas o binarias" in rec.motivos[0].texto and rec.motivos[0].texto == rec.motivo
+    assert "no monótona" in rec.motivos[1].texto and "amplia" in rec.motivos[1].texto
+    assert all(m.prueba == CHISQ for m in rec.motivos)
+    assert a_diccionario_serializable(rec)["motivos"][0]["decisivo"] is True
+
+
+def test_un_solo_motivo_cuando_solo_aplica_uno():
+    rec = recomendar(dataset_lineal())
+    assert [(m.prueba, m.decisivo) for m in rec.motivos] == [(FISHERZ, True)]
+    assert rec.motivos[0].texto == rec.motivo

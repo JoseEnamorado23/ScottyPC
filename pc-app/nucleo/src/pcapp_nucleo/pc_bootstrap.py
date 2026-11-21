@@ -45,7 +45,7 @@ from pcapp_nucleo.pc_config import (
     validar_configuracion,
 )
 from pcapp_nucleo.preparacion import CONTINUA, DatosPreparados
-from pcapp_nucleo.seleccion_prueba import discretizar
+from pcapp_nucleo.seleccion_prueba import discretizar, tipos_para_prueba
 from pcapp_nucleo.utilidades import a_diccionario_serializable
 
 VERSION_PUNTO_CONTROL = 1
@@ -171,7 +171,7 @@ def matriz_para_pc(
         )
     limites: dict[str, list[float]] = {}
     if configuracion.prueba == "chisq":
-        tipos = {m.nombre: m.tipo_final for m in datos.columnas}
+        tipos = tipos_para_prueba(datos)
         continuas = [c for c in variables if tipos.get(c) == CONTINUA]
         if datos.tipo_objetivo == "continuo":
             continuas.append(datos.objetivo)

@@ -2405,6 +2405,15 @@ export interface components {
             /** Advertencia */
             advertencia: string | null;
         };
+        /** MotivoPrueba */
+        MotivoPrueba: {
+            /** Prueba */
+            prueba: string;
+            /** Texto */
+            texto: string;
+            /** Decisivo */
+            decisivo: boolean;
+        };
         /** ObjetivoDeseado */
         ObjetivoDeseado: {
             /**
@@ -2770,6 +2779,11 @@ export interface components {
             prueba: string;
             /** Motivo */
             motivo: string;
+            /**
+             * Motivos
+             * @default []
+             */
+            motivos: components["schemas"]["MotivoPrueba"][];
             /** Discretizacion */
             discretizacion: string | null;
             /** Variables No Monotonas */
